@@ -325,6 +325,8 @@ export async function sendNudgeNotification(input: NudgeInput) {
         senderUserId: input.senderUserId,
         senderName,
         groupName: group.name,
+        recipientUserId: device.userId,
+        recipientName: recipientNames.get(device.userId)?.trim() || "your friend",
         ...(senderPhotoUrl ? { senderPhotoUrl } : {}),
         ...(senderAvatarAsset ? { senderAvatarAsset } : {}),
         responseUrl: `${baseUrl}/v1/groups/${input.groupId}/nudges/${notificationEventId}/respond`,

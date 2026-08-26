@@ -320,8 +320,7 @@ class MainActivity : FlutterFragmentActivity() {
 
                 // B5: Sender schedules a 10-min expiry alarm for a nudge they
                 // just sent. Called from Flutter after the backend accepts the
-                // send. Cancelled automatically when a delivery result or
-                // response arrives.
+                // send. Cancelled on accept / decline / snooze only.
                 "scheduleSenderNudgeExpiry" -> {
                     val args = call.arguments as? Map<*, *> ?: return@setMethodCallHandler
                     val eventId = args["eventId"]?.toString() ?: return@setMethodCallHandler
@@ -343,8 +342,7 @@ class MainActivity : FlutterFragmentActivity() {
                     result.success(null)
                 }
 
-                // Cancel a sender-side expiry alarm — the nudge was played or
-                // accepted so the countdown is no longer needed.
+                // Cancel a sender-side expiry alarm — accept / decline / snooze.
                 "cancelSenderNudgeExpiry" -> {
                     val eventId = call.arguments?.toString()
                     if (eventId != null) {

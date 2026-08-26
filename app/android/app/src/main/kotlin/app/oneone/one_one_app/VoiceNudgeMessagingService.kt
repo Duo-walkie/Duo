@@ -16,8 +16,9 @@ import com.google.firebase.messaging.RemoteMessage
 // When a nudge arrives on the receiver's device we record its timestamp and
 // schedule an AlarmManager broadcast 10 minutes later.  If the broadcast
 // fires and the nudge hasn't been accepted yet, we show a local expiry
-// notification to both the receiver and (via FCM) the sender.  Accepting
-// the nudge cancels the alarm so the expiry never fires spuriously.
+// notification. The sender schedules the same alarm after a successful send.
+// Cancel only on accept / decline / snooze — delivery ("played") must not
+// clear the accept window.
 
 object NudgeExpiryTracker {
     private const val prefsName = "one_one_nudge_expiry"
@@ -30,7 +31,7 @@ object NudgeExpiryTracker {
         context: Context,
         eventId: String,
         senderName: String,
-        recipientUserId: String,
+        recipientUserId: String?,
         groupId: String?,
         recipientName: String?,
         isSenderSide: Boolean = false,
@@ -45,7 +46,9 @@ object NudgeExpiryTracker {
             action = actionExpiry
             putExtra("eventId", eventId)
             putExtra("senderName", senderName)
-            putExtra("recipientUserId", recipientUserId)
+            if (!recipientUserId.isNullOrBlank()) {
+                putExtra("recipientUserId", recipientUserId)
+            }
             putExtra("groupId", groupId)
             putExtra("recipientName", recipientName)
             putExtra("isSenderSide", isSenderSide)
@@ -57,10 +60,38 @@ object NudgeExpiryTracker {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val triggerAt = SystemClock.elapsedRealtime() + expiryMinutes * 60_000L
-        alarmManager.set(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerAt, pendingIntent)
+        // Prefer an exact wake so the 10-minute accept window is reliable even
+        // when the app is backgrounded; fall back if exact alarms are denied.
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                alarmManager.setExactAndAllowWhileIdle(
+                    AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                    triggerAt,
+                    pendingIntent,
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                alarmManager.setExact(
+                    AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                    triggerAt,
+                    pendingIntent,
+                )
+            }
+        } catch (_: SecurityException) {
+            alarmManager.setAndAllowWhileIdle(
+                AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                triggerAt,
+                pendingIntent,
+            )
+        }
+        Log.i(
+            VoiceNudgeDiagnostics.tag,
+            "[NUDGE-EXPIRY-00] Scheduled expiry eventSuffix=${eventId.takeLast(6)} " +
+                "senderSide=$isSenderSide in=${expiryMinutes}m",
+        )
     }
 
-    /** Cancel the expiry alarm — called when the user accepts the nudge. */
+    /** Cancel the expiry alarm — accept / decline / snooze only. */
     fun cancelExpiry(context: Context, eventId: String) {
         val prefs = context.getSharedPreferences(prefsName, Context.MODE_PRIVATE)
         prefs.edit().remove("${keyPrefix}$eventId").apply()
@@ -90,9 +121,7 @@ class NudgeExpiryReceiver : BroadcastReceiver() {
         if (intent.action != NudgeExpiryTracker.actionExpiry) return
         val eventId = intent.getStringExtra("eventId") ?: return
         val senderName = intent.getStringExtra("senderName") ?: "Someone"
-        val recipientUserId = intent.getStringExtra("recipientUserId") ?: return
         val groupId = intent.getStringExtra("groupId")
-        val recipientName = intent.getStringExtra("recipientName") ?: "You"
         val isSenderSide = intent.getBooleanExtra("isSenderSide", false)
 
         // Only fire if the nudge is still pending (not already accepted).
@@ -793,8 +822,7 @@ class VoiceNudgeMessagingService : FirebaseMessagingService() {
         val data = message.data
         val eventId = data["eventId"] ?: return
         val status = data["status"] ?: return
-        // B5: Delivery result arrived — cancel the sender's expiry alarm.
-        NudgeExpiryTracker.cancelExpiry(this, eventId)
+        // Delivery ("played") is not an accept — keep the 10-minute expiry alarm.
         Log.i(
             VoiceNudgeDiagnostics.tag,
             "[NUDGE-DELIVERY-02] sender received status=$status " +
@@ -833,7 +861,9 @@ class VoiceNudgeMessagingService : FirebaseMessagingService() {
     private fun scheduleNudgeExpiry(data: Map<String, String>) {
         val eventId = data["eventId"] ?: return
         val senderName = data["senderName"]?.take(80).orEmpty().ifBlank { "Someone" }
-        val recipientUserId = data["recipientUserId"] ?: return
+        // recipientUserId is optional — FCM used to omit the top-level field
+        // (it only lived inside deliveryToken). Never bail on it.
+        val recipientUserId = data["recipientUserId"]?.takeIf { it.isNotBlank() }
         val groupId = data["groupId"]
         val recipientName = data["recipientName"]
         NudgeExpiryTracker.scheduleExpiry(
