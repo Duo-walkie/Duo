@@ -129,6 +129,32 @@
         <receiver
             android:name=".NudgeExpiryReceiver"
             android:exported="false" />
+
+        <!-- Duo home-screen widget: small/medium/large layouts rendered by
+             DuoWidgetRenderer, actions dispatched via DuoWidgetActionReceiver. -->
+        <receiver
+            android:name=".DuoHomeWidgetProvider"
+            android:exported="true"
+            android:label="Duo">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/duo_home_widget_info" />
+        </receiver>
+        <receiver
+            android:name=".DuoWidgetActionReceiver"
+            android:exported="false" />
+        <activity
+            android:name=".QuickRecordActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Duo.QuickRecord"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:launchMode="singleInstance"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

@@ -857,7 +857,10 @@ class VoiceNudgeMessagingService : FirebaseMessagingService() {
             groupId,
             senderUserId,
             senderName,
+            responseUrl = data["responseUrl"],
+            kind = data["type"],
         )
+        DuoWidgetRenderer.updateAll(this)
         IncomingNudgeDispatcher.signal(
             buildMap {
                 put("eventId", eventId)

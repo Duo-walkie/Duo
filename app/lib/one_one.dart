@@ -196,3 +196,5 @@ export 'features/talk/models/emoji_burst.dart';
 export 'features/talk/models/talk_session.dart';
 export 'features/talk/talk_feedback.dart';
 export 'features/talk/ui/emoji_burst_overlay.dart';
+
+export 'features/widget/duo_home_widget_sync.dart';

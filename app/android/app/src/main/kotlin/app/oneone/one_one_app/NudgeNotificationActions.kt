@@ -188,6 +188,8 @@ object IncomingNudgeStore {
         senderUserId: String?,
         senderName: String?,
         arrivedAtMs: Long = System.currentTimeMillis(),
+        responseUrl: String? = null,
+        kind: String? = null,
     ) {
         if (eventId.isBlank() || groupId.isBlank()) return
         val records = readAll(context)
@@ -197,10 +199,39 @@ object IncomingNudgeStore {
         record.put("groupId", groupId)
         if (!senderUserId.isNullOrBlank()) record.put("senderUserId", senderUserId)
         if (!senderName.isNullOrBlank()) record.put("senderName", senderName)
+        if (!responseUrl.isNullOrBlank()) record.put("responseUrl", responseUrl)
+        if (!kind.isNullOrBlank()) record.put("kind", kind)
         if (!record.has("arrivedAtMs")) record.put("arrivedAtMs", arrivedAtMs)
         if (!record.has("status")) record.put("status", "pending")
         records.put(eventId, record)
         writeAll(context, prune(records))
+        DuoWidgetRenderer.updateAll(context)
+    }
+
+    /** First pending nudge for [groupId], if any — used to render the widget's
+     *  pending-nudge state (decline | mic | accept) without waiting on RTDB. */
+    fun pendingForGroup(context: Context, groupId: String): Map<String, String>? {
+        val records = prune(readAll(context))
+        val keys = records.keys()
+        while (keys.hasNext()) {
+            val eventId = keys.next()
+            val record = records.optJSONObject(eventId) ?: continue
+            if (record.optString("groupId", "") != groupId) continue
+            if (record.optString("status", "pending") != "pending") continue
+            return buildMap {
+                put("eventId", record.optString("eventId", eventId))
+                put("groupId", groupId)
+                record.optString("senderUserId", "").takeIf { it.isNotBlank() }
+                    ?.let { put("senderUserId", it) }
+                record.optString("senderName", "").takeIf { it.isNotBlank() }
+                    ?.let { put("senderName", it) }
+                record.optString("responseUrl", "").takeIf { it.isNotBlank() }
+                    ?.let { put("responseUrl", it) }
+                record.optString("kind", "").takeIf { it.isNotBlank() }
+                    ?.let { put("kind", it) }
+            }
+        }
+        return null
     }
 
     fun markStatus(
@@ -219,6 +250,7 @@ object IncomingNudgeStore {
         if (snoozedUntilMs != null) record.put("snoozedUntilMs", snoozedUntilMs)
         records.put(eventId, record)
         writeAll(context, prune(records))
+        DuoWidgetRenderer.updateAll(context)
     }
 
     fun list(context: Context): List<Map<String, Any>> {

@@ -312,6 +312,7 @@ class _IdentityHomeScreenState extends State<IdentityHomeScreen>
     _carouselIndex = bootstrap.carouselIndex;
     _loadingGroups = false;
     _message = bootstrap.loadError;
+    _syncDuoWidget();
 
     _userGroupsSubscription = _groupRepository
         .userGroupsRef(_session.userId)
@@ -678,6 +679,7 @@ class _IdentityHomeScreenState extends State<IdentityHomeScreen>
           _chatMessages = const [];
         }
       });
+      _syncDuoWidget();
       LogManager.setIdentity(groupId: selected?.groupId ?? '');
       if (selected != null) {
         unawaited(AppTelemetry.setActiveGroup(selected.groupId));
@@ -2035,6 +2037,38 @@ class _IdentityHomeScreenState extends State<IdentityHomeScreen>
     );
   }
 
+  /// Android-only: pushes the current group roster + last-active group to
+  /// the native home-screen widget cache so it can render offline without
+  /// waking Flutter. Best-effort — failures are logged, never surfaced.
+  void _syncDuoWidget() {
+    if (!Platform.isAndroid) return;
+    unawaited(
+      DuoHomeWidgetSync.publish(
+        userId: _session.userId,
+        apiBaseUrl: AppConfig.apiBaseUrl,
+        accentKey: AccentThemeController.accentKey.value,
+        lastActiveGroupId: _selectedGroup?.groupId,
+        groups: _groups.map((group) {
+          final members = _membersByGroupId[group.groupId] ?? const [];
+          return DuoWidgetGroupSnapshot(
+            groupId: group.groupId,
+            name: group.name,
+            members: members
+                .map(
+                  (member) => DuoWidgetMemberSnapshot(
+                    userId: member.userId,
+                    displayName: member.displayName,
+                    photoUrl: member.profilePhotoUrl,
+                    online: _availability[member.userId]?.isLive ?? false,
+                  ),
+                )
+                .toList(),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
   Future<void> _selectGroup(String groupId) async {
     final group = _groups.firstWhere((item) => item.groupId == groupId);
     final cachedMembers = _membersByGroupId[groupId];
@@ -2050,6 +2084,7 @@ class _IdentityHomeScreenState extends State<IdentityHomeScreen>
     LogManager.setIdentity(groupId: group.groupId);
     unawaited(LastActiveGroupStore.write(_session.userId, group.groupId));
     unawaited(AppTelemetry.setActiveGroup(group.groupId));
+    _syncDuoWidget();
     if (cachedMembers == null) {
       await _loadMembers(group.groupId);
     }
@@ -2431,6 +2466,7 @@ class _IdentityHomeScreenState extends State<IdentityHomeScreen>
         _state = 'live';
         _message = LiveKitStatus.live;
       });
+      _syncDuoWidget();
       // Ensure remote emoji bursts reattach after going live (bootstrap may
       // have left a dead stream after a prior permission blip).
       _listenToEmojiBursts(group.groupId);
@@ -2574,6 +2610,7 @@ class _IdentityHomeScreenState extends State<IdentityHomeScreen>
         _connectionMode = MemberAvailability.walkieTalkieMode;
         _message = LiveKitStatus.away;
       });
+      _syncDuoWidget();
       _syncPipSessionState();
     });
   }

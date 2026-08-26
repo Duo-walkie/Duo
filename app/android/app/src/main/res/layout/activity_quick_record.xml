@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/quick_record_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!-- Soft radial glow behind the sheet, near the top edge of the container -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="260dp"
+        android:layout_gravity="bottom"
+        android:background="@drawable/bg_rim_glow" />
+
+    <LinearLayout
+        android:id="@+id/quick_record_sheet"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:orientation="vertical"
+        android:background="@drawable/bg_quick_record_sheet"
+        android:paddingTop="28dp"
+        android:paddingBottom="40dp"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:gravity="center_horizontal">
+
+        <View
+            android:layout_width="36dp"
+            android:layout_height="4dp"
+            android:layout_marginBottom="22dp"
+            android:background="@drawable/bg_quick_record_bar" />
+
+        <ImageView
+            android:id="@+id/logo_bars"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_marginBottom="18dp"
+            android:src="@drawable/ic_duo_bars" />
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="72dp"
+            android:layout_marginBottom="18dp">
+
+            <View
+                android:id="@+id/orb_glow"
+                android:layout_width="180dp"
+                android:layout_height="180dp"
+                android:layout_gravity="center"
+                android:background="@drawable/bg_orb_glow" />
+
+            <app.oneone.one_one_app.AssistantOrbView
+                android:id="@+id/visualizer"
+                android:layout_width="200dp"
+                android:layout_height="56dp"
+                android:layout_gravity="center" />
+        </FrameLayout>
+
+        <TextView
+            android:id="@+id/hint_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="26dp"
+            android:text="Listening…"
+            android:textColor="@color/widget_text_primary"
+            android:textSize="16sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <ImageButton
+                android:id="@+id/btn_cancel"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:background="@drawable/bg_quick_record_button"
+                android:padding="16dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_widget_decline"
+                android:contentDescription="Cancel" />
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
+
+            <ImageButton
+                android:id="@+id/btn_send"
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:background="@drawable/bg_widget_mic"
+                android:padding="18dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_widget_accept"
+                android:contentDescription="Send" />
+        </LinearLayout>
+    </LinearLayout>
+</FrameLayout>
