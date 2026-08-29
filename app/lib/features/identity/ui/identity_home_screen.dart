@@ -58,6 +58,13 @@ abstract class _IdentityHomeBase extends State<IdentityHomeScreen>
   List<GroupSummary> _groups = const [];
   List<GroupMemberSummary> _members = const [];
   Map<String, List<GroupMemberSummary>> _membersByGroupId = {};
+  // Groups whose roster we've already fetched (or tried to) purely for the
+  // home-screen widget cache — avoids re-fetching every group's members on
+  // every _syncDuoWidget() call.
+  final Set<String> _widgetMemberFetchAttempted = {};
+  // Isolated from _membersByGroupId so widget backfill cannot race home
+  // group-loading or change carousel / presence behavior.
+  Map<String, List<GroupMemberSummary>> _widgetMembersByGroupId = {};
   Map<String, MemberAvailability> _availability = {};
   Set<String> _speakingUserIds = {};
   List<GroupChatMessage> _chatMessages = const [];
@@ -203,6 +210,7 @@ abstract class _IdentityHomeBase extends State<IdentityHomeScreen>
   void _showPipOverlayIfLive();
   void _updatePipOverlay();
   void _syncPipSessionState();
+  void _syncDuoWidget();
   Future<void> _reportMediaVolume();
   Future<void> _loadGroups();
   Future<void> _endRevokedVoiceSession(String groupId);
@@ -377,9 +385,17 @@ class _IdentityHomeScreenState extends _IdentityHomeBase
     _membersByGroupId = Map<String, List<GroupMemberSummary>>.of(
       bootstrap.membersByGroupId,
     );
+    _widgetMemberFetchAttempted.clear();
     _carouselIndex = bootstrap.carouselIndex;
     _loadingGroups = false;
     _message = bootstrap.loadError;
+    // Defer: this screen is first inserted during StartupGateScreen.build.
+    // Syncing the native widget in the same frame blocks the platform
+    // thread (bitmap copies) and makes an immediate home-screen nudge
+    // look like it failed after FCM already left.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _syncDuoWidget();
+    });
 
     _userGroupsSubscription = _groupRepository
         .userGroupsRef(_session.userId)
@@ -396,6 +412,94 @@ class _IdentityHomeScreenState extends _IdentityHomeBase
       _listenToMemberProfiles(_members);
     }
     unawaited(_reportMediaVolume());
+  }
+
+  /// Android-only: pushes the current group roster + last-active group to
+  /// the native home-screen widget cache so it can render offline without
+  /// waking Flutter. Best-effort — failures are logged, never surfaced.
+  @override
+  void _syncDuoWidget() {
+    if (!Platform.isAndroid) return;
+    _publishDuoWidgetSnapshot();
+    // The widget can page through every group via its "next" control, but
+    // _membersByGroupId here is normally only populated for whichever group
+    // is currently focused in-app. Backfill into a widget-only cache so
+    // home state is left untouched.
+    unawaited(_backfillWidgetMembersAndResync());
+  }
+
+  void _publishDuoWidgetSnapshot() {
+    unawaited(
+      DuoHomeWidgetSync.publish(
+        userId: _session.userId,
+        apiBaseUrl: AppConfig.apiBaseUrl,
+        accentKey: AccentThemeController.accentKey.value,
+        lastActiveGroupId: _selectedGroup?.groupId,
+        groups: _groups.map((group) {
+          final members =
+              _membersByGroupId[group.groupId] ??
+              _widgetMembersByGroupId[group.groupId] ??
+              const [];
+          return DuoWidgetGroupSnapshot(
+            groupId: group.groupId,
+            name: group.name,
+            members: members
+                .map(
+                  (member) => DuoWidgetMemberSnapshot(
+                    userId: member.userId,
+                    displayName: member.displayName,
+                    photoUrl: member.profilePhotoUrl,
+                    avatarAsset: member.avatarAsset,
+                    online: _availability[member.userId]?.isLive ?? false,
+                  ),
+                )
+                .toList(),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Future<void> _backfillWidgetMembersAndResync() async {
+    final missingGroupIds = _groups
+        .map((group) => group.groupId)
+        .where(
+          (groupId) =>
+              !_membersByGroupId.containsKey(groupId) &&
+              !_widgetMembersByGroupId.containsKey(groupId) &&
+              !_widgetMemberFetchAttempted.contains(groupId),
+        )
+        .toList();
+    if (missingGroupIds.isEmpty) return;
+    _widgetMemberFetchAttempted.addAll(missingGroupIds);
+
+    final fetched = await Future.wait(
+      missingGroupIds.map((groupId) async {
+        try {
+          final members = await _groupRepository.loadGroupMembers(groupId);
+          return MapEntry(groupId, members);
+        } catch (error) {
+          debugPrint(
+            '[DuoHomeWidgetSync] loadGroupMembers($groupId) failed: $error',
+          );
+          return null;
+        }
+      }),
+    );
+    final resolved = fetched
+        .whereType<MapEntry<String, List<GroupMemberSummary>>>();
+    if (resolved.isEmpty || !mounted) return;
+
+    _widgetMembersByGroupId = {
+      ..._widgetMembersByGroupId,
+      for (final entry in resolved) entry.key: entry.value,
+    };
+    unawaited(
+      _precacheGroupMemberPhotos(
+        resolved.expand((entry) => entry.value).toList(),
+      ),
+    );
+    _publishDuoWidgetSnapshot();
   }
 
   @override

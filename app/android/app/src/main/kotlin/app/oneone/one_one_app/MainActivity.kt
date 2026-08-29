@@ -432,6 +432,67 @@ class MainActivity : FlutterFragmentActivity() {
                 else -> result.notImplemented()
             }
         }
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            DuoWidgetSyncContract.flutterChannel,
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "syncSnapshot" -> {
+                    val args = call.arguments as? Map<*, *>
+                    if (args == null) {
+                        DuoWidgetLog.w("F-01", "syncSnapshot called with null args")
+                        result.success(null)
+                        return@setMethodCallHandler
+                    }
+                    val groups = (args["groups"] as? List<*>).orEmpty().mapNotNull { raw ->
+                        val groupMap = raw as? Map<*, *> ?: return@mapNotNull null
+                        val groupId = groupMap["groupId"]?.toString() ?: return@mapNotNull null
+                        val members = (groupMap["members"] as? List<*>).orEmpty().mapNotNull { rawMember ->
+                            val memberMap = rawMember as? Map<*, *> ?: return@mapNotNull null
+                            val userId = memberMap["userId"]?.toString() ?: return@mapNotNull null
+                            DuoWidgetMember(
+                                userId = userId,
+                                displayName = memberMap["displayName"]?.toString() ?: "Friend",
+                                photoUrl = memberMap["photoUrl"]?.toString()
+                                    ?.takeIf { it.isNotBlank() },
+                                avatarAsset = memberMap["avatarAsset"]?.toString()
+                                    ?.takeIf { it.isNotBlank() },
+                                online = memberMap["online"] == true,
+                            )
+                        }
+                        DuoWidgetGroup(
+                            groupId = groupId,
+                            name = groupMap["name"]?.toString() ?: "Friends",
+                            members = members,
+                        )
+                    }
+                    val memberCount = groups.sumOf { it.members.size }
+                    val photoCount = groups.sumOf { g ->
+                        g.members.count { !it.photoUrl.isNullOrBlank() }
+                    }
+                    val assetCount = groups.sumOf { g ->
+                        g.members.count { !it.avatarAsset.isNullOrBlank() }
+                    }
+                    DuoWidgetLog.i(
+                        "F-02",
+                        "syncSnapshot from Flutter groups=${groups.size} " +
+                            "members=$memberCount photos=$photoCount assets=$assetCount " +
+                            "lastActive=${args["lastActiveGroupId"]?.toString()?.takeLast(6) ?: "none"}",
+                    )
+                    DuoWidgetSnapshotStore.saveSnapshot(
+                        this,
+                        userId = args["userId"]?.toString(),
+                        apiBaseUrl = args["apiBaseUrl"]?.toString(),
+                        accentKey = args["accentKey"]?.toString(),
+                        lastActiveGroupId = args["lastActiveGroupId"]?.toString(),
+                        groups = groups,
+                    )
+                    DuoWidgetRenderer.updateAll(this)
+                    result.success(null)
+                }
+                else -> result.notImplemented()
+            }
+        }
         inviteLinkChannel.setMethodCallHandler { call, result ->
             when (call.method) {
                 "peekPendingInviteCode" -> {

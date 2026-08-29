@@ -1,0 +1,346 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Same structure as medium, bigger avatars. Actions stay pinned to the
+     bottom so a 3-row cell never clips the mic if the host reports a
+     slightly shorter dp height than expected. -->
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_widget_glass_card"
+    android:paddingLeft="14dp"
+    android:paddingTop="12dp"
+    android:paddingRight="14dp"
+    android:paddingBottom="12dp">
+
+    <LinearLayout
+        android:id="@+id/header_row"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <ImageView
+            android:id="@+id/logo_bars"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:contentDescription="Duo"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_widget_logo" />
+
+        <TextView
+            android:id="@+id/group_name"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="Friends"
+            android:textColor="@color/widget_text_primary"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/live_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
+            android:text="LIVE"
+            android:textColor="@color/widget_online_green"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
+        <ImageView
+            android:id="@+id/btn_next"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:background="@drawable/bg_widget_btn_oval"
+            android:clickable="true"
+            android:contentDescription="Next group"
+            android:focusable="true"
+            android:paddingLeft="8dp"
+            android:paddingTop="8dp"
+            android:paddingRight="8dp"
+            android:paddingBottom="8dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_widget_next_png" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/actions_row"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <ImageView
+            android:id="@+id/btn_decline"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="@drawable/bg_widget_btn_oval"
+            android:clickable="true"
+            android:contentDescription="Decline"
+            android:focusable="true"
+            android:paddingLeft="10dp"
+            android:paddingTop="10dp"
+            android:paddingRight="10dp"
+            android:paddingBottom="10dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_widget_decline_png"
+            android:visibility="gone" />
+
+        <ImageView
+            android:id="@+id/btn_ring"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="4dp"
+            android:background="@drawable/bg_widget_btn_accent_oval"
+            android:clickable="true"
+            android:contentDescription="Ring"
+            android:focusable="true"
+            android:paddingLeft="10dp"
+            android:paddingTop="10dp"
+            android:paddingRight="10dp"
+            android:paddingBottom="10dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_widget_ring_png" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1"
+            android:visibility="invisible" />
+
+        <ImageView
+            android:id="@+id/btn_mic"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:background="@drawable/bg_widget_mic_oval"
+            android:clickable="true"
+            android:contentDescription="Voice nudge"
+            android:focusable="true"
+            android:paddingLeft="15dp"
+            android:paddingTop="15dp"
+            android:paddingRight="15dp"
+            android:paddingBottom="15dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_widget_mic_png" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1"
+            android:visibility="invisible" />
+
+        <ImageView
+            android:id="@+id/btn_notify"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginEnd="4dp"
+            android:background="@drawable/bg_widget_btn_accent_oval"
+            android:clickable="true"
+            android:contentDescription="Notify"
+            android:focusable="true"
+            android:paddingLeft="10dp"
+            android:paddingTop="10dp"
+            android:paddingRight="10dp"
+            android:paddingBottom="10dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_widget_notify_png" />
+
+        <ImageView
+            android:id="@+id/btn_accept"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="@drawable/bg_widget_btn_oval"
+            android:clickable="true"
+            android:contentDescription="Accept"
+            android:focusable="true"
+            android:paddingLeft="10dp"
+            android:paddingTop="10dp"
+            android:paddingRight="10dp"
+            android:paddingBottom="10dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_widget_accept_png"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/body_column"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_above="@id/actions_row"
+        android:layout_below="@id/header_row"
+        android:gravity="center_vertical"
+        android:orientation="vertical">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <FrameLayout
+                android:layout_width="44dp"
+                android:layout_height="44dp">
+
+                <TextView
+                    android:id="@+id/avatar_1_mono"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:background="@drawable/bg_widget_btn_oval"
+                    android:gravity="center"
+                    android:textColor="@color/widget_text_primary"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
+
+                <ImageView
+                    android:id="@+id/avatar_1"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:contentDescription="Member"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/bg_widget_btn_oval" />
+            </FrameLayout>
+
+            <FrameLayout
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:layout_marginStart="-10dp">
+
+                <TextView
+                    android:id="@+id/avatar_2_mono"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:background="@drawable/bg_widget_btn_oval"
+                    android:gravity="center"
+                    android:textColor="@color/widget_text_primary"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
+
+                <ImageView
+                    android:id="@+id/avatar_2"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:contentDescription="Member"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/bg_widget_btn_oval" />
+            </FrameLayout>
+
+            <FrameLayout
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:layout_marginStart="-10dp">
+
+                <TextView
+                    android:id="@+id/avatar_3_mono"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:background="@drawable/bg_widget_btn_oval"
+                    android:gravity="center"
+                    android:textColor="@color/widget_text_primary"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
+
+                <ImageView
+                    android:id="@+id/avatar_3"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:contentDescription="Member"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/bg_widget_btn_oval" />
+            </FrameLayout>
+
+            <FrameLayout
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:layout_marginStart="-10dp">
+
+                <TextView
+                    android:id="@+id/avatar_4_mono"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:background="@drawable/bg_widget_btn_oval"
+                    android:gravity="center"
+                    android:textColor="@color/widget_text_primary"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
+
+                <ImageView
+                    android:id="@+id/avatar_4"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:contentDescription="Member"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/bg_widget_btn_oval" />
+            </FrameLayout>
+
+            <FrameLayout
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:layout_marginStart="-10dp">
+
+                <TextView
+                    android:id="@+id/avatar_5_mono"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:background="@drawable/bg_widget_btn_oval"
+                    android:gravity="center"
+                    android:textColor="@color/widget_text_primary"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
+
+                <ImageView
+                    android:id="@+id/avatar_5"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:contentDescription="Member"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/bg_widget_btn_oval" />
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/avatar_overflow"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:layout_marginStart="-10dp"
+                android:background="@drawable/bg_widget_btn_oval"
+                android:gravity="center"
+                android:text="+2"
+                android:textColor="@color/widget_text_secondary"
+                android:textSize="12sp"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/status_pill"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/bg_widget_pill_round"
+            android:paddingLeft="12dp"
+            android:paddingTop="6dp"
+            android:paddingRight="12dp"
+            android:paddingBottom="6dp"
+            android:text="Tap mic to nudge"
+            android:textColor="@color/widget_text_secondary"
+            android:textSize="12sp" />
+
+        <View
+            android:id="@+id/waveform_slot"
+            android:layout_width="match_parent"
+            android:layout_height="16dp"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/bg_widget_pill_round"
+            android:visibility="gone" />
+    </LinearLayout>
+</RelativeLayout>
