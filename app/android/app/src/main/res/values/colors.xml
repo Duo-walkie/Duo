@@ -6,11 +6,13 @@
     <color name="splash_background">#F8BE03</color>
     <color name="notification_accent">#F8BE03</color>
 
-    <!-- Duo home-screen widget tokens -->
+    <!-- Duo home-screen widget tokens. Accent matches the app's brand
+         yellow everywhere (splash, start gate) instead of a one-off red. -->
     <color name="widget_bg">#0D0D0D</color>
     <color name="widget_surface">#1A1A1A</color>
     <color name="widget_text_primary">#F0EDE8</color>
     <color name="widget_text_secondary">#7A7670</color>
-    <color name="widget_accent_default">#FF5A5F</color>
+    <color name="widget_accent_default">#F8BE03</color>
+    <color name="widget_accent_on">#1A1400</color>
     <color name="widget_online_green">#34D399</color>
 </resources>

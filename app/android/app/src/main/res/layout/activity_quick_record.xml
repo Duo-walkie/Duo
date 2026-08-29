@@ -18,8 +18,8 @@
         android:layout_gravity="bottom"
         android:orientation="vertical"
         android:background="@drawable/bg_quick_record_sheet"
-        android:paddingTop="28dp"
-        android:paddingBottom="40dp"
+        android:paddingTop="24dp"
+        android:paddingBottom="36dp"
         android:paddingStart="24dp"
         android:paddingEnd="24dp"
         android:gravity="center_horizontal">
@@ -27,20 +27,32 @@
         <View
             android:layout_width="36dp"
             android:layout_height="4dp"
-            android:layout_marginBottom="22dp"
+            android:layout_marginBottom="20dp"
             android:background="@drawable/bg_quick_record_bar" />
 
         <ImageView
             android:id="@+id/logo_bars"
             android:layout_width="20dp"
             android:layout_height="20dp"
-            android:layout_marginBottom="18dp"
+            android:layout_marginBottom="14dp"
             android:src="@drawable/ic_duo_bars" />
+
+        <TextView
+            android:id="@+id/target_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="20dp"
+            android:gravity="center"
+            android:text="Sending a voice note"
+            android:textColor="@color/widget_text_secondary"
+            android:textSize="13sp"
+            android:maxLines="2"
+            android:ellipsize="end" />
 
         <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="72dp"
-            android:layout_marginBottom="18dp">
+            android:layout_marginBottom="16dp">
 
             <View
                 android:id="@+id/orb_glow"
@@ -60,10 +72,11 @@
             android:id="@+id/hint_text"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="26dp"
+            android:layout_marginBottom="28dp"
             android:text="Listening…"
             android:textColor="@color/widget_text_primary"
-            android:textSize="16sp" />
+            android:textSize="16sp"
+            android:textStyle="bold" />
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -73,10 +86,10 @@
 
             <ImageButton
                 android:id="@+id/btn_cancel"
-                android:layout_width="56dp"
-                android:layout_height="56dp"
+                android:layout_width="52dp"
+                android:layout_height="52dp"
                 android:background="@drawable/bg_quick_record_button"
-                android:padding="16dp"
+                android:padding="15dp"
                 android:scaleType="fitCenter"
                 android:src="@drawable/ic_widget_decline"
                 android:contentDescription="Cancel" />
@@ -88,13 +101,14 @@
 
             <ImageButton
                 android:id="@+id/btn_send"
-                android:layout_width="64dp"
-                android:layout_height="64dp"
+                android:layout_width="68dp"
+                android:layout_height="68dp"
                 android:background="@drawable/bg_widget_mic"
-                android:padding="18dp"
+                android:padding="20dp"
                 android:scaleType="fitCenter"
                 android:src="@drawable/ic_widget_accept"
-                android:contentDescription="Send" />
+                android:tint="@color/widget_accent_on"
+                android:contentDescription="Send voice note" />
         </LinearLayout>
     </LinearLayout>
 </FrameLayout>

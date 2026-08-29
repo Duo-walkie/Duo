@@ -25,9 +25,9 @@ class AssistantOrbView @JvmOverloads constructor(
     private val velocities = FloatArray(barCount)
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
-        color = Color.parseColor("#FF5A5F")
+        color = Color.parseColor("#F8BE03")
     }
-    private var accentColor: Int = Color.parseColor("#FF5A5F")
+    private var accentColor: Int = Color.parseColor("#F8BE03")
     private val animator = ValueAnimator.ofFloat(0f, 1f).apply {
         duration = 16
         repeatCount = ValueAnimator.INFINITE

@@ -1,20 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Compact: logo + name + next, mic center, oval actions. Avatar ids stubbed. -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- Compact: logo + name + next on top, mic + actions pinned to the bottom. -->
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/widget_bg"
-    android:gravity="center_horizontal"
-    android:orientation="vertical"
     android:paddingLeft="10dp"
-    android:paddingTop="10dp"
+    android:paddingTop="8dp"
     android:paddingRight="10dp"
-    android:paddingBottom="10dp">
+    android:paddingBottom="8dp">
 
     <LinearLayout
+        android:id="@+id/header_row"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
@@ -55,7 +55,9 @@
             android:layout_width="24dp"
             android:layout_height="24dp"
             android:background="@drawable/bg_widget_btn_oval"
+            android:clickable="true"
             android:contentDescription="Next group"
+            android:focusable="true"
             android:paddingLeft="6dp"
             android:paddingTop="6dp"
             android:paddingRight="6dp"
@@ -127,91 +129,112 @@
             android:layout_height="0dp" />
     </LinearLayout>
 
-    <ImageView
-        android:id="@+id/btn_mic"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:layout_marginTop="10dp"
-        android:background="@drawable/bg_widget_mic_oval"
-        android:contentDescription="Voice nudge"
-        android:paddingLeft="13dp"
-        android:paddingTop="13dp"
-        android:paddingRight="13dp"
-        android:paddingBottom="13dp"
-        android:scaleType="fitCenter"
-        android:src="@drawable/ic_widget_mic_png" />
-
     <LinearLayout
-        android:layout_width="wrap_content"
+        android:id="@+id/actions_column"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
+        android:layout_alignParentBottom="true"
+        android:gravity="center_horizontal"
+        android:orientation="vertical">
 
         <ImageView
-            android:id="@+id/btn_decline"
-            android:layout_width="28dp"
-            android:layout_height="28dp"
-            android:layout_marginEnd="8dp"
-            android:background="@drawable/bg_widget_btn_oval"
-            android:contentDescription="Decline"
-            android:paddingLeft="7dp"
-            android:paddingTop="7dp"
-            android:paddingRight="7dp"
-            android:paddingBottom="7dp"
+            android:id="@+id/btn_mic"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@drawable/bg_widget_mic_oval"
+            android:clickable="true"
+            android:contentDescription="Voice nudge"
+            android:focusable="true"
+            android:paddingLeft="13dp"
+            android:paddingTop="13dp"
+            android:paddingRight="13dp"
+            android:paddingBottom="13dp"
             android:scaleType="fitCenter"
-            android:src="@drawable/ic_widget_decline_png"
-            android:visibility="gone" />
+            android:src="@drawable/ic_widget_mic_png" />
 
-        <ImageView
-            android:id="@+id/btn_ring"
-            android:layout_width="28dp"
-            android:layout_height="28dp"
-            android:layout_marginEnd="8dp"
-            android:background="@drawable/bg_widget_btn_oval"
-            android:contentDescription="Ring"
-            android:paddingLeft="7dp"
-            android:paddingTop="7dp"
-            android:paddingRight="7dp"
-            android:paddingBottom="7dp"
-            android:scaleType="fitCenter"
-            android:src="@drawable/ic_widget_ring_png" />
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
-        <ImageView
-            android:id="@+id/btn_notify"
-            android:layout_width="28dp"
-            android:layout_height="28dp"
-            android:layout_marginEnd="8dp"
-            android:background="@drawable/bg_widget_btn_oval"
-            android:contentDescription="Notify"
-            android:paddingLeft="7dp"
-            android:paddingTop="7dp"
-            android:paddingRight="7dp"
-            android:paddingBottom="7dp"
-            android:scaleType="fitCenter"
-            android:src="@drawable/ic_widget_notify_png" />
+            <ImageView
+                android:id="@+id/btn_decline"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:layout_marginEnd="8dp"
+                android:background="@drawable/bg_widget_btn_oval"
+                android:clickable="true"
+                android:contentDescription="Decline"
+                android:focusable="true"
+                android:paddingLeft="7dp"
+                android:paddingTop="7dp"
+                android:paddingRight="7dp"
+                android:paddingBottom="7dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_widget_decline_png"
+                android:visibility="gone" />
 
-        <ImageView
-            android:id="@+id/btn_accept"
-            android:layout_width="28dp"
-            android:layout_height="28dp"
-            android:background="@drawable/bg_widget_btn_oval"
-            android:contentDescription="Accept"
-            android:paddingLeft="7dp"
-            android:paddingTop="7dp"
-            android:paddingRight="7dp"
-            android:paddingBottom="7dp"
-            android:scaleType="fitCenter"
-            android:src="@drawable/ic_widget_accept_png"
-            android:visibility="gone" />
+            <ImageView
+                android:id="@+id/btn_ring"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:layout_marginEnd="8dp"
+                android:background="@drawable/bg_widget_btn_accent_oval"
+                android:clickable="true"
+                android:contentDescription="Ring"
+                android:focusable="true"
+                android:paddingLeft="7dp"
+                android:paddingTop="7dp"
+                android:paddingRight="7dp"
+                android:paddingBottom="7dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_widget_ring_png" />
+
+            <ImageView
+                android:id="@+id/btn_notify"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:layout_marginEnd="8dp"
+                android:background="@drawable/bg_widget_btn_accent_oval"
+                android:clickable="true"
+                android:contentDescription="Notify"
+                android:focusable="true"
+                android:paddingLeft="7dp"
+                android:paddingTop="7dp"
+                android:paddingRight="7dp"
+                android:paddingBottom="7dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_widget_notify_png" />
+
+            <ImageView
+                android:id="@+id/btn_accept"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:background="@drawable/bg_widget_btn_oval"
+                android:clickable="true"
+                android:contentDescription="Accept"
+                android:focusable="true"
+                android:paddingLeft="7dp"
+                android:paddingTop="7dp"
+                android:paddingRight="7dp"
+                android:paddingBottom="7dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_widget_accept_png"
+                android:visibility="gone" />
+        </LinearLayout>
     </LinearLayout>
 
     <TextView
         android:id="@+id/status_pill"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
+        android:layout_above="@id/actions_column"
+        android:layout_below="@id/header_row"
+        android:layout_centerHorizontal="true"
+        android:gravity="center"
         android:text="Tap mic to nudge"
         android:textColor="@color/widget_text_secondary"
         android:textSize="9sp" />
-</LinearLayout>
+</RelativeLayout>

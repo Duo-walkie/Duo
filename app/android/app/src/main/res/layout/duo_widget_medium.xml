@@ -1,19 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- PNG + shape only. No vectors as ImageView src (Motorola RemoteViews crash). -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- PNG + shape only. No vectors as ImageView src (Motorola RemoteViews crash).
+     Header top, actions bottom — OEM 4x2 cells vary ~150–230dp tall and
+     clip wrap_content stacks. The mic must stay on-screen at every height. -->
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/widget_bg"
-    android:orientation="vertical"
-    android:paddingLeft="14dp"
-    android:paddingTop="14dp"
-    android:paddingRight="14dp"
-    android:paddingBottom="14dp">
+    android:paddingLeft="12dp"
+    android:paddingTop="10dp"
+    android:paddingRight="12dp"
+    android:paddingBottom="10dp">
 
     <LinearLayout
+        android:id="@+id/header_row"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
@@ -54,7 +57,9 @@
             android:layout_width="28dp"
             android:layout_height="28dp"
             android:background="@drawable/bg_widget_btn_oval"
+            android:clickable="true"
             android:contentDescription="Next group"
+            android:focusable="true"
             android:paddingLeft="7dp"
             android:paddingTop="7dp"
             android:paddingRight="7dp"
@@ -64,167 +69,10 @@
     </LinearLayout>
 
     <LinearLayout
+        android:id="@+id/actions_row"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
-
-        <FrameLayout
-            android:layout_width="36dp"
-            android:layout_height="36dp">
-
-            <ImageView
-                android:id="@+id/avatar_1"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:contentDescription="Member"
-                android:scaleType="centerCrop"
-                android:visibility="gone" />
-
-            <TextView
-                android:id="@+id/avatar_1_mono"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:background="@drawable/bg_widget_btn_oval"
-                android:gravity="center"
-                android:textColor="@color/widget_text_primary"
-                android:textSize="12sp"
-                android:textStyle="bold"
-                android:visibility="gone" />
-        </FrameLayout>
-
-        <FrameLayout
-            android:layout_width="36dp"
-            android:layout_height="36dp"
-            android:layout_marginStart="-8dp">
-
-            <ImageView
-                android:id="@+id/avatar_2"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:contentDescription="Member"
-                android:scaleType="centerCrop"
-                android:visibility="gone" />
-
-            <TextView
-                android:id="@+id/avatar_2_mono"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:background="@drawable/bg_widget_btn_oval"
-                android:gravity="center"
-                android:textColor="@color/widget_text_primary"
-                android:textSize="12sp"
-                android:textStyle="bold"
-                android:visibility="gone" />
-        </FrameLayout>
-
-        <FrameLayout
-            android:layout_width="36dp"
-            android:layout_height="36dp"
-            android:layout_marginStart="-8dp">
-
-            <ImageView
-                android:id="@+id/avatar_3"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:contentDescription="Member"
-                android:scaleType="centerCrop"
-                android:visibility="gone" />
-
-            <TextView
-                android:id="@+id/avatar_3_mono"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:background="@drawable/bg_widget_btn_oval"
-                android:gravity="center"
-                android:textColor="@color/widget_text_primary"
-                android:textSize="12sp"
-                android:textStyle="bold"
-                android:visibility="gone" />
-        </FrameLayout>
-
-        <FrameLayout
-            android:layout_width="36dp"
-            android:layout_height="36dp"
-            android:layout_marginStart="-8dp">
-
-            <ImageView
-                android:id="@+id/avatar_4"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:contentDescription="Member"
-                android:scaleType="centerCrop"
-                android:visibility="gone" />
-
-            <TextView
-                android:id="@+id/avatar_4_mono"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:background="@drawable/bg_widget_btn_oval"
-                android:gravity="center"
-                android:textColor="@color/widget_text_primary"
-                android:textSize="12sp"
-                android:textStyle="bold"
-                android:visibility="gone" />
-        </FrameLayout>
-
-        <FrameLayout
-            android:layout_width="36dp"
-            android:layout_height="36dp"
-            android:layout_marginStart="-8dp">
-
-            <ImageView
-                android:id="@+id/avatar_5"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:contentDescription="Member"
-                android:scaleType="centerCrop"
-                android:visibility="gone" />
-
-            <TextView
-                android:id="@+id/avatar_5_mono"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:background="@drawable/bg_widget_btn_oval"
-                android:gravity="center"
-                android:textColor="@color/widget_text_primary"
-                android:textSize="12sp"
-                android:textStyle="bold"
-                android:visibility="gone" />
-        </FrameLayout>
-
-        <TextView
-            android:id="@+id/avatar_overflow"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
-            android:layout_marginStart="-8dp"
-            android:background="@drawable/bg_widget_btn_oval"
-            android:gravity="center"
-            android:text="+2"
-            android:textColor="@color/widget_text_secondary"
-            android:textSize="11sp"
-            android:visibility="gone" />
-    </LinearLayout>
-
-    <TextView
-        android:id="@+id/status_pill"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:background="@drawable/bg_widget_pill_round"
-        android:paddingLeft="10dp"
-        android:paddingTop="4dp"
-        android:paddingRight="10dp"
-        android:paddingBottom="4dp"
-        android:text="Tap mic to nudge"
-        android:textColor="@color/widget_text_secondary"
-        android:textSize="11sp" />
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="14dp"
+        android:layout_alignParentBottom="true"
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
@@ -233,7 +81,9 @@
             android:layout_width="36dp"
             android:layout_height="36dp"
             android:background="@drawable/bg_widget_btn_oval"
+            android:clickable="true"
             android:contentDescription="Decline"
+            android:focusable="true"
             android:paddingLeft="9dp"
             android:paddingTop="9dp"
             android:paddingRight="9dp"
@@ -247,8 +97,10 @@
             android:layout_width="36dp"
             android:layout_height="36dp"
             android:layout_marginStart="4dp"
-            android:background="@drawable/bg_widget_btn_oval"
+            android:background="@drawable/bg_widget_btn_accent_oval"
+            android:clickable="true"
             android:contentDescription="Ring"
+            android:focusable="true"
             android:paddingLeft="9dp"
             android:paddingTop="9dp"
             android:paddingRight="9dp"
@@ -267,7 +119,9 @@
             android:layout_width="52dp"
             android:layout_height="52dp"
             android:background="@drawable/bg_widget_mic_oval"
+            android:clickable="true"
             android:contentDescription="Voice nudge"
+            android:focusable="true"
             android:paddingLeft="14dp"
             android:paddingTop="14dp"
             android:paddingRight="14dp"
@@ -286,8 +140,10 @@
             android:layout_width="36dp"
             android:layout_height="36dp"
             android:layout_marginEnd="4dp"
-            android:background="@drawable/bg_widget_btn_oval"
+            android:background="@drawable/bg_widget_btn_accent_oval"
+            android:clickable="true"
             android:contentDescription="Notify"
+            android:focusable="true"
             android:paddingLeft="9dp"
             android:paddingTop="9dp"
             android:paddingRight="9dp"
@@ -300,7 +156,9 @@
             android:layout_width="36dp"
             android:layout_height="36dp"
             android:background="@drawable/bg_widget_btn_oval"
+            android:clickable="true"
             android:contentDescription="Accept"
+            android:focusable="true"
             android:paddingLeft="9dp"
             android:paddingTop="9dp"
             android:paddingRight="9dp"
@@ -309,4 +167,172 @@
             android:src="@drawable/ic_widget_accept_png"
             android:visibility="gone" />
     </LinearLayout>
-</LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/body_column"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_above="@id/actions_row"
+        android:layout_below="@id/header_row"
+        android:gravity="center_vertical"
+        android:orientation="vertical">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <FrameLayout
+                android:layout_width="36dp"
+                android:layout_height="36dp">
+
+                <ImageView
+                    android:id="@+id/avatar_1"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:contentDescription="Member"
+                    android:scaleType="centerCrop"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/avatar_1_mono"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:background="@drawable/bg_widget_btn_oval"
+                    android:gravity="center"
+                    android:textColor="@color/widget_text_primary"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
+            </FrameLayout>
+
+            <FrameLayout
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:layout_marginStart="-8dp">
+
+                <ImageView
+                    android:id="@+id/avatar_2"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:contentDescription="Member"
+                    android:scaleType="centerCrop"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/avatar_2_mono"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:background="@drawable/bg_widget_btn_oval"
+                    android:gravity="center"
+                    android:textColor="@color/widget_text_primary"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
+            </FrameLayout>
+
+            <FrameLayout
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:layout_marginStart="-8dp">
+
+                <ImageView
+                    android:id="@+id/avatar_3"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:contentDescription="Member"
+                    android:scaleType="centerCrop"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/avatar_3_mono"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:background="@drawable/bg_widget_btn_oval"
+                    android:gravity="center"
+                    android:textColor="@color/widget_text_primary"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
+            </FrameLayout>
+
+            <FrameLayout
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:layout_marginStart="-8dp">
+
+                <ImageView
+                    android:id="@+id/avatar_4"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:contentDescription="Member"
+                    android:scaleType="centerCrop"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/avatar_4_mono"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:background="@drawable/bg_widget_btn_oval"
+                    android:gravity="center"
+                    android:textColor="@color/widget_text_primary"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
+            </FrameLayout>
+
+            <FrameLayout
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:layout_marginStart="-8dp">
+
+                <ImageView
+                    android:id="@+id/avatar_5"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:contentDescription="Member"
+                    android:scaleType="centerCrop"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/avatar_5_mono"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:background="@drawable/bg_widget_btn_oval"
+                    android:gravity="center"
+                    android:textColor="@color/widget_text_primary"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/avatar_overflow"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:layout_marginStart="-8dp"
+                android:background="@drawable/bg_widget_btn_oval"
+                android:gravity="center"
+                android:text="+2"
+                android:textColor="@color/widget_text_secondary"
+                android:textSize="11sp"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/status_pill"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/bg_widget_pill_round"
+            android:paddingLeft="10dp"
+            android:paddingTop="4dp"
+            android:paddingRight="10dp"
+            android:paddingBottom="4dp"
+            android:text="Tap mic to nudge"
+            android:textColor="@color/widget_text_secondary"
+            android:textSize="11sp" />
+    </LinearLayout>
+</RelativeLayout>

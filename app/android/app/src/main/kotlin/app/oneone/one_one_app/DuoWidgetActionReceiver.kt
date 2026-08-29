@@ -7,6 +7,7 @@ import android.content.Intent
 import android.os.Handler
 import android.os.Looper
 import android.widget.Toast
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Handles every tappable action on the Duo home-screen widget. Actions that
@@ -59,6 +60,13 @@ class DuoWidgetActionReceiver : BroadcastReceiver() {
             actionNotify -> {
                 if (groupId.isNullOrBlank()) {
                     DuoWidgetLog.w("A-20", "NOTIFY ignored — blank groupId")
+                    return
+                }
+                if (isOnCooldown(groupId)) {
+                    DuoWidgetLog.w("A-22", "NOTIFY throttled groupSuffix=${groupId.takeLast(6)}")
+                    Handler(Looper.getMainLooper()).post {
+                        Toast.makeText(appContext, "Already notified — try again in a bit", Toast.LENGTH_SHORT).show()
+                    }
                     return
                 }
                 val pendingResult = goAsync()
@@ -208,5 +216,17 @@ class DuoWidgetActionReceiver : BroadcastReceiver() {
 
         const val extraGroupId = "widget_group_id"
         const val extraResponseUrl = "widget_response_url"
+
+        /** Per-group cooldown so a rapid-tap message icon can't 429 the backend. */
+        private const val notifyCooldownMs = 15_000L
+        private val lastNotifyAtMs = ConcurrentHashMap<String, Long>()
+
+        private fun isOnCooldown(groupId: String): Boolean {
+            val now = System.currentTimeMillis()
+            val last = lastNotifyAtMs[groupId]
+            if (last != null && now - last < notifyCooldownMs) return true
+            lastNotifyAtMs[groupId] = now
+            return false
+        }
     }
 }

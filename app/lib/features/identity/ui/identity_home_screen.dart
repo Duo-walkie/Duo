@@ -203,6 +203,7 @@ abstract class _IdentityHomeBase extends State<IdentityHomeScreen>
   void _showPipOverlayIfLive();
   void _updatePipOverlay();
   void _syncPipSessionState();
+  void _syncDuoWidget();
   Future<void> _reportMediaVolume();
   Future<void> _loadGroups();
   Future<void> _endRevokedVoiceSession(String groupId);
@@ -402,6 +403,7 @@ class _IdentityHomeScreenState extends _IdentityHomeBase
   /// Android-only: pushes the current group roster + last-active group to
   /// the native home-screen widget cache so it can render offline without
   /// waking Flutter. Best-effort — failures are logged, never surfaced.
+  @override
   void _syncDuoWidget() {
     if (!Platform.isAndroid) return;
     unawaited(

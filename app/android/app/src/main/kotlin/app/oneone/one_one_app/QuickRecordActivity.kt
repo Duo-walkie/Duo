@@ -32,6 +32,7 @@ class QuickRecordActivity : Activity() {
 
     private lateinit var visualizer: AssistantOrbView
     private lateinit var hintText: TextView
+    private lateinit var targetText: TextView
     private lateinit var sheet: View
     private lateinit var cancelButton: ImageView
     private lateinit var sendButton: ImageView
@@ -62,6 +63,7 @@ class QuickRecordActivity : Activity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_quick_record)
         groupId = intent.getStringExtra(extraGroupId)
+        val groupName = intent.getStringExtra(extraGroupName)?.takeIf { it.isNotBlank() }
         DuoWidgetLog.i(
             "Q-01",
             "QuickRecord onCreate groupSuffix=${groupId?.takeLast(6) ?: "none"} " +
@@ -70,14 +72,21 @@ class QuickRecordActivity : Activity() {
 
         visualizer = findViewById(R.id.visualizer)
         hintText = findViewById(R.id.hint_text)
+        targetText = findViewById(R.id.target_text)
         sheet = findViewById(R.id.quick_record_sheet)
         cancelButton = findViewById(R.id.btn_cancel)
         sendButton = findViewById(R.id.btn_send)
 
-        val accent = DuoWidgetSnapshotStore.accentColorInt(
-            DuoWidgetSnapshotStore.accentKey(this),
-        )
-        visualizer.setAccentColor(accent)
+        targetText.text = if (groupName != null) {
+            "Sending a voice note to $groupName"
+        } else {
+            "Sending a voice note"
+        }
+
+        // Widget accent is user-customizable, but the overlay itself always
+        // reads as Duo's own surface — brand yellow, not whatever accent
+        // the group happens to be tinted.
+        visualizer.setAccentColor(android.graphics.Color.parseColor("#F8BE03"))
 
         findViewById<View>(R.id.quick_record_root).setOnTouchListener { view, event ->
             if (event.action == MotionEvent.ACTION_DOWN) {
@@ -283,6 +292,7 @@ class QuickRecordActivity : Activity() {
 
     companion object {
         const val extraGroupId = "quick_record_group_id"
+        const val extraGroupName = "quick_record_group_name"
         private const val maxRecordingMs = 5_000L
         private const val minRecordingMs = 250L
     }

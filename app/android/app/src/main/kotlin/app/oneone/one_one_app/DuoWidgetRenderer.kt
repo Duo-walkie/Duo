@@ -9,8 +9,11 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.os.Build
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.SizeF
 import android.view.View
 import android.widget.RemoteViews
 import java.util.concurrent.ConcurrentHashMap
@@ -29,6 +32,23 @@ private enum class DuoWidgetState { IDLE, PENDING, ONLINE }
 object DuoWidgetRenderer {
     private const val avatarPx = 36
     private const val prefetchDebounceMs = 500L
+
+    /**
+     * Minimum dp a layout may occupy. Keys for [RemoteViews] size mapping
+     * (API 31+) and for the pre-S fallback picker.
+     *
+     * Medium must sit *below* every OEM 4x2 cell we have measured
+     * (Motorola ~159, Pixel ~180, Samsung ~223). Large must sit *above*
+     * every 4x2 cell so a two-row widget never gets the tall layout —
+     * that was the Samsung clip: `minHeight >= 220` classified a 223dp
+     * 4x2 as large, and One UI clipped the mic.
+     */
+    private const val smallMinW = 110f
+    private const val smallMinH = 70f
+    private const val mediumMinW = 180f
+    private const val mediumMinH = 110f
+    private const val largeMinW = 250f
+    private const val largeMinH = 280f
 
     private val avatarIds = intArrayOf(
         R.id.avatar_1,
@@ -74,21 +94,47 @@ object DuoWidgetRenderer {
         val appContext = context.applicationContext
         var stage = "start"
         try {
-            stage = "pickLayout"
-            val layoutId = pickLayout(manager, appWidgetId)
-            DuoWidgetLog.i(
-                "R-01",
-                "id=$appWidgetId layout=${DuoWidgetLog.layoutName(layoutId)} " +
-                    "mode=tiny-bitmap pkg=${appContext.packageName}",
+            stage = "readOptions"
+            val options = manager.getAppWidgetOptions(appWidgetId)
+            logSizeOptions(appWidgetId, options)
+
+            stage = "bindLayouts"
+            val small = boundViews(
+                appContext, appWidgetId, R.layout.duo_widget_small, verbose = false,
+            )
+            val medium = boundViews(
+                appContext, appWidgetId, R.layout.duo_widget_medium, verbose = true,
+            )
+            val large = boundViews(
+                appContext, appWidgetId, R.layout.duo_widget_large, verbose = false,
             )
 
-            stage = "newRemoteViews"
-            val views = RemoteViews(appContext.packageName, layoutId)
-
-            stage = "bindWidget"
-            bindWidget(appContext, views, appWidgetId, layoutId)
-
             stage = "updateAppWidget"
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                try {
+                    val mapping = mapOf(
+                        SizeF(smallMinW, smallMinH) to small,
+                        SizeF(mediumMinW, mediumMinH) to medium,
+                        SizeF(largeMinW, largeMinH) to large,
+                    )
+                    manager.updateAppWidget(appWidgetId, RemoteViews(mapping))
+                    DuoWidgetLog.i("R-02", "pushed id=$appWidgetId layout=responsive OK")
+                    return
+                } catch (error: Exception) {
+                    DuoWidgetLog.w(
+                        "R-02b",
+                        "responsive map failed, falling back to single layout",
+                        error,
+                    )
+                }
+            }
+
+            val layoutId = pickLayout(options)
+            val views = when (layoutId) {
+                R.layout.duo_widget_small -> small
+                R.layout.duo_widget_large -> large
+                else -> medium
+            }
             manager.updateAppWidget(appWidgetId, views)
             DuoWidgetLog.i(
                 "R-02",
@@ -105,21 +151,63 @@ object DuoWidgetRenderer {
         }
     }
 
-    private fun pickLayout(manager: AppWidgetManager, appWidgetId: Int): Int {
-        val options = manager.getAppWidgetOptions(appWidgetId)
+    private fun boundViews(
+        context: Context,
+        appWidgetId: Int,
+        layoutId: Int,
+        verbose: Boolean,
+    ): RemoteViews {
+        val views = RemoteViews(context.packageName, layoutId)
+        bindWidget(context, views, appWidgetId, layoutId, verbose)
+        return views
+    }
+
+    /**
+     * Pre-API 31: pick the largest layout whose *minimum* size fits the
+     * host's reported min width/height. Unknown 0x0 (Samsung first paint)
+     * defaults to medium — the 4x2 target.
+     */
+    private fun pickLayout(options: Bundle): Int {
         val minWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 0)
         val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0)
         val layoutId = when {
             minWidth <= 0 || minHeight <= 0 -> R.layout.duo_widget_medium
-            minWidth <= 150 && minHeight <= 150 -> R.layout.duo_widget_small
-            minHeight >= 220 -> R.layout.duo_widget_large
-            else -> R.layout.duo_widget_medium
+            minWidth >= largeMinW && minHeight >= largeMinH -> R.layout.duo_widget_large
+            minWidth >= mediumMinW && minHeight >= mediumMinH -> R.layout.duo_widget_medium
+            else -> R.layout.duo_widget_small
         }
         DuoWidgetLog.d(
             "R-01a",
-            "id=$appWidgetId size=${minWidth}x${minHeight} -> ${DuoWidgetLog.layoutName(layoutId)}",
+            "id fallback size=${minWidth}x${minHeight} -> ${DuoWidgetLog.layoutName(layoutId)}",
         )
         return layoutId
+    }
+
+    private fun logSizeOptions(appWidgetId: Int, options: Bundle) {
+        val minW = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 0)
+        val minH = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0)
+        val maxW = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, 0)
+        val maxH = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 0)
+        val sizes = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            widgetSizes(options).joinToString { "${it.width.toInt()}x${it.height.toInt()}" }
+        } else {
+            "n/a"
+        }
+        DuoWidgetLog.i(
+            "R-01a",
+            "id=$appWidgetId min=${minW}x${minH} max=${maxW}x${maxH} sizes=[$sizes]",
+        )
+    }
+
+    private fun widgetSizes(options: Bundle): List<SizeF> {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return emptyList()
+        val list: ArrayList<SizeF>? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            options.getParcelableArrayList(AppWidgetManager.OPTION_APPWIDGET_SIZES, SizeF::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            options.getParcelableArrayList(AppWidgetManager.OPTION_APPWIDGET_SIZES)
+        }
+        return list.orEmpty()
     }
 
     private fun bindWidget(
@@ -127,30 +215,34 @@ object DuoWidgetRenderer {
         views: RemoteViews,
         appWidgetId: Int,
         layoutId: Int,
+        verbose: Boolean,
     ) {
         val group = DuoWidgetSnapshotStore.groupForWidget(context, appWidgetId)
         if (group == null) {
-            DuoWidgetLog.w(
-                "R-10",
-                "id=$appWidgetId no group snapshot — signed-out chrome " +
-                    "(groups=${DuoWidgetSnapshotStore.readGroups(context).size})",
-            )
+            if (verbose) {
+                DuoWidgetLog.w(
+                    "R-10",
+                    "id=$appWidgetId no group snapshot — signed-out chrome " +
+                        "(groups=${DuoWidgetSnapshotStore.readGroups(context).size})",
+                )
+            }
             renderSignedOut(context, views)
             return
         }
 
-        DuoWidgetLog.i(
-            "R-11",
-            "id=$appWidgetId group=${group.name} " +
-                "groupIdSuffix=${group.groupId.takeLast(6)} members=${group.members.size}",
-        )
+        if (verbose) {
+            DuoWidgetLog.i(
+                "R-11",
+                "id=$appWidgetId group=${group.name} " +
+                    "groupIdSuffix=${group.groupId.takeLast(6)} members=${group.members.size}",
+            )
+        }
         trySetText(views, R.id.group_name, group.name)
 
         if (layoutId == R.layout.duo_widget_small) {
             hideAvatars(views)
-            prefetchPhotos(context, pendingPhotoUrls(context, group.members))
         } else {
-            bindAvatars(context, views, group.members)
+            bindAvatars(context, views, group.members, prefetch = verbose)
         }
 
         val pending = IncomingNudgeStore.pendingForGroup(context, group.groupId)
@@ -161,14 +253,18 @@ object DuoWidgetRenderer {
             pending != null -> DuoWidgetState.PENDING
             else -> DuoWidgetState.IDLE
         }
-        DuoWidgetLog.i(
-            "R-12",
-            "id=$appWidgetId state=$state " +
-                "pendingEvent=${pending?.get("eventId")?.takeLast(6) ?: "none"} " +
-                "liveGroup=${liveGroupId?.takeLast(6) ?: "none"}",
-        )
+        if (verbose) {
+            DuoWidgetLog.i(
+                "R-12",
+                "id=$appWidgetId state=$state " +
+                    "pendingEvent=${pending?.get("eventId")?.takeLast(6) ?: "none"} " +
+                    "liveGroup=${liveGroupId?.takeLast(6) ?: "none"}",
+            )
+        }
         renderState(views, state, pending)
-        setActionIntents(context, views, appWidgetId, group.groupId, pending?.get("responseUrl"))
+        setActionIntents(
+            context, views, appWidgetId, group.groupId, group.name, pending?.get("responseUrl"),
+        )
     }
 
     /**
@@ -180,6 +276,7 @@ object DuoWidgetRenderer {
         context: Context,
         views: RemoteViews,
         members: List<DuoWidgetMember>,
+        prefetch: Boolean,
     ) {
         val logo = NotificationAvatarHelper.appLogoBitmap(context)
         val pendingUrls = ArrayList<String>()
@@ -222,12 +319,14 @@ object DuoWidgetRenderer {
         } else {
             trySetVisibility(views, R.id.avatar_overflow, View.GONE)
         }
-        DuoWidgetLog.i(
-            "R-21",
-            "avatars bound shown=$shown " +
-                "overflow=${overflow.coerceAtLeast(0)} pendingPhotos=${pendingUrls.size}",
-        )
-        prefetchPhotos(context, pendingUrls)
+        if (prefetch) {
+            DuoWidgetLog.i(
+                "R-21",
+                "avatars bound shown=$shown " +
+                    "overflow=${overflow.coerceAtLeast(0)} pendingPhotos=${pendingUrls.size}",
+            )
+            prefetchPhotos(context, pendingUrls)
+        }
     }
 
     private fun bindAvatarSlot(
@@ -308,23 +407,6 @@ object DuoWidgetRenderer {
         return bitmap
     }
 
-    private fun pendingPhotoUrls(context: Context, members: List<DuoWidgetMember>): List<String> {
-        val logo = NotificationAvatarHelper.appLogoBitmap(context)
-        val urls = ArrayList<String>()
-        for (member in members.take(avatarIds.size)) {
-            val url = member.photoUrl?.trim().orEmpty()
-            if (url.isEmpty()) continue
-            val cached = NotificationAvatarHelper.largeIcon(
-                context,
-                url,
-                member.displayName,
-                null,
-            )
-            if (cached === logo) urls.add(url)
-        }
-        return urls
-    }
-
     private fun prefetchPhotos(context: Context, urls: List<String>) {
         val unique = urls.map { it.trim() }.filter { it.isNotEmpty() }.distinct()
             .filter { attemptedPhotoUrls.add(it) }
@@ -342,6 +424,14 @@ object DuoWidgetRenderer {
         DuoWidgetLog.d("R-22", "prefetch start count=${unique.size}")
         for (url in unique) {
             NotificationAvatarHelper.loadAsync(appContext, url, "", null) {
+                // A transient failure (network blip, bad thumbnail params)
+                // must not permanently blacklist this url — un-mark it so
+                // the next updateAll (next tap, next foreground) retries.
+                // Without this, a member's real photo could stay stuck on
+                // the logo/monogram fallback for the rest of the process.
+                if (!NotificationAvatarHelper.hasCachedPhoto(url)) {
+                    attemptedPhotoUrls.remove(url)
+                }
                 onPhotoReady()
             }
         }
@@ -410,6 +500,7 @@ object DuoWidgetRenderer {
         when (state) {
             DuoWidgetState.ONLINE -> {
                 trySetText(views, R.id.status_pill, "Live now")
+                trySetVisibility(views, R.id.status_pill, View.VISIBLE)
                 trySetVisibility(views, R.id.live_label, View.VISIBLE)
                 trySetVisibility(views, R.id.btn_decline, View.GONE)
                 trySetVisibility(views, R.id.btn_accept, View.GONE)
@@ -420,6 +511,7 @@ object DuoWidgetRenderer {
             DuoWidgetState.PENDING -> {
                 val senderName = pending?.get("senderName") ?: "A friend"
                 trySetText(views, R.id.status_pill, "$senderName nudged you")
+                trySetVisibility(views, R.id.status_pill, View.VISIBLE)
                 trySetVisibility(views, R.id.live_label, View.GONE)
                 trySetVisibility(views, R.id.btn_decline, View.VISIBLE)
                 trySetVisibility(views, R.id.btn_accept, View.VISIBLE)
@@ -428,7 +520,9 @@ object DuoWidgetRenderer {
                 trySetVisibility(views, R.id.btn_mic, View.VISIBLE)
             }
             DuoWidgetState.IDLE -> {
-                trySetText(views, R.id.status_pill, "Tap mic to nudge")
+                // The mic itself signals what tapping it does — no need to
+                // spell it out in a redundant pill underneath.
+                trySetVisibility(views, R.id.status_pill, View.GONE)
                 trySetVisibility(views, R.id.live_label, View.GONE)
                 trySetVisibility(views, R.id.btn_decline, View.GONE)
                 trySetVisibility(views, R.id.btn_accept, View.GONE)
@@ -444,6 +538,7 @@ object DuoWidgetRenderer {
         views: RemoteViews,
         appWidgetId: Int,
         groupId: String,
+        groupName: String,
         responseUrl: String?,
     ) {
         trySetClick(
@@ -473,7 +568,10 @@ object DuoWidgetRenderer {
         )
         val micIntent = Intent(context, QuickRecordActivity::class.java).apply {
             putExtra(QuickRecordActivity.extraGroupId, groupId)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            putExtra(QuickRecordActivity.extraGroupName, groupName)
+            // Overlay is singleInstance + empty affinity. CLEAR_TOP would
+            // also resume the existing app task on some OEMs.
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         val micPendingIntent = PendingIntent.getActivity(
             context,

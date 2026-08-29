@@ -56,6 +56,12 @@ object NotificationAvatarHelper {
         return scaled
     }
 
+    /** True once [url] has a successfully downloaded photo in the cache. */
+    fun hasCachedPhoto(url: String): Boolean {
+        val trimmed = url.trim()
+        return trimmed.isNotEmpty() && cache.containsKey(trimmed)
+    }
+
     /**
      * Cached photo, bundled avatar, or app logo. Does not hit the network —
      * safe on the main thread.
