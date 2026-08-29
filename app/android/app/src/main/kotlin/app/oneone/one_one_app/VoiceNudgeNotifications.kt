@@ -68,14 +68,17 @@ object VoiceNudgeNotifications {
         largeIcon: Bitmap? = null,
         senderUserId: String? = null,
         groupName: String? = null,
+        notificationId: Int? = null,
+        timeoutAfterMs: Long? = null,
     ): Notification {
         ensureChannels(context)
+        val resolvedNotificationId = notificationId ?: idFor(eventId)
         val openIntent = openNudgeIntent(
             context,
             eventId,
             groupId,
             senderUserId,
-            VoiceNudgeNotifications.idFor(eventId),
+            resolvedNotificationId,
         )
         val contentIntent = BrandedSplashIntents.mainActivity(
             context,
@@ -109,12 +112,21 @@ object VoiceNudgeNotifications {
         if (largeIcon != null) {
             configured.setLargeIcon(largeIcon)
         }
+        if (
+            !ongoing &&
+            timeoutAfterMs != null &&
+            timeoutAfterMs > 0L &&
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+        ) {
+            configured.setTimeoutAfter(timeoutAfterMs)
+        }
         configured.addNudgeActions(
             context = context,
             eventId = eventId,
             groupId = groupId,
             responseUrl = responseUrl,
             senderName = senderName,
+            notificationId = resolvedNotificationId,
         )
         if (cachedAudioAvailable) {
             configured
@@ -519,9 +531,9 @@ object VoiceNudgeNotifications {
         groupId: String,
         responseUrl: String?,
         senderName: String,
+        notificationId: Int = idFor(eventId),
     ): Notification.Builder {
         if (responseUrl.isNullOrBlank()) return this
-        val notificationId = idFor(eventId)
         val acceptPendingIntent = BrandedSplashIntents.mainActivity(
             context,
             requestCode(eventId, "accept"),

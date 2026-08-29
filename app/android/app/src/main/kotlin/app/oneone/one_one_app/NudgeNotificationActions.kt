@@ -171,6 +171,211 @@ object NudgeReceivedDispatcher {
 }
 
 /**
+ * Collapses multiple [VoiceNudgeContract.kindRing] arrivals in the same group
+ * into one shade notification for a 10-minute window (from the first ring).
+ * Voice nudges stay one-notification-per-event.
+ */
+object RingNudgeBatchStore {
+    private const val preferencesName = "one_one_ring_batches"
+    private const val batchesKey = "batches_json"
+    private const val eventIndexKey = "event_index_json"
+    const val windowMs = 10L * 60L * 1000L
+
+    data class Member(
+        val eventId: String,
+        val responseUrl: String?,
+        val senderName: String,
+    )
+
+    data class Batch(
+        val groupId: String,
+        val startedAtMs: Long,
+        val notificationId: Int,
+        val expiryKey: String,
+        val members: List<Member>,
+        val latestEventId: String,
+    ) {
+        val eventIds: List<String> get() = members.map { it.eventId }
+    }
+
+    fun remember(
+        context: Context,
+        groupId: String,
+        eventId: String,
+        responseUrl: String?,
+        senderName: String,
+    ): Batch {
+        if (groupId.isBlank() || eventId.isBlank()) {
+            return Batch(
+                groupId = groupId,
+                startedAtMs = System.currentTimeMillis(),
+                notificationId = VoiceNudgeNotifications.idFor(eventId),
+                expiryKey = eventId,
+                members = listOf(Member(eventId, responseUrl, senderName)),
+                latestEventId = eventId,
+            )
+        }
+        val now = System.currentTimeMillis()
+        val batches = readBatches(context)
+        val existing = batches[groupId]
+        val member = Member(eventId, responseUrl, senderName.ifBlank { "Someone" })
+        val batch = if (existing != null && now - existing.startedAtMs < windowMs) {
+            val withoutDup = existing.members.filterNot { it.eventId == eventId }
+            existing.copy(
+                members = withoutDup + member,
+                latestEventId = eventId,
+            )
+        } else {
+            val startedAt = now
+            val expiryKey = "ring_batch_${groupId}_$startedAt"
+            Batch(
+                groupId = groupId,
+                startedAtMs = startedAt,
+                notificationId = VoiceNudgeNotifications.idFor(expiryKey),
+                expiryKey = expiryKey,
+                members = listOf(member),
+                latestEventId = eventId,
+            )
+        }
+        batches[groupId] = batch
+        writeBatches(context, batches)
+        val index = readEventIndex(context)
+        index.put(eventId, groupId)
+        writeEventIndex(context, index)
+        return batch
+    }
+
+    fun batchForEvent(context: Context, eventId: String): Batch? {
+        if (eventId.isBlank()) return null
+        val groupId = readEventIndex(context).optString(eventId, "").takeIf { it.isNotBlank() }
+            ?: return null
+        return readBatches(context)[groupId]?.takeIf { eventId in it.eventIds }
+    }
+
+    fun notificationIdForEvent(context: Context, eventId: String): Int? =
+        batchForEvent(context, eventId)?.notificationId
+
+    fun memberEventIds(context: Context, eventId: String): List<String> =
+        batchForEvent(context, eventId)?.eventIds.orEmpty()
+
+    fun membersForEvent(context: Context, eventId: String): List<Member> =
+        batchForEvent(context, eventId)?.members.orEmpty()
+
+    fun clearForEvent(context: Context, eventId: String) {
+        val batch = batchForEvent(context, eventId) ?: return
+        clearBatch(context, batch.groupId)
+    }
+
+    fun clearBatch(context: Context, groupId: String) {
+        if (groupId.isBlank()) return
+        val batches = readBatches(context)
+        val removed = batches.remove(groupId)
+        writeBatches(context, batches)
+        if (removed == null) return
+        val index = readEventIndex(context)
+        for (id in removed.eventIds) index.remove(id)
+        writeEventIndex(context, index)
+    }
+
+    private fun readBatches(context: Context): MutableMap<String, Batch> {
+        val raw = context.getSharedPreferences(preferencesName, Context.MODE_PRIVATE)
+            .getString(batchesKey, null)
+        if (raw.isNullOrBlank()) return mutableMapOf()
+        return try {
+            val obj = org.json.JSONObject(raw)
+            val out = mutableMapOf<String, Batch>()
+            val keys = obj.keys()
+            while (keys.hasNext()) {
+                val groupId = keys.next()
+                val record = obj.optJSONObject(groupId) ?: continue
+                val membersJson = record.optJSONArray("members") ?: org.json.JSONArray()
+                val members = buildList {
+                    for (i in 0 until membersJson.length()) {
+                        val m = membersJson.optJSONObject(i) ?: continue
+                        val id = m.optString("eventId").trim()
+                        if (id.isEmpty()) continue
+                        add(
+                            Member(
+                                eventId = id,
+                                responseUrl = m.optString("responseUrl").trim()
+                                    .takeIf { it.isNotEmpty() },
+                                senderName = m.optString("senderName").ifBlank { "Someone" },
+                            ),
+                        )
+                    }
+                }
+                if (members.isEmpty()) continue
+                out[groupId] = Batch(
+                    groupId = groupId,
+                    startedAtMs = record.optLong("startedAtMs", 0L),
+                    notificationId = record.optInt(
+                        "notificationId",
+                        VoiceNudgeNotifications.idFor(members.first().eventId),
+                    ),
+                    expiryKey = record.optString("expiryKey").ifBlank {
+                        members.first().eventId
+                    },
+                    members = members,
+                    latestEventId = record.optString("latestEventId")
+                        .ifBlank { members.last().eventId },
+                )
+            }
+            out
+        } catch (_: Exception) {
+            mutableMapOf()
+        }
+    }
+
+    private fun writeBatches(context: Context, batches: Map<String, Batch>) {
+        val obj = org.json.JSONObject()
+        for ((groupId, batch) in batches) {
+            val membersJson = org.json.JSONArray()
+            for (member in batch.members) {
+                membersJson.put(
+                    org.json.JSONObject().apply {
+                        put("eventId", member.eventId)
+                        member.responseUrl?.let { put("responseUrl", it) }
+                        put("senderName", member.senderName)
+                    },
+                )
+            }
+            obj.put(
+                groupId,
+                org.json.JSONObject().apply {
+                    put("groupId", batch.groupId)
+                    put("startedAtMs", batch.startedAtMs)
+                    put("notificationId", batch.notificationId)
+                    put("expiryKey", batch.expiryKey)
+                    put("latestEventId", batch.latestEventId)
+                    put("members", membersJson)
+                },
+            )
+        }
+        context.getSharedPreferences(preferencesName, Context.MODE_PRIVATE)
+            .edit()
+            .putString(batchesKey, obj.toString())
+            .apply()
+    }
+
+    private fun readEventIndex(context: Context): org.json.JSONObject {
+        val raw = context.getSharedPreferences(preferencesName, Context.MODE_PRIVATE)
+            .getString(eventIndexKey, null)
+        return if (raw.isNullOrBlank()) org.json.JSONObject() else try {
+            org.json.JSONObject(raw)
+        } catch (_: Exception) {
+            org.json.JSONObject()
+        }
+    }
+
+    private fun writeEventIndex(context: Context, index: org.json.JSONObject) {
+        context.getSharedPreferences(preferencesName, Context.MODE_PRIVATE)
+            .edit()
+            .putString(eventIndexKey, index.toString())
+            .apply()
+    }
+}
+
+/**
  * On-device cache of incoming nudges (FCM arrivals + notification responses)
  * so Flutter can hydrate Case 2/3 without waiting on RTDB, and so a
  * notification Decline is not re-prompted when the app later opens.
@@ -200,7 +405,7 @@ object IncomingNudgeStore {
         if (!senderUserId.isNullOrBlank()) record.put("senderUserId", senderUserId)
         if (!senderName.isNullOrBlank()) record.put("senderName", senderName)
         if (!responseUrl.isNullOrBlank()) record.put("responseUrl", responseUrl)
-        if (!kind.isNullOrBlank()) record.put("kind", kind)
+        if (!kind.isNullOrBlank() && !record.has("kind")) record.put("kind", kind)
         if (!record.has("arrivedAtMs")) record.put("arrivedAtMs", arrivedAtMs)
         if (!record.has("status")) record.put("status", "pending")
         records.put(eventId, record)
@@ -271,6 +476,8 @@ object IncomingNudgeStore {
                 ?.let { map["senderUserId"] = it }
             record.optString("senderName", "").takeIf { it.isNotBlank() }
                 ?.let { map["senderName"] = it }
+            record.optString("kind", "").takeIf { it.isNotBlank() }
+                ?.let { map["kind"] = it }
             record.optLong("snoozedUntilMs", 0L).takeIf { it > 0L }
                 ?.let { map["snoozedUntilMs"] = it }
             result.add(map)
@@ -383,28 +590,51 @@ class NudgeNotificationActionReceiver : BroadcastReceiver() {
         val senderName = intent.getStringExtra(VoiceNudgeContract.extraSenderName) ?: "Friend"
         val notificationId = intent.getIntExtra(
             VoiceNudgeContract.extraNotificationId,
-            VoiceNudgeNotifications.idFor(eventId),
+            RingNudgeBatchStore.notificationIdForEvent(context, eventId)
+                ?: VoiceNudgeNotifications.idFor(eventId),
         )
         val pendingResult = goAsync()
         val appContext = context.applicationContext
-        // B5: Cancel the expiry alarm for any user action (decline/snooze).
-        NudgeExpiryTracker.cancelExpiry(appContext, eventId)
+        val ringBatch = RingNudgeBatchStore.batchForEvent(appContext, eventId)
+        // Decline/snooze applies to the whole ring batch when this event is in one.
+        val targets: List<Triple<String, String, String>> = if (
+            responseAction == "decline" && ringBatch != null
+        ) {
+            ringBatch.members.mapNotNull { member ->
+                val url = member.responseUrl?.takeIf { it.isNotBlank() } ?: responseUrl
+                Triple(member.eventId, url, member.senderName)
+            }
+        } else {
+            listOf(Triple(eventId, responseUrl, senderName))
+        }
+        for ((targetEventId, _, _) in targets) {
+            NudgeExpiryTracker.cancelExpiry(appContext, targetEventId)
+        }
+        if (ringBatch != null) {
+            NudgeExpiryTracker.cancelExpiry(appContext, ringBatch.expiryKey)
+        }
         val snoozedUntilMs = if (responseAction == "snooze" && snoozeMinutes != null) {
             System.currentTimeMillis() + snoozeMinutes * 60_000L
         } else {
             null
         }
-        IncomingNudgeStore.markStatus(
-            appContext,
-            eventId,
-            if (responseAction == "snooze") "snoozed" else "declined",
-            snoozedUntilMs,
-        )
-        IncomingNudgeDispatcher.signalStatus(
-            eventId,
-            if (responseAction == "snooze") "snoozed" else "declined",
-            snoozedUntilMs,
-        )
+        val statusLabel = if (responseAction == "snooze") "snoozed" else "declined"
+        for ((targetEventId, _, _) in targets) {
+            IncomingNudgeStore.markStatus(
+                appContext,
+                targetEventId,
+                statusLabel,
+                snoozedUntilMs,
+            )
+            IncomingNudgeDispatcher.signalStatus(
+                targetEventId,
+                statusLabel,
+                snoozedUntilMs,
+            )
+        }
+        if (responseAction == "decline" && ringBatch != null) {
+            RingNudgeBatchStore.clearBatch(appContext, ringBatch.groupId)
+        }
         val user = FirebaseAuth.getInstance().currentUser
         if (user == null) {
             Log.w(VoiceNudgeDiagnostics.tag, "[NUDGE-ACTION-W1] No signed-in Firebase user")
@@ -437,8 +667,10 @@ class NudgeNotificationActionReceiver : BroadcastReceiver() {
             }
             executor.execute {
                 try {
-                    postResponse(responseUrl, idToken, responseAction, snoozeMinutes)
-                    VoiceNudgeAudioCache.delete(appContext, eventId)
+                    for ((targetEventId, targetUrl, _) in targets) {
+                        postResponse(targetUrl, idToken, responseAction, snoozeMinutes)
+                        VoiceNudgeAudioCache.delete(appContext, targetEventId)
+                    }
                     val text = if (responseAction == "snooze") {
                         "You asked $senderName to wait $snoozeMinutes minutes ⏳"
                     } else {
@@ -457,7 +689,7 @@ class NudgeNotificationActionReceiver : BroadcastReceiver() {
                         VoiceNudgeDiagnostics.tag,
                         "[NUDGE-ACTION-01] response=$responseAction " +
                             "snoozeMinutes=${snoozeMinutes ?: "none"} " +
-                            "eventSuffix=${eventId.takeLast(6)}",
+                            "eventSuffix=${eventId.takeLast(6)} batchSize=${targets.size}",
                     )
                 } catch (error: Exception) {
                     VoiceNudgeDiagnostics.logFailure("[NUDGE-ACTION-E2] Response upload", error)

@@ -1,5 +1,7 @@
 import 'package:one_one_app/one_one.dart';
 
+part 'online_screen_talk_button.dart';
+
 class OnlineScreen extends StatefulWidget {
   const OnlineScreen({
     super.key,
@@ -67,13 +69,14 @@ class _OnlineScreenState extends State<OnlineScreen> {
   }
 
   Future<void> _goOnline() async {
+    // 1. Mark connecting
     setState(() {
       _busy = true;
       _state = 'connecting';
       _message = null;
     });
 
-    // Check daily usage cap.
+    // 2. Enforce daily usage cap
     final dateKey = _todayDateKey;
     if (_todayUsageDateKey != dateKey) {
       _todayUsageDateKey = dateKey;
@@ -88,7 +91,8 @@ class _OnlineScreenState extends State<OnlineScreen> {
       setState(() {
         _busy = false;
         _state = 'away';
-        _message = 'Daily usage limit reached (${PresenceConfig.dailyUsageCap.inMinutes} min). '
+        _message =
+            'Daily usage limit reached (${PresenceConfig.dailyUsageCap.inMinutes} min). '
             'You can go online again tomorrow.';
       });
       return;
@@ -96,6 +100,7 @@ class _OnlineScreenState extends State<OnlineScreen> {
 
     OnlineSession? createdSession;
     final speakerOn = true;
+    // 3. Reuse a warmed token/room when one is already prepared
     final preparedToken = LiveKitConnectionWarmer.instance.takeToken(
       widget.group.groupId,
     );
@@ -103,6 +108,7 @@ class _OnlineScreenState extends State<OnlineScreen> {
       speakerOn: speakerOn,
     );
     try {
+      // 4. Create presence, connect LiveKit, mark live
       createdSession = await _onlineRepository.goOnline(
         identity: widget.identity,
         group: widget.group,
@@ -123,6 +129,7 @@ class _OnlineScreenState extends State<OnlineScreen> {
         _state = 'live';
         _message = LiveKitStatus.live;
       });
+      // 5. Heartbeat + inactivity + daily usage
       _scheduleInactivityCheck();
       _startUsageTracking();
     } catch (error, stack) {
@@ -173,10 +180,12 @@ class _OnlineScreenState extends State<OnlineScreen> {
     });
 
     try {
+      // 1. Stop talk if holding the lock
       final activeTalk = _talkSession;
       if (activeTalk != null) {
         await _talkRepository.stopTalk(activeTalk, reason: 'going_away');
       }
+      // 2. Stop heartbeat / inactivity / usage
       _heartbeatTimer?.cancel();
       _heartbeatTimer = null;
       _inactivityTimer?.cancel();
@@ -187,6 +196,7 @@ class _OnlineScreenState extends State<OnlineScreen> {
       if (_todayOnlineSeconds > 0) {
         unawaited(_persistDailyUsage());
       }
+      // 3. Disconnect LiveKit and write away
       await _disconnectLiveKit();
       await _onlineRepository.goAway(session);
       setState(() {
@@ -215,7 +225,9 @@ class _OnlineScreenState extends State<OnlineScreen> {
 
     TalkSession? startedTalk;
     try {
+      // 1. Take the talk lock
       startedTalk = await _talkRepository.startTalk(session);
+      // 2. Open the local mic
       await _setMicrophoneEnabled(true);
       if (!mounted) return;
       setState(() {
@@ -266,9 +278,11 @@ class _OnlineScreenState extends State<OnlineScreen> {
     OnlineSession session, {
     Room? preparedRoom,
   }) async {
+    // 1. Drop any previous room
     await _disconnectLiveKit();
 
-    final room = preparedRoom ??
+    final room =
+        preparedRoom ??
         Room(
           roomOptions: const RoomOptions(
             adaptiveStream: false,
@@ -289,12 +303,13 @@ class _OnlineScreenState extends State<OnlineScreen> {
       LogLevel.info,
       'LiveKitManager',
       'Room connect attempt url=${session.livekitServerUrl} '
-      'room=${session.livekitRoomName}',
+          'room=${session.livekitRoomName}',
       userId: session.userId,
       groupId: session.groupId,
     );
 
     try {
+      // 2. Connect (20s cap)
       await room
           .connect(
             session.livekitServerUrl,
@@ -328,57 +343,59 @@ class _OnlineScreenState extends State<OnlineScreen> {
       throw StateError('LiveKit connected without a local participant.');
     }
 
+    // 3. Join muted — talk button opens the mic
     await localParticipant
         .setMicrophoneEnabled(false)
         .timeout(const Duration(seconds: 8));
   }
 
   void _attachRoomListener(Room room) {
-    _roomListener = attachLiveKitLifecycleLogs(
-      room.createListener(),
-      userId: widget.identity.userId,
-      groupId: widget.group.groupId,
-    )
-      ..on<RoomConnectedEvent>((_) {
-        _reconnectAttempts = 0;
-        _reconnectTimer?.cancel();
-        _reconnectTimer = null;
-        _setMessage(LiveKitStatus.connected);
-      })
-      ..on<RoomReconnectingEvent>((_) {
-        _setStateAndMessage('reconnecting', LiveKitStatus.reconnecting);
-      })
-      ..on<RoomReconnectedEvent>((_) {
-        _reconnectAttempts = 0;
-        _reconnectTimer?.cancel();
-        _reconnectTimer = null;
-        _setStateAndMessage('live', LiveKitStatus.connected);
-      })
-      ..on<RoomDisconnectedEvent>((event) {
-        _setStateAndMessage(
-          'disconnected',
-          LiveKitStatus.fromDisconnectReason(event.reason),
-        );
-        // Attempt automatic reconnect with exponential backoff.
-        // Only reconnect if the user is still in a live session (not
-        // deliberately going away) and we haven't exhausted retries.
-        if (_session != null && _state != 'away') {
-          _scheduleReconnect();
-        }
-      })
-      ..on<ParticipantConnectedEvent>((_) {})
-      ..on<TrackSubscribedEvent>((_) {})
-      ..on<ActiveSpeakersChangedEvent>((event) {
-        final remoteSpeakers = event.speakers.where(
-          (speaker) => speaker.identity != room.localParticipant?.identity,
-        );
-        if (event.speakers.isNotEmpty) {
-          _recordVoiceActivity();
-        }
-        if (remoteSpeakers.isNotEmpty) {
-          _setMessage(LiveKitStatus.receivingVoice);
-        }
-      });
+    _roomListener =
+        attachLiveKitLifecycleLogs(
+            room.createListener(),
+            userId: widget.identity.userId,
+            groupId: widget.group.groupId,
+          )
+          ..on<RoomConnectedEvent>((_) {
+            _reconnectAttempts = 0;
+            _reconnectTimer?.cancel();
+            _reconnectTimer = null;
+            _setMessage(LiveKitStatus.connected);
+          })
+          ..on<RoomReconnectingEvent>((_) {
+            _setStateAndMessage('reconnecting', LiveKitStatus.reconnecting);
+          })
+          ..on<RoomReconnectedEvent>((_) {
+            _reconnectAttempts = 0;
+            _reconnectTimer?.cancel();
+            _reconnectTimer = null;
+            _setStateAndMessage('live', LiveKitStatus.connected);
+          })
+          ..on<RoomDisconnectedEvent>((event) {
+            _setStateAndMessage(
+              'disconnected',
+              LiveKitStatus.fromDisconnectReason(event.reason),
+            );
+            // Attempt automatic reconnect with exponential backoff.
+            // Only reconnect if the user is still in a live session (not
+            // deliberately going away) and we haven't exhausted retries.
+            if (_session != null && _state != 'away') {
+              _scheduleReconnect();
+            }
+          })
+          ..on<ParticipantConnectedEvent>((_) {})
+          ..on<TrackSubscribedEvent>((_) {})
+          ..on<ActiveSpeakersChangedEvent>((event) {
+            final remoteSpeakers = event.speakers.where(
+              (speaker) => speaker.identity != room.localParticipant?.identity,
+            );
+            if (event.speakers.isNotEmpty) {
+              _recordVoiceActivity();
+            }
+            if (remoteSpeakers.isNotEmpty) {
+              _setMessage(LiveKitStatus.receivingVoice);
+            }
+          });
   }
 
   /// Exponential backoff reconnect: 1s → 2s delay, max 2 retries.
@@ -594,71 +611,6 @@ class _OnlineScreenState extends State<OnlineScreen> {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _TalkButton extends StatelessWidget {
-  const _TalkButton({
-    required this.enabled,
-    required this.active,
-    required this.busy,
-    required this.onStart,
-    required this.onStop,
-  });
-
-  final bool enabled;
-  final bool active;
-  final bool busy;
-  final Future<void> Function() onStart;
-  final Future<void> Function() onStop;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final backgroundColor = active
-        ? colors.error
-        : enabled
-        ? colors.primary
-        : colors.surfaceContainerHighest;
-    final foregroundColor = active || enabled
-        ? colors.onPrimary
-        : colors.onSurfaceVariant;
-
-    return GestureDetector(
-      onTapDown: enabled && !busy ? (_) => onStart() : null,
-      onTapUp: enabled ? (_) => onStop() : null,
-      onTapCancel: enabled ? () => onStop() : null,
-      child: Container(
-        height: 136,
-        decoration: BoxDecoration(
-          color: backgroundColor,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        alignment: Alignment.center,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              active ? Icons.mic : Icons.mic_none,
-              color: foregroundColor,
-              size: 42,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              busy
-                  ? 'WAIT'
-                  : active
-                  ? 'TALKING'
-                  : 'HOLD TO TALK',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: foregroundColor,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
         ),
       ),
     );

@@ -1,11 +1,5 @@
 import 'package:one_one_app/one_one.dart';
 
-/// Full-screen, input-transparent overlay that renders every currently
-/// active [EmojiBurst]. Each burst spawns [EmojiBurstConfig.particleCount]
-/// copies of the same emoji that stream upward with randomized spread,
-/// speed, and wobble - TikTok-reaction style - instead of a single static
-/// glyph. Call [onBurstFinished] to let the caller drop a finished burst
-/// from its list; this widget does not manage that list itself.
 class EmojiBurstOverlay extends StatelessWidget {
   const EmojiBurstOverlay({
     super.key,
@@ -57,12 +51,13 @@ class _EmojiBurstEffectState extends State<_EmojiBurstEffect>
   void initState() {
     super.initState();
     final config = widget.burst.config;
-    _controller = AnimationController(
-      vsync: this,
-      duration: Duration(milliseconds: config.totalDurationMs),
-    )..addStatusListener((status) {
-      if (status == AnimationStatus.completed) widget.onCompleted();
-    });
+    _controller =
+        AnimationController(
+          vsync: this,
+          duration: Duration(milliseconds: config.totalDurationMs),
+        )..addStatusListener((status) {
+          if (status == AnimationStatus.completed) widget.onCompleted();
+        });
     _particles = _ParticleSpec.generate(config);
     _controller.forward();
   }

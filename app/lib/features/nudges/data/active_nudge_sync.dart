@@ -2,12 +2,6 @@ import 'package:one_one_app/one_one.dart';
 
 const _nudgeEventTypes = {'nudge', 'ring_nudge', 'voice_nudge'};
 
-/// Reads `notificationEvents/{groupId}` for the caller's groups and returns
-/// nudges that still target this user inside the 10-minute window.
-///
-/// This is the Case 3 source of truth when FCM was missed (device offline,
-/// killed process, etc.). Local accept/decline status is applied by
-/// [ActiveNudgeInbox], not here.
 class ActiveNudgeSync {
   ActiveNudgeSync({FirebaseDatabase? database, DateTime Function()? clock})
     : _database = database ?? AppDatabase.instance(),

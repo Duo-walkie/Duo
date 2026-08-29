@@ -1,14 +1,6 @@
-/// Local lifecycle of an incoming nudge for this user.
-///
-/// [snoozed] is a device-local status used when the notification Snooze
-/// action already answered the event; it is never sent to the backend as a
-/// fourth respond-action.
 enum ActiveNudgeStatus { pending, accepted, declined, snoozed }
 
-/// One incoming nudge this user still needs to accept or decline.
-///
-/// [nudgeId] is the backend `notificationEventId`. Status is tracked per
-/// event so a declined nudge is not re-shown on the next app open.
+// Incoming nudge this user still needs to answer. [nudgeId] = notificationEventId.
 class ActiveNudge {
   const ActiveNudge({
     required this.nudgeId,
@@ -38,7 +30,6 @@ class ActiveNudge {
     return until != null && now.isBefore(until);
   }
 
-  /// Eligible for the in-app Accept/Decline prompt.
   bool isActiveAt(DateTime now) {
     if (isExpiredAt(now)) return false;
     if (status == ActiveNudgeStatus.accepted) return false;
@@ -98,4 +89,39 @@ class ActiveNudgeStatusRecord {
       snoozedUntil: DateTime.tryParse(raw['snoozedUntil']?.toString() ?? ''),
     );
   }
+}
+
+// Native FCM payload → ActiveNudge. Null when eventId or groupId is missing.
+ActiveNudge? parseIncomingNudge(Map<String, dynamic> raw) {
+  final nudgeId =
+      raw['eventId']?.toString().trim() ??
+      raw['nudgeId']?.toString().trim() ??
+      '';
+  final groupId = raw['groupId']?.toString().trim() ?? '';
+  final senderId =
+      raw['senderUserId']?.toString().trim() ??
+      raw['senderId']?.toString().trim() ??
+      '';
+  if (nudgeId.isEmpty || groupId.isEmpty) return null;
+  final arrivedAtMs = int.tryParse(raw['arrivedAtMs']?.toString() ?? '');
+  final sentAt = arrivedAtMs != null
+      ? DateTime.fromMillisecondsSinceEpoch(arrivedAtMs)
+      : DateTime.now();
+  final statusName = raw['status']?.toString().trim();
+  final status = ActiveNudgeStatus.values
+      .where((value) => value.name == statusName)
+      .firstOrNull;
+  final snoozedUntilMs = int.tryParse(raw['snoozedUntilMs']?.toString() ?? '');
+  final senderName = raw['senderName']?.toString().trim();
+  return ActiveNudge(
+    nudgeId: nudgeId,
+    groupId: groupId,
+    senderId: senderId,
+    sentAt: sentAt,
+    status: status ?? ActiveNudgeStatus.pending,
+    senderName: senderName == null || senderName.isEmpty ? null : senderName,
+    snoozedUntil: snoozedUntilMs == null
+        ? null
+        : DateTime.fromMillisecondsSinceEpoch(snoozedUntilMs),
+  );
 }

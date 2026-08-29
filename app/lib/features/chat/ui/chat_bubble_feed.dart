@@ -156,7 +156,7 @@ class _ChatBubbleTileState extends State<_ChatBubbleTile> {
     return Opacity(
       opacity: fade,
       child: Padding(
-        padding: EdgeInsets.symmetric(vertical: 4.h),
+        padding: EdgeInsets.symmetric(vertical: 2.h),
         child: Row(
           mainAxisAlignment: isOwn
               ? MainAxisAlignment.end
@@ -183,7 +183,7 @@ class _ChatBubbleTileState extends State<_ChatBubbleTile> {
                       ),
                     ),
                   ),
-                  SizedBox(height: 3.h),
+                  SizedBox(height: 2.h),
                   // Frosted chip — soft gradient + blur instead of a flat fill.
                   ClipRRect(
                     borderRadius: radius,
@@ -231,7 +231,7 @@ class _ChatBubbleTileState extends State<_ChatBubbleTile> {
                         child: Padding(
                           padding: EdgeInsets.symmetric(
                             horizontal: 14.w,
-                            vertical: 9.h,
+                            vertical: 7.h,
                           ),
                           child: Text(
                             message.text,

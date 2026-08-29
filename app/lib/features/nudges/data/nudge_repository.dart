@@ -1,47 +1,5 @@
 import 'package:one_one_app/one_one.dart';
 
-class NudgeTarget {
-  const NudgeTarget.allFriends()
-    : targetScope = 'all_friends',
-      targetUserId = null,
-      targetUserIds = const [];
-
-  const NudgeTarget.singleFriend(this.targetUserId)
-    : targetScope = 'single_friend',
-      targetUserIds = const [];
-
-  NudgeTarget.selectedFriends(List<String> userIds)
-    : targetScope = userIds.length == 1 ? 'single_friend' : 'selected_friends',
-      targetUserId = userIds.length == 1 ? userIds.first : null,
-      targetUserIds = userIds.length == 1
-          ? const []
-          : List<String>.unmodifiable(userIds);
-
-  final String targetScope;
-  final String? targetUserId;
-  final List<String> targetUserIds;
-
-  Map<String, Object?> get json {
-    final result = <String, Object?>{'targetScope': targetScope};
-    final userId = targetUserId;
-    if (userId != null) result['targetUserId'] = userId;
-    if (targetUserIds.isNotEmpty) {
-      result['targetUserIds'] = targetUserIds;
-    }
-    return result;
-  }
-
-  Map<String, String> get query {
-    final result = <String, String>{'targetScope': targetScope};
-    final userId = targetUserId;
-    if (userId != null) result['targetUserId'] = userId;
-    if (targetUserIds.isNotEmpty) {
-      result['targetUserIds'] = targetUserIds.join(',');
-    }
-    return result;
-  }
-}
-
 class NudgeRepository {
   NudgeRepository({ApiClient? apiClient})
     : _apiClient = apiClient ?? ApiClient();
@@ -52,6 +10,7 @@ class NudgeRepository {
     required String groupId,
     required NudgeTarget target,
   }) async {
+    // 1. POST push nudge
     final response = await _apiClient.postJson(
       '/v1/groups/$groupId/nudges',
       target.json,
@@ -61,6 +20,7 @@ class NudgeRepository {
       groupId: groupId,
       kind: 'nudge',
     );
+    // 2. Log + analytics
     LogManager.log(
       LogLevel.info,
       'NudgeService',
@@ -84,6 +44,7 @@ class NudgeRepository {
     if (durationSeconds != 3 && durationSeconds != 6 && durationSeconds != 9) {
       throw ArgumentError.value(durationSeconds, 'durationSeconds');
     }
+    // 1. POST ring nudge
     final response = await _apiClient.postJson(
       '/v1/groups/$groupId/ring-nudges',
       {...target.json, 'durationSeconds': durationSeconds},
@@ -143,6 +104,7 @@ class NudgeRepository {
       'targetScope=${target.targetScope}',
     );
     try {
+      // 1. Reuse reserved upload URL, or request one
       final reservedUpload = _usableVoiceUpload(initiatedUpload);
       final reserved = reservedUpload != null;
       final upload =
@@ -188,6 +150,7 @@ class NudgeRepository {
             'durationMs=$durationMs reservedUrl=$reserved',
         groupId: groupId,
       );
+      // 2. PUT audio to GCS
       final uploadWatch = Stopwatch()..start();
       await _apiClient.putBytesToUrl(
         uploadUrl,
@@ -214,6 +177,7 @@ class NudgeRepository {
         'VOICE_NUDGE_SEND_START nudgeId=$eventId',
         groupId: groupId,
       );
+      // 3. Backend finalize + FCM
       final fcmWatch = Stopwatch()..start();
       final response = await _apiClient
           .postJson('/v1/groups/$groupId/voice-nudges/$eventId/complete', {
@@ -360,15 +324,6 @@ class NudgeDeliveryException implements Exception {
   String toString() => message;
 }
 
-/// Per-send delivery outcome for a nudge, derived from the aggregate
-/// `sent`/`failed` device counts the backend returns.
-///
-/// The push/ring/voice send APIs only report aggregate counts, not which
-/// specific recipient(s) failed, so [successRecipientIds] /
-/// [failedRecipientIds] are only populated when every intended recipient
-/// landed on the same side (all succeeded, or all failed). For a genuine
-/// partial failure, callers should fall back to [failedCount] /
-/// [totalRecipients] rather than guessing identities.
 class NudgeResult {
   const NudgeResult({
     required this.totalRecipients,

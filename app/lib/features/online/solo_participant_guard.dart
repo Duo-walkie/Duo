@@ -2,9 +2,6 @@ import 'package:livekit_client/livekit_client.dart' as livekit;
 
 import 'package:one_one_app/one_one.dart';
 
-/// Snapshot of the LiveKit room state captured when the solo-participant
-/// timeout fires. Callers use this to log *why* the invalid state occurred and
-/// to disconnect with full context.
 class SoloSessionContext {
   const SoloSessionContext({
     required this.roomName,
@@ -32,22 +29,6 @@ class SoloSessionContext {
   final List<String> remoteIdentities;
 }
 
-/// Detects when the local user is the sole connected participant in a LiveKit
-/// room and, after [PresenceConfig.soloParticipantTimeout], treats it as an
-/// invalid state.
-///
-/// LiveKit's `room.remoteParticipants` is the single source of truth — no
-/// backend/DB availability reads are used here, so the countdown starts and
-/// resets off real room presence alone.
-///
-/// Lifecycle:
-///  * on [RoomConnectedEvent]/[RoomReconnectedEvent] → evaluate
-///  * on [ParticipantConnectedEvent]/[ParticipantDisconnectedEvent] → evaluate
-///  * on [RoomDisconnectedEvent] → reset (not connected, never solo)
-///
-/// While solo, [refreshCountdown] gives a fresh countdown — used by the screen
-/// when a connection-mode change (call ↔ walkie-talkie, i.e. a mic-off signal)
-/// lands so everyone's timer re-bases off the latest LiveKit state.
 class SoloParticipantGuard {
   SoloParticipantGuard({
     required this.userId,

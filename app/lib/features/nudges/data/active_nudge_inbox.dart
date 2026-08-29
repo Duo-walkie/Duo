@@ -1,7 +1,5 @@
 import 'package:one_one_app/one_one.dart';
 
-/// Persists accept/decline/snooze so an incoming nudge is not re-prompted
-/// after the user already answered it (in-app or via the notification).
 abstract class ActiveNudgeStatusStore {
   Future<Map<String, ActiveNudgeStatusRecord>> load(String userId);
   Future<void> save(
@@ -79,8 +77,10 @@ class PrefsActiveNudgeStatusStore implements ActiveNudgeStatusStore {
 /// In-memory inbox of incoming nudges plus a persisted status map.
 ///
 /// Presentation is **one nudge per group** (most recently sent pending
-/// event). Accept/decline then apply to every still-active event in that
-/// group so two simultaneous senders both receive the response.
+/// event). Accept still fans out to other still-active events in that group
+/// so simultaneous senders can all connect. Decline applies to the presented
+/// event and any rings that share its shade notification batch — not every
+/// unrelated nudge in the group.
 class ActiveNudgeInbox extends ChangeNotifier {
   ActiveNudgeInbox({ActiveNudgeStatusStore? store, DateTime Function()? clock})
     : _store = store ?? const PrefsActiveNudgeStatusStore(),

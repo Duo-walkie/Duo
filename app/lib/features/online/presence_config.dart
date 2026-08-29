@@ -33,9 +33,9 @@ class PresenceConfig {
   /// Prevents runaway sessions from unattended devices.
   static const Duration dailyUsageCap = Duration(minutes: 180);
 
-  /// How long a single continuous stretch of call mode (always-on mic) is
+  /// How long a single continuous stretch of call mode (latched-on mic) is
   /// allowed before the local user is automatically switched back to
   /// walkie-talkie. Does not disconnect them from the group — only their
-  /// own connection mode changes. They can re-enter call mode immediately.
+  /// own connection mode changes. They can tap the main button to talk again.
   static const Duration callModeTimeout = Duration(minutes: 15);
 }

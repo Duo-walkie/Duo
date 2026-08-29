@@ -7,10 +7,11 @@ class MemberAvailability {
     this.connectionMode = walkieTalkieMode,
   });
 
-  /// Default for everyone: mic only opens while actively pressing talk.
+  /// Default: mic stays off until the user taps the main button.
   static const String walkieTalkieMode = 'walkieTalkie';
 
-  /// Always-on, hands-free connection — mic stays open once switched on.
+  /// Latched-on mic after the user taps the main button. Independent per
+  /// member — voices overlap when more than one person has tapped.
   static const String callMode = 'call';
 
   static const MemberAvailability away = MemberAvailability(
@@ -24,8 +25,8 @@ class MemberAvailability {
   final bool canReceiveLiveAudio;
   final int? staleAfterAt;
 
-  /// Per-user connection style: [walkieTalkieMode] (push-to-talk, default)
-  /// or [callMode] (always-on mic). This is independent per member — it is
+  /// Per-user connection style: [walkieTalkieMode] (mic off until tapped)
+  /// or [callMode] (latched-on mic). This is independent per member — it is
   /// never a group-wide setting.
   final String connectionMode;
 

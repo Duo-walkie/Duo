@@ -139,6 +139,7 @@ class MainActivity : FlutterFragmentActivity() {
         }
         VoiceNudgeNotifications.ensureChannels(this)
         VoiceNudgeNotifications.cancelStaleChatPiles(this)
+        NudgeExpiryTracker.reconcile(this)
         if (BuildConfig.DEBUG) logFirebaseRuntimeConfiguration()
         voiceNudgeChannel = MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
@@ -304,10 +305,37 @@ class MainActivity : FlutterFragmentActivity() {
                 "dismissIncomingNudge" -> {
                     val eventId = call.arguments?.toString()
                     if (!eventId.isNullOrBlank()) {
-                        (getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager)
-                            .cancel(VoiceNudgeNotifications.idFor(eventId))
+                        // In-app Accept/Decline also uses this path — cancel the
+                        // 10-min expiry so it cannot fire after a successful
+                        // session (or decline) once the room later goes offline.
+                        val batch = RingNudgeBatchStore.batchForEvent(this, eventId)
+                        if (batch != null) {
+                            for (memberId in batch.eventIds) {
+                                NudgeExpiryTracker.cancelExpiry(this, memberId)
+                            }
+                            NudgeExpiryTracker.cancelExpiry(this, batch.expiryKey)
+                            (getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager)
+                                .cancel(batch.notificationId)
+                            RingNudgeBatchStore.clearBatch(this, batch.groupId)
+                        } else {
+                            NudgeExpiryTracker.cancelExpiry(this, eventId)
+                            (getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager)
+                                .cancel(VoiceNudgeNotifications.idFor(eventId))
+                        }
                     }
                     result.success(null)
+                }
+
+                "eventIdsSharingNotification" -> {
+                    val eventId = call.arguments?.toString()
+                    if (eventId.isNullOrBlank()) {
+                        result.success(emptyList<String>())
+                    } else {
+                        val members = RingNudgeBatchStore.memberEventIds(this, eventId)
+                        result.success(
+                            if (members.isEmpty()) listOf(eventId) else members,
+                        )
+                    }
                 }
 
                 "takePendingChatPileOpen" -> {
@@ -629,16 +657,29 @@ class MainActivity : FlutterFragmentActivity() {
         val senderUserId = intent.getStringExtra(VoiceNudgeContract.extraSenderUserId)
         val notificationId = intent.getIntExtra(
             VoiceNudgeContract.extraNotificationId,
-            VoiceNudgeNotifications.idFor(eventId),
+            RingNudgeBatchStore.notificationIdForEvent(this, eventId)
+                ?: VoiceNudgeNotifications.idFor(eventId),
         )
         (getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager)
             .cancel(notificationId)
         if (action != "open") {
+            val batch = RingNudgeBatchStore.batchForEvent(this, eventId)
             VoiceNudgeAudioCache.delete(this, eventId)
             // B5: Cancel the 10-minute expiry alarm since the user took action.
             NudgeExpiryTracker.cancelExpiry(this, eventId)
             IncomingNudgeStore.markStatus(this, eventId, "accepted")
             IncomingNudgeDispatcher.signalStatus(eventId, "accepted")
+            if (batch != null) {
+                // Cancel the shared ring-batch window; leave sibling members
+                // pending so Flutter `_acceptSiblingNudges` can still POST accept.
+                for (memberId in batch.eventIds) {
+                    if (memberId != eventId) {
+                        NudgeExpiryTracker.cancelExpiry(this, memberId)
+                    }
+                }
+                NudgeExpiryTracker.cancelExpiry(this, batch.expiryKey)
+                RingNudgeBatchStore.clearBatch(this, batch.groupId)
+            }
         }
         NudgeActionStore.save(
             this,

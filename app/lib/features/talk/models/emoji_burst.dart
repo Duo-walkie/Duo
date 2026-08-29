@@ -1,9 +1,3 @@
-/// Tunable knobs for [EmojiBurstOverlay] / `_EmojiBurstEffect`.
-///
-/// Kept as a single, easily-swappable config object so speed/count/spread can
-/// be tuned (and A/B'd against the previous single-emoji behavior) without
-/// touching the animation code itself. See `emoji_burst_preview_main.dart`
-/// for a standalone harness that live-tunes these values.
 class EmojiBurstConfig {
   const EmojiBurstConfig({
     this.particleCount = 12,
@@ -23,11 +17,8 @@ class EmojiBurstConfig {
        assert(staggerMs >= 0),
        assert(minEmojiSize > 0 && minEmojiSize <= maxEmojiSize);
 
-  /// Default "burst" look: a dozen staggered emoji rising up ~60% of the
-  /// screen over ~1-1.5s, similar in feel to a TikTok-style reaction stream.
   static const standard = EmojiBurstConfig();
 
-  /// The old behavior for comparison: a single instance, no spread.
   static const singleEmoji = EmojiBurstConfig(
     particleCount: 1,
     spreadWidth: 0,

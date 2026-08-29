@@ -325,10 +325,10 @@ class _ChatBubbleBarState extends State<ChatBubbleBar> {
   Widget _buildActionRow({required Key key}) {
     final online = widget.anyMemberOnline;
     // Online emoji chips are a touch taller than offline text presets —
-    // give the row enough height so glyphs / more-reactions aren't clipped.
+    // keep this compact so 5 chat bubbles still fit above it when live.
     return SizedBox(
       key: key,
-      height: online ? 48.h : 40.h,
+      height: online ? 44.h : 40.h,
       child: Padding(
         padding: EdgeInsets.symmetric(horizontal: 16.w),
         child: Row(

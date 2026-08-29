@@ -7,24 +7,41 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import android.os.SystemClock
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 
 // ── B5: Local nudge expiry (10-minute timeout, on-device) ──
 //
-// When a nudge arrives on the receiver's device we record its timestamp and
-// schedule an AlarmManager broadcast 10 minutes later.  If the broadcast
-// fires and the nudge hasn't been accepted yet, we show a local expiry
-// notification. The sender schedules the same alarm after a successful send.
+// When a nudge arrives on the receiver's device we record its wall-clock
+// deadline and schedule an AlarmManager broadcast. If the broadcast fires
+// and the nudge hasn't been accepted yet:
+//   • Ring: cancel the (possibly batched) shade notification
+//   • Voice: strip Accept/Decline but keep Play when audio is cached
+//   • Sender-side / other: show a local expiry toast
 // Cancel only on accept / decline / snooze — delivery ("played") must not
-// clear the accept window.
+// clear the accept window. Deadlines use RTC so reconcile() can re-arm after
+// process death / backgrounding.
 
 object NudgeExpiryTracker {
     private const val prefsName = "one_one_nudge_expiry"
     private const val keyPrefix = "nudge_arrival_"
+    private const val metaPrefix = "nudge_meta_"
     const val expiryMinutes = 10L
+    const val expiryMs = expiryMinutes * 60_000L
     const val actionExpiry = "app.oneone.action.NUDGE_EXPIRED"
+
+    data class ExpiryMeta(
+        val eventId: String,
+        val arrivedAtMs: Long,
+        val deadlineAtMs: Long,
+        val senderName: String,
+        val groupId: String?,
+        val groupName: String?,
+        val kind: String?,
+        val notificationId: Int?,
+        val isSenderSide: Boolean,
+        val memberEventIds: List<String>,
+    )
 
     /** Record a nudge arrival and schedule its expiry alarm. */
     fun scheduleExpiry(
@@ -35,66 +52,53 @@ object NudgeExpiryTracker {
         groupId: String?,
         recipientName: String?,
         isSenderSide: Boolean = false,
+        kind: String? = null,
+        notificationId: Int? = null,
+        groupName: String? = null,
+        deadlineAtMs: Long? = null,
+        memberEventIds: List<String> = emptyList(),
     ) {
+        val now = System.currentTimeMillis()
+        val deadline = deadlineAtMs ?: (now + expiryMs)
         val prefs = context.getSharedPreferences(prefsName, Context.MODE_PRIVATE)
+        val meta = org.json.JSONObject().apply {
+            put("eventId", eventId)
+            put("arrivedAtMs", now)
+            put("deadlineAtMs", deadline)
+            put("senderName", senderName)
+            put("isSenderSide", isSenderSide)
+            if (!groupId.isNullOrBlank()) put("groupId", groupId)
+            if (!groupName.isNullOrBlank()) put("groupName", groupName)
+            if (!kind.isNullOrBlank()) put("kind", kind)
+            if (notificationId != null) put("notificationId", notificationId)
+            if (!recipientUserId.isNullOrBlank()) put("recipientUserId", recipientUserId)
+            if (!recipientName.isNullOrBlank()) put("recipientName", recipientName)
+            if (memberEventIds.isNotEmpty()) {
+                put("memberEventIds", org.json.JSONArray(memberEventIds))
+            }
+        }
         prefs.edit()
-            .putLong("${keyPrefix}$eventId", System.currentTimeMillis())
+            .putLong("${keyPrefix}$eventId", now)
+            .putString("${metaPrefix}$eventId", meta.toString())
             .apply()
 
-        val alarmManager = context.getSystemService(AlarmManager::class.java)
-        val intent = Intent(context, NudgeExpiryReceiver::class.java).apply {
-            action = actionExpiry
-            putExtra("eventId", eventId)
-            putExtra("senderName", senderName)
-            if (!recipientUserId.isNullOrBlank()) {
-                putExtra("recipientUserId", recipientUserId)
-            }
-            putExtra("groupId", groupId)
-            putExtra("recipientName", recipientName)
-            putExtra("isSenderSide", isSenderSide)
-        }
-        val pendingIntent = PendingIntent.getBroadcast(
-            context,
-            eventId.hashCode(),
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-        val triggerAt = SystemClock.elapsedRealtime() + expiryMinutes * 60_000L
-        // Prefer an exact wake so the 10-minute accept window is reliable even
-        // when the app is backgrounded; fall back if exact alarms are denied.
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                alarmManager.setExactAndAllowWhileIdle(
-                    AlarmManager.ELAPSED_REALTIME_WAKEUP,
-                    triggerAt,
-                    pendingIntent,
-                )
-            } else {
-                @Suppress("DEPRECATION")
-                alarmManager.setExact(
-                    AlarmManager.ELAPSED_REALTIME_WAKEUP,
-                    triggerAt,
-                    pendingIntent,
-                )
-            }
-        } catch (_: SecurityException) {
-            alarmManager.setAndAllowWhileIdle(
-                AlarmManager.ELAPSED_REALTIME_WAKEUP,
-                triggerAt,
-                pendingIntent,
-            )
-        }
+        armAlarm(context, eventId, deadline)
         Log.i(
             VoiceNudgeDiagnostics.tag,
             "[NUDGE-EXPIRY-00] Scheduled expiry eventSuffix=${eventId.takeLast(6)} " +
-                "senderSide=$isSenderSide in=${expiryMinutes}m",
+                "kind=${kind ?: "none"} senderSide=$isSenderSide " +
+                "in=${((deadline - now) / 1000).coerceAtLeast(0)}s",
         )
     }
 
     /** Cancel the expiry alarm — accept / decline / snooze only. */
     fun cancelExpiry(context: Context, eventId: String) {
+        if (eventId.isBlank()) return
         val prefs = context.getSharedPreferences(prefsName, Context.MODE_PRIVATE)
-        prefs.edit().remove("${keyPrefix}$eventId").apply()
+        prefs.edit()
+            .remove("${keyPrefix}$eventId")
+            .remove("${metaPrefix}$eventId")
+            .apply()
 
         val alarmManager = context.getSystemService(AlarmManager::class.java)
         val intent = Intent(context, NudgeExpiryReceiver::class.java).apply {
@@ -114,52 +118,242 @@ object NudgeExpiryTracker {
         val prefs = context.getSharedPreferences(prefsName, Context.MODE_PRIVATE)
         return prefs.contains("${keyPrefix}$eventId")
     }
+
+    fun readMeta(context: Context, eventId: String): ExpiryMeta? {
+        val prefs = context.getSharedPreferences(prefsName, Context.MODE_PRIVATE)
+        val raw = prefs.getString("${metaPrefix}$eventId", null) ?: return null
+        return try {
+            val obj = org.json.JSONObject(raw)
+            val membersJson = obj.optJSONArray("memberEventIds")
+            val members = buildList {
+                if (membersJson != null) {
+                    for (i in 0 until membersJson.length()) {
+                        val id = membersJson.optString(i).trim()
+                        if (id.isNotEmpty()) add(id)
+                    }
+                }
+            }
+            ExpiryMeta(
+                eventId = obj.optString("eventId", eventId),
+                arrivedAtMs = obj.optLong("arrivedAtMs", 0L),
+                deadlineAtMs = obj.optLong("deadlineAtMs", 0L),
+                senderName = obj.optString("senderName", "Someone"),
+                groupId = obj.optString("groupId").takeIf { it.isNotBlank() },
+                groupName = obj.optString("groupName").takeIf { it.isNotBlank() },
+                kind = obj.optString("kind").takeIf { it.isNotBlank() },
+                notificationId = if (obj.has("notificationId")) obj.optInt("notificationId") else null,
+                isSenderSide = obj.optBoolean("isSenderSide", false),
+                memberEventIds = members,
+            )
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /**
+     * Re-arm or immediately apply overdue expiries using wall-clock deadlines.
+     * Call on cold start so Accept/Decline windows stay correct after restart.
+     */
+    fun reconcile(context: Context) {
+        val prefs = context.getSharedPreferences(prefsName, Context.MODE_PRIVATE)
+        val now = System.currentTimeMillis()
+        val eventIds = prefs.all.keys.mapNotNull { key ->
+            when {
+                key.startsWith(metaPrefix) -> key.removePrefix(metaPrefix)
+                key.startsWith(keyPrefix) -> key.removePrefix(keyPrefix)
+                else -> null
+            }
+        }.filter { it.isNotBlank() }.toSet()
+        for (eventId in eventIds) {
+            val meta = readMeta(context, eventId)
+            val deadline = meta?.deadlineAtMs
+                ?: (prefs.getLong("${keyPrefix}$eventId", 0L).takeIf { it > 0L }?.plus(expiryMs))
+                ?: continue
+            if (deadline <= now) {
+                NudgeExpiryReceiver.applyExpiry(context, eventId, meta)
+            } else {
+                armAlarm(context, eventId, deadline)
+            }
+        }
+    }
+
+    private fun armAlarm(context: Context, eventId: String, deadlineAtMs: Long) {
+        val alarmManager = context.getSystemService(AlarmManager::class.java)
+        val intent = Intent(context, NudgeExpiryReceiver::class.java).apply {
+            action = actionExpiry
+            putExtra("eventId", eventId)
+        }
+        // Attach display fields from meta so the receiver works even if prefs
+        // are partially pruned; reconcile/applyExpiry prefer prefs meta.
+        readMeta(context, eventId)?.let { meta ->
+            intent.putExtra("senderName", meta.senderName)
+            intent.putExtra("groupId", meta.groupId)
+            intent.putExtra("isSenderSide", meta.isSenderSide)
+            intent.putExtra("kind", meta.kind)
+            meta.notificationId?.let { intent.putExtra("notificationId", it) }
+        }
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            eventId.hashCode(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                alarmManager.setExactAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    deadlineAtMs,
+                    pendingIntent,
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                alarmManager.setExact(
+                    AlarmManager.RTC_WAKEUP,
+                    deadlineAtMs,
+                    pendingIntent,
+                )
+            }
+        } catch (_: SecurityException) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                alarmManager.setAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    deadlineAtMs,
+                    pendingIntent,
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                alarmManager.set(AlarmManager.RTC_WAKEUP, deadlineAtMs, pendingIntent)
+            }
+        }
+    }
 }
 
 class NudgeExpiryReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != NudgeExpiryTracker.actionExpiry) return
         val eventId = intent.getStringExtra("eventId") ?: return
-        val senderName = intent.getStringExtra("senderName") ?: "Someone"
-        val groupId = intent.getStringExtra("groupId")
-        val isSenderSide = intent.getBooleanExtra("isSenderSide", false)
+        applyExpiry(context, eventId, NudgeExpiryTracker.readMeta(context, eventId))
+    }
 
-        // Only fire if the nudge is still pending (not already accepted).
-        if (!NudgeExpiryTracker.hasArrived(context, eventId)) return
-        NudgeExpiryTracker.cancelExpiry(context, eventId)
+    companion object {
+        fun applyExpiry(
+            context: Context,
+            eventId: String,
+            meta: NudgeExpiryTracker.ExpiryMeta?,
+        ) {
+            if (!NudgeExpiryTracker.hasArrived(context, eventId)) return
+            NudgeExpiryTracker.cancelExpiry(context, eventId)
 
-        val manager = context.getSystemService(NotificationManager::class.java)
+            val appContext = context.applicationContext
+            val senderName = meta?.senderName ?: "Someone"
+            val groupId = meta?.groupId
+            val isSenderSide = meta?.isSenderSide == true
+            val kind = meta?.kind
+            val manager = appContext.getSystemService(NotificationManager::class.java)
 
-        if (isSenderSide) {
-            // Notify sender: "Your nudge to [Recipient] was not accepted in time."
-            manager.notify(
-                VoiceNudgeNotifications.idFor("expiry_sender_$eventId"),
-                VoiceNudgeNotifications.buildGeneral(
-                    context,
-                    "Nudge expired ⏰",
-                    "Your nudge to $senderName was not accepted in time.",
-                    groupId,
-                ),
-            )
-            Log.i(
-                VoiceNudgeDiagnostics.tag,
-                "[NUDGE-EXPIRY-02] Sender nudge expired eventId=${eventId.takeLast(6)} recipient=$senderName",
-            )
-        } else {
-            // Notify receiver: "Nudge from [Sender] has expired."
-            manager.notify(
-                VoiceNudgeNotifications.idFor("expiry_recv_$eventId"),
-                VoiceNudgeNotifications.buildGeneral(
-                    context,
-                    "Nudge expired ⏰",
-                    "Nudge from $senderName has expired.",
-                    groupId,
-                ),
-            )
-            Log.i(
-                VoiceNudgeDiagnostics.tag,
-                "[NUDGE-EXPIRY-01] Receiver nudge expired eventId=${eventId.takeLast(6)} sender=$senderName",
-            )
+            if (isSenderSide) {
+                manager.notify(
+                    VoiceNudgeNotifications.idFor("expiry_sender_$eventId"),
+                    VoiceNudgeNotifications.buildGeneral(
+                        appContext,
+                        "Nudge expired ⏰",
+                        "Your nudge to $senderName was not accepted in time.",
+                        groupId,
+                    ),
+                )
+                Log.i(
+                    VoiceNudgeDiagnostics.tag,
+                    "[NUDGE-EXPIRY-02] Sender nudge expired eventId=${eventId.takeLast(6)} " +
+                        "recipient=$senderName",
+                )
+                return
+            }
+
+            when (kind) {
+                VoiceNudgeContract.kindRing -> {
+                    val members = meta?.memberEventIds?.takeIf { it.isNotEmpty() }
+                        ?: listOf(eventId)
+                    val batch = members.firstOrNull()?.let {
+                        RingNudgeBatchStore.batchForEvent(appContext, it)
+                    }
+                    val notificationId = meta?.notificationId
+                        ?: batch?.notificationId
+                        ?: VoiceNudgeNotifications.idFor(eventId)
+                    manager.cancel(notificationId)
+                    // Drop the separate "expired" toast — the ring slab itself
+                    // disappearing is the signal; Accept/Decline are gone with it.
+                    for (memberId in members) {
+                        NudgeExpiryTracker.cancelExpiry(appContext, memberId)
+                        // Keep status pending so we do not fake a user decline;
+                        // Flutter drops prompts via sentAt + 10 min.
+                    }
+                    if (batch != null) {
+                        RingNudgeBatchStore.clearBatch(appContext, batch.groupId)
+                    } else {
+                        for (memberId in members) {
+                            RingNudgeBatchStore.clearForEvent(appContext, memberId)
+                        }
+                    }
+                    Log.i(
+                        VoiceNudgeDiagnostics.tag,
+                        "[NUDGE-EXPIRY-01] Ring batch expired " +
+                            "eventId=${eventId.takeLast(6)} members=${members.size}",
+                    )
+                }
+                VoiceNudgeContract.kindVoice -> {
+                    val notificationId = meta?.notificationId
+                        ?: VoiceNudgeNotifications.idFor(eventId)
+                    val cached = VoiceNudgeAudioCache.file(appContext, eventId).isFile
+                    if (cached) {
+                        // Strip Accept/Decline (null responseUrl) but keep Play.
+                        manager.notify(
+                            notificationId,
+                            VoiceNudgeNotifications.build(
+                                context = appContext,
+                                eventId = eventId,
+                                groupId = groupId.orEmpty(),
+                                responseUrl = null,
+                                senderName = senderName,
+                                status = "Voice nudge received 🎙️",
+                                ongoing = false,
+                                cachedAudioAvailable = true,
+                                isPlaying = false,
+                                largeIcon = NotificationAvatarHelper.largeIcon(
+                                    appContext,
+                                    null,
+                                    senderName,
+                                    null,
+                                ),
+                                groupName = meta?.groupName,
+                                notificationId = notificationId,
+                            ),
+                        )
+                    }
+                    // If cache is gone, leave the existing shade entry alone —
+                    // Accept/Decline are already past the Flutter prompt window.
+                    Log.i(
+                        VoiceNudgeDiagnostics.tag,
+                        "[NUDGE-EXPIRY-01] Voice accept window expired " +
+                            "eventId=${eventId.takeLast(6)} keepPlay=$cached",
+                    )
+                }
+                else -> {
+                    manager.notify(
+                        VoiceNudgeNotifications.idFor("expiry_recv_$eventId"),
+                        VoiceNudgeNotifications.buildGeneral(
+                            appContext,
+                            "Nudge expired ⏰",
+                            "Nudge from $senderName has expired.",
+                            groupId,
+                        ),
+                    )
+                    Log.i(
+                        VoiceNudgeDiagnostics.tag,
+                        "[NUDGE-EXPIRY-01] Receiver nudge expired " +
+                            "eventId=${eventId.takeLast(6)} sender=$senderName",
+                    )
+                }
+            }
         }
     }
 }
@@ -866,13 +1060,43 @@ class VoiceNudgeMessagingService : FirebaseMessagingService() {
         val recipientUserId = data["recipientUserId"]?.takeIf { it.isNotBlank() }
         val groupId = data["groupId"]
         val recipientName = data["recipientName"]
+        val kind = data["type"] ?: data["kind"]
+        val groupName = data["groupName"]
+        val responseUrl = data["responseUrl"]
+
+        var scheduleEventId = eventId
+        var notificationId = VoiceNudgeNotifications.idFor(eventId)
+        var deadlineAtMs: Long? = null
+        var memberEventIds = emptyList<String>()
+
+        if (kind == VoiceNudgeContract.kindRing && !groupId.isNullOrBlank()) {
+            val batch = RingNudgeBatchStore.remember(
+                this,
+                groupId = groupId,
+                eventId = eventId,
+                responseUrl = responseUrl,
+                senderName = senderName,
+            )
+            scheduleEventId = batch.expiryKey
+            notificationId = batch.notificationId
+            deadlineAtMs = batch.startedAtMs + RingNudgeBatchStore.windowMs
+            memberEventIds = batch.eventIds
+            // Cancel any prior per-event alarm; the batch key owns the window.
+            NudgeExpiryTracker.cancelExpiry(this, eventId)
+        }
+
         NudgeExpiryTracker.scheduleExpiry(
             this,
-            eventId,
+            scheduleEventId,
             senderName,
             recipientUserId,
             groupId,
             recipientName,
+            kind = kind,
+            notificationId = notificationId,
+            groupName = groupName,
+            deadlineAtMs = deadlineAtMs,
+            memberEventIds = memberEventIds,
         )
     }
 
@@ -881,6 +1105,7 @@ class VoiceNudgeMessagingService : FirebaseMessagingService() {
         val groupId = data["groupId"]?.takeIf { it.isNotBlank() } ?: return
         val senderUserId = data["senderUserId"]
         val senderName = data["senderName"]?.take(80)
+        val kind = data["type"] ?: data["kind"]
         IncomingNudgeStore.upsert(
             this,
             eventId,
@@ -888,7 +1113,7 @@ class VoiceNudgeMessagingService : FirebaseMessagingService() {
             senderUserId,
             senderName,
             responseUrl = data["responseUrl"],
-            kind = data["type"],
+            kind = kind,
         )
         DuoWidgetRenderer.updateAll(this)
         IncomingNudgeDispatcher.signal(
@@ -899,6 +1124,7 @@ class VoiceNudgeMessagingService : FirebaseMessagingService() {
                 put("status", "pending")
                 if (!senderUserId.isNullOrBlank()) put("senderUserId", senderUserId)
                 if (!senderName.isNullOrBlank()) put("senderName", senderName)
+                if (!kind.isNullOrBlank()) put("kind", kind)
             },
         )
     }

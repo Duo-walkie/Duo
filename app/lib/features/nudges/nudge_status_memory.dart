@@ -176,9 +176,7 @@ class NudgeStatusMemory {
         ? LastNudgeStatus.declined
         : LastNudgeStatus.snoozed;
 
-    final signifiers = <LastNudgeRecipientSignifier>[
-      ...existing.signifiers,
-    ];
+    final signifiers = <LastNudgeRecipientSignifier>[...existing.signifiers];
     final index = signifiers.indexWhere((s) => s.userId == responderUserId);
     final prior = index >= 0 ? signifiers[index] : null;
 

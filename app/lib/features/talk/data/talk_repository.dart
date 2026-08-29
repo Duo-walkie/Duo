@@ -8,6 +8,7 @@ class TalkRepository {
 
   Future<TalkSession> startTalk(OnlineSession session) async {
     final now = _nowSeconds();
+    // 1. Must already be live
     final availability = await _database
         .ref('memberAvailability/${session.groupId}/${session.userId}')
         .get();
@@ -21,6 +22,7 @@ class TalkRepository {
 
     final talkSessionId = const Uuid().v4();
     final expiresAt = now + 60;
+    // 2. Take the talk lock
     final lockRef = _database.ref('talkLocks/${session.groupId}');
     final result = await lockRef.runTransaction((current) {
       if (current is Map<Object?, Object?>) {
@@ -66,6 +68,7 @@ class TalkRepository {
       expiresAt: expiresAt,
     );
 
+    // 3. Write talk session + talking state
     await _database.ref().update({
       'talkSessions/${session.groupId}/$talkSessionId': {
         'talkSessionId': talkSessionId,
@@ -85,6 +88,7 @@ class TalkRepository {
       'memberAvailability/${session.groupId}/${session.userId}/updatedAt': now,
     });
 
+    // 4. Emit talk_started
     await _writeStatusEvent(session, 'talk_started', {
       'talkSessionId': talkSessionId,
     });
@@ -98,6 +102,7 @@ class TalkRepository {
   }) async {
     final now = _nowSeconds();
 
+    // 1. Release lock if we still hold it
     await _database.ref('talkLocks/${talkSession.groupId}').runTransaction((
       current,
     ) {
@@ -110,6 +115,7 @@ class TalkRepository {
       return Transaction.success(current);
     });
 
+    // 2. Mark talk completed, return to live
     await _database.ref().update({
       'talkSessions/${talkSession.groupId}/${talkSession.talkSessionId}/endedAt':
           now,
@@ -123,6 +129,7 @@ class TalkRepository {
           now,
     });
 
+    // 3. Emit talk_stopped
     await _writeStatusEventFromTalk(talkSession, 'talk_stopped', {
       'talkSessionId': talkSession.talkSessionId,
       'reason': reason,

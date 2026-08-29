@@ -1,17 +1,6 @@
 import 'package:one_one_app/one_one.dart';
 
-/// Warms up everything that is safe to prepare *before* a user actually
-/// accepts a nudge and goes online — without ever calling `Room.connect()`.
-///
-/// Doing this ahead of the accept removes several sources of latency from the
-/// critical path:
-///  * the LiveKit token backend round-trip (cached until accept),
-///  * the Flutter [Room] object + noise-filter/audio-route construction,
-///  * DNS + TLS to the LiveKit server (`Room.prepareConnection`),
-///  * the WebRTC native library load (touched once at app start).
-///
-/// None of the warm-up work joins a room, so it costs zero participant
-/// minutes.
+// Prefetch token + warm Room/DNS before accept. Never calls Room.connect().
 class LiveKitConnectionWarmer {
   LiveKitConnectionWarmer._();
 
@@ -25,8 +14,6 @@ class LiveKitConnectionWarmer {
   Room? _warmRoom;
   bool? _warmRoomSpeakerOn;
 
-  /// Touch-loads the WebRTC native library once. Idempotent: the first call
-  /// wins and subsequent callers await the same in-flight future.
   Future<void> ensureWebRtcInitialized() {
     if (_webRtcInitialized) return Future<void>.value();
     return _webRtcInitFuture ??= _initializeWebRtc();
@@ -43,9 +30,6 @@ class LiveKitConnectionWarmer {
     }
   }
 
-  /// Returns a usable prefetched token for [groupId], consuming it from the
-  /// cache (tokens are single-use). Returns null when nothing was prefetched
-  /// or the token has expired.
   PreparedLiveKitToken? takeToken(String groupId) {
     final prepared = _tokens[groupId];
     if (prepared == null) return null;
@@ -57,9 +41,7 @@ class LiveKitConnectionWarmer {
     return prepared;
   }
 
-  /// Prefetches a LiveKit token for [group] and warms DNS/TLS plus a reusable
-  /// [Room] object. Call this from the sender (when a nudge is sent) and from
-  /// the receiver (when the FCM nudge arrives) so the later accept is fast.
+  // 1. Init WebRTC  2. Fetch token  3. Warm DNS/TLS (no join)
   Future<void> prefetch({
     required OnlineRepository repository,
     required IdentitySession identity,
@@ -96,9 +78,6 @@ class LiveKitConnectionWarmer {
     }
   }
 
-  /// Returns a pre-created [Room] with the requested speaker route if one was
-  /// warmed, otherwise null. Ownership transfers to the caller, which must
-  /// attach its listener and connect. The cached warm room is consumed.
   Room? takeWarmRoom({required bool speakerOn}) {
     final room = _warmRoom;
     if (room == null) return null;

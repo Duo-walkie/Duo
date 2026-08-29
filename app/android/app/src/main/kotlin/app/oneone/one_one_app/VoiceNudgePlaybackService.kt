@@ -200,7 +200,7 @@ class VoiceNudgePlaybackService : Service() {
             // This nudge is about to be processed immediately, so promote the
             // service to the foreground with a "Preparing…" notification.
             startForegroundMediaPlayback(
-                VoiceNudgeNotifications.idFor(request.eventId),
+                notificationIdFor(request),
                 notification(
                     request,
                     "Preparing nudge… 🎙️",
@@ -379,7 +379,7 @@ class VoiceNudgePlaybackService : Service() {
             clearActiveTimeout()
             VoiceNudgeAudioCache.delete(this, current.eventId)
             getSystemService(NotificationManager::class.java).cancel(
-                VoiceNudgeNotifications.idFor(current.eventId),
+                notificationIdFor(current),
             )
         }
         if (active == null && queue.isEmpty()) {
@@ -435,7 +435,7 @@ class VoiceNudgePlaybackService : Service() {
             else -> "Downloading voice nudge… 🎙️"
         }
         startForegroundMediaPlayback(
-            VoiceNudgeNotifications.idFor(request.eventId),
+            notificationIdFor(request),
             notification(
                 request,
                 initialStatus,
@@ -994,7 +994,7 @@ class VoiceNudgePlaybackService : Service() {
             stopForeground(false)
         }
         getSystemService(NotificationManager::class.java).notify(
-            VoiceNudgeNotifications.idFor(request.eventId),
+            notificationIdFor(request),
             notification(
                 request,
                 "Paused ⏸️",
@@ -1554,7 +1554,7 @@ class VoiceNudgePlaybackService : Service() {
                 stopForeground(false)
             }
             manager.notify(
-                VoiceNudgeNotifications.idFor(request.eventId),
+                notificationIdFor(request),
                 notification(
                     request,
                     finalStatus,
@@ -1569,7 +1569,7 @@ class VoiceNudgePlaybackService : Service() {
                 "[FCM-D] finishActive: more queued, posting final notification and processing next",
             )
             manager.notify(
-                VoiceNudgeNotifications.idFor(request.eventId),
+                notificationIdFor(request),
                 notification(
                     request,
                     finalStatus,
@@ -1757,7 +1757,7 @@ class VoiceNudgePlaybackService : Service() {
         )
         val manager = getSystemService(NotificationManager::class.java)
         manager.notify(
-            VoiceNudgeNotifications.idFor(request.eventId),
+            notificationIdFor(request),
             notification(
                 request,
                 status,
@@ -1766,6 +1766,27 @@ class VoiceNudgePlaybackService : Service() {
                 isPlaying = isPlaying,
             ),
         )
+    }
+
+    private fun notificationIdFor(request: NudgeRequest): Int {
+        if (request.kind == VoiceNudgeContract.kindRing) {
+            return RingNudgeBatchStore.remember(
+                this,
+                groupId = request.groupId,
+                eventId = request.eventId,
+                responseUrl = request.responseUrl,
+                senderName = request.senderName,
+            ).notificationId
+        }
+        return RingNudgeBatchStore.notificationIdForEvent(this, request.eventId)
+            ?: VoiceNudgeNotifications.idFor(request.eventId)
+    }
+
+    private fun ringTimeoutRemainingMs(request: NudgeRequest): Long? {
+        if (request.kind != VoiceNudgeContract.kindRing) return null
+        val batch = RingNudgeBatchStore.batchForEvent(this, request.eventId) ?: return null
+        val remaining = batch.startedAtMs + RingNudgeBatchStore.windowMs - System.currentTimeMillis()
+        return remaining.coerceAtLeast(1L)
     }
 
     private fun notification(
@@ -1787,11 +1808,22 @@ class VoiceNudgePlaybackService : Service() {
             cachedAudioAvailable = cachedAudioAvailable,
             isPlaying = isPlaying,
         )
+        val notificationId = notificationIdFor(request)
+        // After the accept window, voice keeps Play but drops Accept/Decline.
+        val responseUrl = if (
+            !ongoing &&
+            request.kind == VoiceNudgeContract.kindVoice &&
+            !NudgeExpiryTracker.hasArrived(this, request.eventId)
+        ) {
+            null
+        } else {
+            request.responseUrl
+        }
         return VoiceNudgeNotifications.build(
             this,
             request.eventId,
             request.groupId,
-            request.responseUrl,
+            responseUrl,
             request.senderName,
             status,
             ongoing,
@@ -1805,6 +1837,8 @@ class VoiceNudgePlaybackService : Service() {
             ),
             senderUserId = request.senderUserId,
             groupName = request.groupName,
+            notificationId = notificationId,
+            timeoutAfterMs = if (ongoing) null else ringTimeoutRemainingMs(request),
         )
     }
 
@@ -1820,7 +1854,7 @@ class VoiceNudgePlaybackService : Service() {
         )
         try {
             val manager = getSystemService(NotificationManager::class.java)
-            val notificationId = VoiceNudgeNotifications.idFor(posted.request.eventId)
+            val notificationId = notificationIdFor(posted.request)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 val stillShowing = manager.activeNotifications.any { it.id == notificationId }
                 if (!stillShowing) return

@@ -14,6 +14,7 @@ class OnlineRepository {
     String connectionMode = MemberAvailability.walkieTalkieMode,
     PreparedLiveKitToken? preparedToken,
   }) async {
+    // 1. Mic permission
     await _requestOnlinePermissions();
 
     final now = _nowSeconds();
@@ -21,6 +22,7 @@ class OnlineRepository {
     final String livekitSessionId;
     final LiveKitTokenResponse token;
 
+    // 2. Reuse a prepared token or mint a new one
     if (preparedToken != null && preparedToken.isUsableAt(now)) {
       serviceSessionId = preparedToken.serviceSessionId;
       livekitSessionId = preparedToken.livekitSessionId;
@@ -60,6 +62,7 @@ class OnlineRepository {
       serviceSessionId: serviceSessionId,
     );
 
+    // 3. Write connecting presence
     await _database.ref().update({
       'appServiceSessions/$serviceSessionId': {
         'groupId': group.groupId,
@@ -100,6 +103,7 @@ class OnlineRepository {
         'updatedAt': now,
       },
     });
+    // 4. Away if the socket drops
     await _scheduleAwayOnDisconnect(session);
 
     return session;
@@ -161,9 +165,6 @@ class OnlineRepository {
     });
   }
 
-  /// Switches a member's own connection between walkie-talkie (push-to-talk)
-  /// and call (always-on mic). This is a per-user setting, not a group-wide
-  /// mode: it only ever writes the caller's own availability entry.
   Future<void> setConnectionMode(
     OnlineSession session, {
     required String connectionMode,
@@ -228,10 +229,6 @@ class OnlineRepository {
     });
   }
 
-  /// Clears leftover RTDB presence from a previous process that died mid-session.
-  ///
-  /// No-ops if another session (or an explicit away write) already replaced
-  /// [session.serviceSessionId] as the active handle.
   Future<void> clearAbandonedSession(OnlineSession session) async {
     final snapshot = await _database
         .ref('memberAvailability/${session.groupId}/${session.userId}')
@@ -245,7 +242,8 @@ class OnlineRepository {
         groupId: session.groupId,
         userId: session.userId,
         serviceSessionId: session.serviceSessionId,
-        extra: 'activeSuffix=${activeId == null || activeId.isEmpty ? "none" : (activeId.length <= 6 ? activeId : activeId.substring(activeId.length - 6))}',
+        extra:
+            'activeSuffix=${activeId == null || activeId.isEmpty ? "none" : (activeId.length <= 6 ? activeId : activeId.substring(activeId.length - 6))}',
       );
       return;
     }
@@ -258,8 +256,6 @@ class OnlineRepository {
     await goAway(session, reason: 'process_killed');
   }
 
-  /// Asks the backend to push a "you're offline" alert to this user's devices
-  /// after an involuntary leave (peer left, inactivity, usage cap, network).
   Future<void> notifyGoneOffline({
     required OnlineSession session,
     required String reason,
@@ -299,10 +295,7 @@ class OnlineRepository {
         }
         if (livekitId != null && livekitId.isNotEmpty) {
           cancels.add(
-            _database
-                .ref('livekitSessions/$livekitId')
-                .onDisconnect()
-                .cancel(),
+            _database.ref('livekitSessions/$livekitId').onDisconnect().cancel(),
           );
         }
       }
@@ -387,10 +380,6 @@ class OnlineRepository {
     return LiveKitTokenResponse.fromJson(response);
   }
 
-  /// Fetches a LiveKit token ahead of time (without touching RTDB presence)
-  /// so the actual accept can skip the token round-trip. Returns the token
-  /// plus the session ids it was issued under, so callers can reuse both for
-  /// a fully consistent go-online record.
   Future<PreparedLiveKitToken> prepareToken({
     required String groupId,
     required String deviceId,

@@ -1,11 +1,5 @@
 import 'package:one_one_app/one_one.dart';
 
-/// Sender-side delivery outcomes via Firebase RTDB — **single source of truth**.
-///
-/// Receiving devices write conclusive status under
-/// `userNudgeDeliveries/{senderUserId}/{eventId}/{recipientUserId}` with the
-/// Firebase SDK. This store only listens / gets that path. No Render polling
-/// and no backend status requests.
 class NudgeDeliveryStatusStore {
   NudgeDeliveryStatusStore({FirebaseDatabase? database})
     : _database = database ?? AppDatabase.instance();
