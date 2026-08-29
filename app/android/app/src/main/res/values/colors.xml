@@ -15,4 +15,15 @@
     <color name="widget_accent_default">#F8BE03</color>
     <color name="widget_accent_on">#1A1400</color>
     <color name="widget_online_green">#34D399</color>
+
+    <!-- Glass tokens: a translucent dark card (instead of flat opaque
+         black) so the launcher wallpaper reads faintly through the widget,
+         with frosted chip surfaces for the buttons sitting on top of it. -->
+    <color name="widget_glass_card_fill">#E6151515</color>
+    <color name="widget_glass_card_border">#29FFFFFF</color>
+    <color name="widget_chip_glass_fill">#1FFFFFFF</color>
+    <color name="widget_chip_glass_border">#3DFFFFFF</color>
+    <!-- Grey (not white) mic glyph — reads far better against the solid
+         yellow mic button than white/near-black did. -->
+    <color name="widget_mic_icon_grey">#2E2C28</color>
 </resources>

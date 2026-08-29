@@ -453,7 +453,10 @@ class MainActivity : FlutterFragmentActivity() {
                             DuoWidgetMember(
                                 userId = userId,
                                 displayName = memberMap["displayName"]?.toString() ?: "Friend",
-                                photoUrl = memberMap["photoUrl"]?.toString(),
+                                photoUrl = memberMap["photoUrl"]?.toString()
+                                    ?.takeIf { it.isNotBlank() },
+                                avatarAsset = memberMap["avatarAsset"]?.toString()
+                                    ?.takeIf { it.isNotBlank() },
                                 online = memberMap["online"] == true,
                             )
                         }
@@ -463,9 +466,17 @@ class MainActivity : FlutterFragmentActivity() {
                             members = members,
                         )
                     }
+                    val memberCount = groups.sumOf { it.members.size }
+                    val photoCount = groups.sumOf { g ->
+                        g.members.count { !it.photoUrl.isNullOrBlank() }
+                    }
+                    val assetCount = groups.sumOf { g ->
+                        g.members.count { !it.avatarAsset.isNullOrBlank() }
+                    }
                     DuoWidgetLog.i(
                         "F-02",
                         "syncSnapshot from Flutter groups=${groups.size} " +
+                            "members=$memberCount photos=$photoCount assets=$assetCount " +
                             "lastActive=${args["lastActiveGroupId"]?.toString()?.takeLast(6) ?: "none"}",
                     )
                     DuoWidgetSnapshotStore.saveSnapshot(

@@ -9,6 +9,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.RectF
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -30,7 +31,7 @@ private enum class DuoWidgetState { IDLE, PENDING, ONLINE }
  * [updateAll] refreshes every instance.
  */
 object DuoWidgetRenderer {
-    private const val avatarPx = 36
+    private const val avatarPx = 72
     private const val prefetchDebounceMs = 500L
 
     /**
@@ -88,6 +89,13 @@ object DuoWidgetRenderer {
         for (appWidgetId in ids) {
             updateWidget(appContext, manager, appWidgetId)
         }
+    }
+
+    /** Pushes [updateAll] onto the main looper so callers (method channels,
+     *  broadcast receivers) can return before bitmap copies run. */
+    fun scheduleUpdateAll(context: Context, delayMs: Long = 50L) {
+        val appContext = context.applicationContext
+        mainHandler.postDelayed({ updateAll(appContext) }, delayMs)
     }
 
     fun updateWidget(context: Context, manager: AppWidgetManager, appWidgetId: Int) {
@@ -281,6 +289,8 @@ object DuoWidgetRenderer {
         val logo = NotificationAvatarHelper.appLogoBitmap(context)
         val pendingUrls = ArrayList<String>()
         var shown = 0
+        var photoHits = 0
+        var assetHits = 0
 
         for ((slot, viewId) in avatarIds.withIndex()) {
             val monoId = avatarMonoIds.getOrNull(slot) ?: 0
@@ -291,22 +301,38 @@ object DuoWidgetRenderer {
             }
             val member = members[slot]
             val url = member.photoUrl?.trim().orEmpty()
-            var source: Bitmap? = null
-            if (url.isNotEmpty()) {
-                val cached = NotificationAvatarHelper.largeIcon(
-                    context,
-                    url,
-                    member.displayName,
-                    null,
-                )
-                if (cached !== logo) {
-                    source = cached
-                } else {
-                    pendingUrls.add(url)
-                }
+            val asset = member.avatarAsset?.trim().orEmpty()
+            // Match in-app ProfileImage: a bundled preset wins over a photo
+            // URL so the widget does not wait on Cloudinary for people who
+            // picked an avatar from the pack.
+            val bundled = if (asset.isNotEmpty()) {
+                NotificationAvatarHelper.bundledAvatar(context, asset)
+            } else {
+                null
             }
-            if (source == null) {
-                source = monogramBitmap(member.displayName)
+            if (prefetch && asset.isNotEmpty() && bundled == null) {
+                DuoWidgetLog.w("R-21a", "bundled avatar miss ${asset.takeLast(32)}")
+            }
+            val hasCachedPhoto = url.isNotEmpty() &&
+                NotificationAvatarHelper.hasCachedPhoto(url)
+            val cachedPhoto = if (hasCachedPhoto) {
+                NotificationAvatarHelper.largeIcon(context, url, member.displayName)
+            } else {
+                null
+            }
+            val source = when {
+                bundled != null -> {
+                    assetHits++
+                    bundled
+                }
+                cachedPhoto != null && cachedPhoto !== logo -> {
+                    photoHits++
+                    cachedPhoto
+                }
+                else -> {
+                    if (url.isNotEmpty()) pendingUrls.add(url)
+                    monogramBitmap(member.displayName)
+                }
             }
             val bound = bindAvatarSlot(views, viewId, monoId, source, member.displayName)
             if (bound) shown++
@@ -322,8 +348,11 @@ object DuoWidgetRenderer {
         if (prefetch) {
             DuoWidgetLog.i(
                 "R-21",
-                "avatars bound shown=$shown " +
-                    "overflow=${overflow.coerceAtLeast(0)} pendingPhotos=${pendingUrls.size}",
+                "avatars bound shown=$shown overflow=${overflow.coerceAtLeast(0)} " +
+                    "photos=$photoHits assets=$assetHits " +
+                    "pendingPhotos=${pendingUrls.size} members=${members.size} " +
+                    "withUrl=${members.count { !it.photoUrl.isNullOrBlank() }} " +
+                    "withAsset=${members.count { !it.avatarAsset.isNullOrBlank() }}",
             )
             prefetchPhotos(context, pendingUrls)
         }
@@ -366,22 +395,33 @@ object DuoWidgetRenderer {
     }
 
     /**
-     * Scale to a binder-safe size and copy so the launcher recycling the
-     * parcelled bitmap cannot poison [NotificationAvatarHelper]'s cache.
+     * Scale to a binder-safe size and flatten onto an opaque card-colored
+     * plate. Several OEM hosts (Motorola among them) drop RemoteViews
+     * bitmaps that have an alpha channel, which is why a successful
+     * Cloudinary download still showed a letter — [toCircular] produces
+     * transparent corners. Drawing onto #151515 matches
+     * [R.color.widget_glass_card_fill] so the circle still reads as a
+     * circle against the widget card.
+     *
+     * The result is a new bitmap so the launcher recycling the parcel
+     * cannot poison [NotificationAvatarHelper]'s cache.
      */
     private fun copyWidgetBitmap(source: Bitmap): Bitmap? {
         return try {
             if (source.isRecycled) return null
-            val scaled = if (source.width == avatarPx && source.height == avatarPx) {
-                source
-            } else {
-                Bitmap.createScaledBitmap(source, avatarPx, avatarPx, true)
-            }
-            val copy = scaled.copy(Bitmap.Config.ARGB_8888, false)
-            if (scaled !== source && scaled !== copy) {
-                scaled.recycle()
-            }
-            copy
+            val out = Bitmap.createBitmap(avatarPx, avatarPx, Bitmap.Config.ARGB_8888)
+            // RGB of widget_glass_card_fill (#E6151515) with alpha forced on
+            // so the parcelled bitmap has no transparent pixels.
+            out.eraseColor(0xFF151515.toInt())
+            val canvas = Canvas(out)
+            val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { isFilterBitmap = true }
+            canvas.drawBitmap(
+                source,
+                null,
+                RectF(0f, 0f, avatarPx.toFloat(), avatarPx.toFloat()),
+                paint,
+            )
+            out
         } catch (error: Exception) {
             DuoWidgetLog.w("R-20", "copyWidgetBitmap failed", error)
             null
@@ -393,7 +433,10 @@ object DuoWidgetRenderer {
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.parseColor("#222222")
+            // Matches bg_widget_btn_oval's frosted-glass chip fill so a
+            // monogram fallback doesn't look like a flat leftover from the
+            // old solid-black theme.
+            color = Color.parseColor("#33302D")
             style = Paint.Style.FILL
         }
         canvas.drawCircle(size / 2f, size / 2f, size / 2f, paint)
@@ -594,6 +637,9 @@ object DuoWidgetRenderer {
     ): PendingIntent {
         val intent = Intent(context, DuoWidgetActionReceiver::class.java).apply {
             this.action = action
+            // Unique data URI so OEM hosts cannot coalesce or accidentally
+            // fire this PendingIntent when a sibling widget is rebound.
+            data = android.net.Uri.parse("app.oneone.widget://$appWidgetId/$actionSlot")
             putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
             putExtra(DuoWidgetActionReceiver.extraGroupId, groupId)
             if (!responseUrl.isNullOrBlank()) {

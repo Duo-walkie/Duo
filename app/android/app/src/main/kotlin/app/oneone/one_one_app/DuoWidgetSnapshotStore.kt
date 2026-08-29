@@ -13,6 +13,7 @@ data class DuoWidgetMember(
     val userId: String,
     val displayName: String,
     val photoUrl: String?,
+    val avatarAsset: String?,
     val online: Boolean,
 )
 
@@ -77,6 +78,7 @@ object DuoWidgetSnapshotStore {
                         put("userId", member.userId)
                         put("displayName", member.displayName)
                         if (!member.photoUrl.isNullOrBlank()) put("photoUrl", member.photoUrl)
+                        if (!member.avatarAsset.isNullOrBlank()) put("avatarAsset", member.avatarAsset)
                         put("online", member.online)
                     },
                 )
@@ -96,9 +98,13 @@ object DuoWidgetSnapshotStore {
             .putString(keyLastActiveGroupId, lastActiveGroupId)
             .putString(keyGroupsJson, groupsArray.toString())
             .apply()
+        val memberCount = groups.sumOf { it.members.size }
+        val photoCount = groups.sumOf { g -> g.members.count { !it.photoUrl.isNullOrBlank() } }
+        val assetCount = groups.sumOf { g -> g.members.count { !it.avatarAsset.isNullOrBlank() } }
         DuoWidgetLog.i(
             "S-01",
-            "snapshot saved groups=${groups.size} " +
+            "snapshot saved groups=${groups.size} members=$memberCount " +
+                "photos=$photoCount assets=$assetCount " +
                 "lastActive=${lastActiveGroupId?.takeLast(6) ?: "none"} " +
                 "userId=${userId?.takeLast(6) ?: "none"} " +
                 "accent=${accentKey ?: "coral"} " +
@@ -134,6 +140,8 @@ object DuoWidgetSnapshotStore {
                             userId = memberObject.optString("userId", ""),
                             displayName = memberObject.optString("displayName", "Friend"),
                             photoUrl = memberObject.optString("photoUrl", "")
+                                .takeIf { it.isNotBlank() },
+                            avatarAsset = memberObject.optString("avatarAsset", "")
                                 .takeIf { it.isNotBlank() },
                             online = memberObject.optBoolean("online", false),
                         ),

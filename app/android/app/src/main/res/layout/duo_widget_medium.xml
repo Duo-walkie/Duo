@@ -6,7 +6,7 @@
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/widget_bg"
+    android:background="@drawable/bg_widget_glass_card"
     android:paddingLeft="12dp"
     android:paddingTop="10dp"
     android:paddingRight="12dp"
@@ -188,14 +188,6 @@
                 android:layout_width="36dp"
                 android:layout_height="36dp">
 
-                <ImageView
-                    android:id="@+id/avatar_1"
-                    android:layout_width="36dp"
-                    android:layout_height="36dp"
-                    android:contentDescription="Member"
-                    android:scaleType="centerCrop"
-                    android:visibility="gone" />
-
                 <TextView
                     android:id="@+id/avatar_1_mono"
                     android:layout_width="36dp"
@@ -206,20 +198,20 @@
                     android:textSize="12sp"
                     android:textStyle="bold"
                     android:visibility="gone" />
+
+                <ImageView
+                    android:id="@+id/avatar_1"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:contentDescription="Member"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/bg_widget_btn_oval" />
             </FrameLayout>
 
             <FrameLayout
                 android:layout_width="36dp"
                 android:layout_height="36dp"
                 android:layout_marginStart="-8dp">
-
-                <ImageView
-                    android:id="@+id/avatar_2"
-                    android:layout_width="36dp"
-                    android:layout_height="36dp"
-                    android:contentDescription="Member"
-                    android:scaleType="centerCrop"
-                    android:visibility="gone" />
 
                 <TextView
                     android:id="@+id/avatar_2_mono"
@@ -231,20 +223,20 @@
                     android:textSize="12sp"
                     android:textStyle="bold"
                     android:visibility="gone" />
+
+                <ImageView
+                    android:id="@+id/avatar_2"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:contentDescription="Member"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/bg_widget_btn_oval" />
             </FrameLayout>
 
             <FrameLayout
                 android:layout_width="36dp"
                 android:layout_height="36dp"
                 android:layout_marginStart="-8dp">
-
-                <ImageView
-                    android:id="@+id/avatar_3"
-                    android:layout_width="36dp"
-                    android:layout_height="36dp"
-                    android:contentDescription="Member"
-                    android:scaleType="centerCrop"
-                    android:visibility="gone" />
 
                 <TextView
                     android:id="@+id/avatar_3_mono"
@@ -256,20 +248,20 @@
                     android:textSize="12sp"
                     android:textStyle="bold"
                     android:visibility="gone" />
+
+                <ImageView
+                    android:id="@+id/avatar_3"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:contentDescription="Member"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/bg_widget_btn_oval" />
             </FrameLayout>
 
             <FrameLayout
                 android:layout_width="36dp"
                 android:layout_height="36dp"
                 android:layout_marginStart="-8dp">
-
-                <ImageView
-                    android:id="@+id/avatar_4"
-                    android:layout_width="36dp"
-                    android:layout_height="36dp"
-                    android:contentDescription="Member"
-                    android:scaleType="centerCrop"
-                    android:visibility="gone" />
 
                 <TextView
                     android:id="@+id/avatar_4_mono"
@@ -281,20 +273,20 @@
                     android:textSize="12sp"
                     android:textStyle="bold"
                     android:visibility="gone" />
+
+                <ImageView
+                    android:id="@+id/avatar_4"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:contentDescription="Member"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/bg_widget_btn_oval" />
             </FrameLayout>
 
             <FrameLayout
                 android:layout_width="36dp"
                 android:layout_height="36dp"
                 android:layout_marginStart="-8dp">
-
-                <ImageView
-                    android:id="@+id/avatar_5"
-                    android:layout_width="36dp"
-                    android:layout_height="36dp"
-                    android:contentDescription="Member"
-                    android:scaleType="centerCrop"
-                    android:visibility="gone" />
 
                 <TextView
                     android:id="@+id/avatar_5_mono"
@@ -306,6 +298,14 @@
                     android:textSize="12sp"
                     android:textStyle="bold"
                     android:visibility="gone" />
+
+                <ImageView
+                    android:id="@+id/avatar_5"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:contentDescription="Member"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/bg_widget_btn_oval" />
             </FrameLayout>
 
             <TextView

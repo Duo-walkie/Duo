@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Ghost button for secondary nudge actions (ring, notify): same dark fill
-     as the neutral oval but with a faint brand-yellow rim so ring/notify
-     read as "nudge" siblings of the mic without competing with it. -->
+<!-- Frosted glass chip for ring/notify — same translucent fill as the
+     neutral chip, but with a faint brand-yellow rim so they read as
+     "nudge" siblings of the mic without competing with its solid fill. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="oval">
-    <solid android:color="#181818" />
-    <stroke android:width="1.2dp" android:color="#4DF8BE03" />
+    <solid android:color="@color/widget_chip_glass_fill" />
+    <stroke android:width="1.2dp" android:color="#66F8BE03" />
 </shape>

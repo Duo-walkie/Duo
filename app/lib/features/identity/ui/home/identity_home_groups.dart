@@ -47,6 +47,9 @@ mixin _IdentityHomeGroups on _IdentityHomeBase {
         _groups = groups;
         _selectedGroup = selected;
         _membersByGroupId = membersByGroupId;
+        // membersByGroupId was just reset to only the selected group —
+        // let the widget-sync backfill refetch every group again.
+        _widgetMemberFetchAttempted.clear();
         _members = selected == null
             ? const []
             : membersByGroupId[selected.groupId] ?? const [];

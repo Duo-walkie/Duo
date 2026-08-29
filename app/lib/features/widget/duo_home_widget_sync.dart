@@ -20,8 +20,20 @@ class DuoHomeWidgetSync {
   }) async {
     if (!Platform.isAndroid) return;
     try {
+      final memberCount = groups.fold<int>(0, (sum, group) => sum + group.members.length);
+      final photoCount = groups.fold<int>(
+        0,
+        (sum, group) =>
+            sum + group.members.where((m) => (m.photoUrl?.isNotEmpty ?? false)).length,
+      );
+      final assetCount = groups.fold<int>(
+        0,
+        (sum, group) =>
+            sum + group.members.where((m) => (m.avatarAsset?.isNotEmpty ?? false)).length,
+      );
       debugPrint(
         '[DuoHomeWidgetSync] publish groups=${groups.length} '
+        'members=$memberCount photos=$photoCount assets=$assetCount '
         'lastActive=${lastActiveGroupId ?? "none"} accent=$accentKey',
       );
       await _channel.invokeMethod('syncSnapshot', {
@@ -61,18 +73,21 @@ class DuoWidgetMemberSnapshot {
     required this.userId,
     required this.displayName,
     this.photoUrl,
+    this.avatarAsset,
     this.online = false,
   });
 
   final String userId;
   final String displayName;
   final String? photoUrl;
+  final String? avatarAsset;
   final bool online;
 
   Map<String, Object?> toMap() => {
     'userId': userId,
     'displayName': displayName,
     if (photoUrl != null && photoUrl!.isNotEmpty) 'photoUrl': photoUrl,
+    if (avatarAsset != null && avatarAsset!.isNotEmpty) 'avatarAsset': avatarAsset,
     'online': online,
   };
 }

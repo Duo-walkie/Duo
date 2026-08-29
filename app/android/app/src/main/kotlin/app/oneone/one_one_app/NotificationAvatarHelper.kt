@@ -76,9 +76,16 @@ object NotificationAvatarHelper {
         if (url.isNotEmpty()) {
             cache[url]?.let { return it }
         }
-        decodeAvatarAsset(context, avatarAsset)?.let { return it }
+        bundledAvatar(context, avatarAsset)?.let { return it }
         return appLogoBitmap(context)
     }
+
+    /**
+     * Bundled preset avatar (`assets/avatars*` in the Flutter asset pack),
+     * or null when [avatarAsset] is missing / not a known preset path.
+     */
+    fun bundledAvatar(context: Context, avatarAsset: String?): Bitmap? =
+        decodeAvatarAsset(context, avatarAsset)
 
     /**
      * Posts [apply] immediately with a cached photo, bundled avatar, or the
@@ -174,7 +181,13 @@ object NotificationAvatarHelper {
         }
         if (".." in path) return null
         cache["asset:$path"]?.let { return it }
-        val candidates = arrayOf("flutter_assets/$path", path)
+        val fileName = path.substringAfterLast('/')
+        val candidates = arrayOf(
+            "flutter_assets/$path",
+            path,
+            "flutter_assets/packages/one_one_app/$path",
+            "assets/$path",
+        )
         for (candidate in candidates) {
             try {
                 context.assets.open(candidate).use { stream ->
@@ -187,7 +200,17 @@ object NotificationAvatarHelper {
                 // try the next lookup key
             }
         }
-        Log.w(VoiceNudgeDiagnostics.tag, "[AVATAR] asset miss $path")
+        val listed = try {
+            context.assets.list("flutter_assets/assets/avatars")?.take(8)
+                ?.joinToString()
+        } catch (_: Exception) {
+            null
+        }
+        Log.w(
+            VoiceNudgeDiagnostics.tag,
+            "[AVATAR] asset miss $path file=$fileName " +
+                "flutter_assets/assets/avatars=[$listed]",
+        )
         return null
     }
 
