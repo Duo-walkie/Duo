@@ -15,7 +15,8 @@ class VoiceNudgeAudio {
   static const String contentType = 'audio/mp4';
   static const String fileExtension = 'm4a';
 
-  /// Sender capture cap. Users can release earlier; this only auto-stops.
+  /// Sender capture cap. Stops the mic only; send/discard waits for release
+  /// so the user can still swipe-cancel after the max duration.
   ///
   /// 5s is enough for a short spoken thought after press-to-talk reaction
   /// (~300–500ms). 4s clips that start-up beat; 6s was unused headroom on

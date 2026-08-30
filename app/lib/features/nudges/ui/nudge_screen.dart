@@ -79,11 +79,21 @@ abstract class _NudgeSheetStateBase extends State<_QuickNudgeSheet> {
   bool _pointerHeld = false;
   bool _sendAfterPointerEnd = true;
 
+  /// Mic stopped at the duration cap while the finger is still down.
+  /// Send/discard waits for release so the user can still swipe-cancel.
+  bool _stoppingAtCap = false;
+  String? _pendingVoicePath;
+  int _pendingVoiceDurationMs = 0;
+
   /// WhatsApp-style swipe-up-to-cancel while holding the voice mic.
   final VoiceRecordSwipeCancel _swipeCancel = VoiceRecordSwipeCancel();
   bool _busy = false;
   bool _sendingVoice = false;
   Duration _elapsed = Duration.zero;
+
+  /// True while capturing or while a capped clip awaits release.
+  bool get _voiceHoldActive =>
+      _recording || _stoppingAtCap || _pendingVoicePath != null;
   String? _message;
   bool _messageIsError = false;
   bool _messageIsWarning = false;
@@ -238,7 +248,7 @@ abstract class _NudgeSheetStateBase extends State<_QuickNudgeSheet> {
       !_busy &&
       !_startingRecording &&
       !_finishingRecording &&
-      !_recording &&
+      !_voiceHoldActive &&
       _awaitingEventId == null;
 
   List<_PendingRecipient> _recipientsForTarget() {
@@ -332,7 +342,7 @@ abstract class _NudgeSheetStateBase extends State<_QuickNudgeSheet> {
     _autoDismissTimer = Timer(_autoDismissDelay, () {
       if (!mounted) return;
       if (_pointerHeld ||
-          _recording ||
+          _voiceHoldActive ||
           _startingRecording ||
           _finishingRecording ||
           _awaitingEventId != null) {
@@ -369,8 +379,11 @@ class _QuickNudgeSheetState extends _NudgeSheetStateBase
     if (!mounted || _finishingRecording) return;
     setState(() {
       _sendAfterPointerEnd = _swipeCancel.shouldSendOnRelease;
-      if (_recording) {
-        _message = _swipeCancel.recordingStatusMessage(isRecording: true);
+      if (_voiceHoldActive) {
+        _message = _swipeCancel.recordingStatusMessage(
+          isRecording: true,
+          capped: _stoppingAtCap || _pendingVoicePath != null,
+        );
         _messageIsError = false;
         _messageIsWarning = _swipeCancel.isArmed;
         _messagePending = !_swipeCancel.isArmed;
@@ -391,7 +404,15 @@ class _QuickNudgeSheetState extends _NudgeSheetStateBase
       ..dispose();
     unawaited(_deliverySub?.cancel());
     unawaited(_responseSub?.cancel());
-    if (_recording) unawaited(_recorder.stop());
+    if (_recording || _stoppingAtCap) unawaited(_recorder.stop());
+    final pending = _pendingVoicePath;
+    if (pending != null) {
+      unawaited(() async {
+        try {
+          await File(pending).delete();
+        } catch (_) {}
+      }());
+    }
     unawaited(_recorder.dispose());
     super.dispose();
   }

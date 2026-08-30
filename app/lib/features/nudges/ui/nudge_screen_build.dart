@@ -15,10 +15,11 @@ mixin _NudgeSheetBuild
     final voiceBlockedByLiveMic = _liveMicBlocksVoice;
     final voiceEnabled =
         _canSend && voiceCooldown <= Duration.zero && !voiceBlockedByLiveMic;
-    final recordingProgress =
-        (_elapsed.inMilliseconds /
-                VoiceNudgeAudio.maxRecordingDuration.inMilliseconds)
-            .clamp(0.0, 1.0);
+    final recordingProgress = _voiceHoldActive
+        ? (_elapsed.inMilliseconds /
+                  VoiceNudgeAudio.maxRecordingDuration.inMilliseconds)
+              .clamp(0.0, 1.0)
+        : 0.0;
     final accent = widget.accent;
 
     // Errors, confirming, received/failed confirmation, and empty-group guards.
@@ -324,28 +325,36 @@ mixin _NudgeSheetBuild
     required double recordingProgress,
     required Duration voiceCooldown,
   }) {
-    final muteFirstLabel = _liveMicBlocksVoice && !_recording && !_sendingVoice;
-    final showCancelHint = _pointerHeld || _recording;
+    final muteFirstLabel =
+        _liveMicBlocksVoice && !_voiceHoldActive && !_sendingVoice;
+    final showCancelHint = _pointerHeld || _voiceHoldActive;
     final cancelArmed = _swipeCancel.isArmed;
     final deleteColor = _swipeCancel.deleteColor;
+    final cappedAwaitingRelease =
+        _stoppingAtCap || _pendingVoicePath != null;
     final buttonColor = cancelArmed
         ? deleteColor
-        : _recording
+        : _voiceHoldActive
         ? accent
         : _sendingVoice
         ? accent.withValues(alpha: 0.18)
         : const Color(0xff202020);
     final ringColor = cancelArmed
         ? deleteColor
-        : _recording || _sendingVoice
+        : _voiceHoldActive || _sendingVoice
         ? accent
         : Colors.white.withValues(alpha: 0.09);
+    final maxSecondsLabel =
+        (VoiceNudgeAudio.maxRecordingDuration.inMilliseconds / 1000)
+            .toStringAsFixed(1);
     final micButton = Semantics(
       button: true,
       enabled: voiceEnabled,
-      label: _recording
+      label: _voiceHoldActive
           ? cancelArmed
                 ? 'Release to delete recording'
+                : cappedAwaitingRelease
+                ? 'Recording complete, swipe up to cancel, release to send'
                 : 'Recording voice nudge, swipe up to cancel, release to send'
           : _sendingVoice
           ? 'Sending voice nudge'
@@ -390,7 +399,7 @@ mixin _NudgeSheetBuild
               color: buttonColor,
               shape: BoxShape.circle,
               border: Border.all(color: ringColor),
-              boxShadow: _recording || _sendingVoice || cancelArmed
+              boxShadow: _voiceHoldActive || _sendingVoice || cancelArmed
                   ? [
                       BoxShadow(
                         color: (cancelArmed ? deleteColor : accent).withValues(
@@ -409,7 +418,7 @@ mixin _NudgeSheetBuild
                       Padding(
                         padding: EdgeInsets.all(6.r),
                         child: CircularProgressIndicator(
-                          value: _recording ? recordingProgress : 0,
+                          value: _voiceHoldActive ? recordingProgress : 0,
                           strokeWidth: 4.r,
                           color: Colors.white,
                           backgroundColor: Colors.white24,
@@ -420,13 +429,13 @@ mixin _NudgeSheetBuild
                             ? Icons.mic_off_rounded
                             : cancelArmed
                             ? Icons.delete_rounded
-                            : _recording
+                            : _voiceHoldActive
                             ? Icons.mic_rounded
                             : Icons.mic_none_rounded,
                         size: 42.sp,
                         color: cancelArmed
                             ? Colors.white
-                            : _recording
+                            : _voiceHoldActive
                             ? Colors.black
                             : voiceEnabled
                             ? Colors.white
@@ -468,8 +477,10 @@ mixin _NudgeSheetBuild
               ? _cooldownLabel(voiceCooldown)
               : cancelArmed
               ? 'Release to delete'
+              : cappedAwaitingRelease
+              ? 'Release to send'
               : _recording
-              ? '${(_elapsed.inMilliseconds / 1000).toStringAsFixed(1)} / 6.0s'
+              ? '${(_elapsed.inMilliseconds / 1000).toStringAsFixed(1)} / ${maxSecondsLabel}s'
               : _sendingVoice
               ? 'Sending\u2026'
               : muteFirstLabel
@@ -478,7 +489,7 @@ mixin _NudgeSheetBuild
           style: TextStyle(
             color: cancelArmed
                 ? deleteColor
-                : _recording || _sendingVoice
+                : _voiceHoldActive || _sendingVoice
                 ? accent
                 : voiceEnabled
                 ? Colors.white70

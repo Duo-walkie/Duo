@@ -11,9 +11,9 @@ mixin _NudgeSheetSend on _NudgeSheetStateBase, _NudgeSheetDelivery {
   // Live session holds the hardware mic — voice record is blocked.
   bool get _liveMicBlocksVoice => widget.isLiveMicrophoneInUse?.call() ?? false;
 
-  // Block back/barrier/drag for the whole press-and-hold.
+  // Block back/barrier/drag for the whole press-and-hold (incl. post-cap).
   bool get _blockDismissWhileHolding =>
-      _pointerHeld || _recording || _startingRecording;
+      _pointerHeld || _voiceHoldActive || _startingRecording;
 
   // ── 1. Ring ──────────────────────────────────────────────────────────────
 
@@ -305,11 +305,25 @@ mixin _NudgeSheetSend on _NudgeSheetStateBase, _NudgeSheetDelivery {
 
   void _onVoiceHoldEnded(bool send) {
     if (!mounted) return;
-    if (!_pointerHeld && !_recording && !_startingRecording) return;
+    if (!_pointerHeld &&
+        !_recording &&
+        !_startingRecording &&
+        !_stoppingAtCap &&
+        _pendingVoicePath == null) {
+      return;
+    }
     setState(() {
       _pointerHeld = false;
       _sendAfterPointerEnd = send;
     });
+    if (_pendingVoicePath != null) {
+      unawaited(_commitPendingVoice(send: send));
+      return;
+    }
+    if (_stoppingAtCap) {
+      // Mic flush in flight — commit once the path is ready.
+      return;
+    }
     unawaited(_finishRecording(send: send));
   }
 
@@ -353,8 +367,10 @@ mixin _NudgeSheetSend on _NudgeSheetStateBase, _NudgeSheetDelivery {
         ..start();
       _recordingTimer?.cancel();
       _recordingCapTimer?.cancel();
+      // Cap only stops capture — send/discard waits for finger release so the
+      // user can still swipe-up to delete after the max duration.
       _recordingCapTimer = Timer(VoiceNudgeAudio.maxRecordingDuration, () {
-        unawaited(_finishRecording(send: _swipeCancel.shouldSendOnRelease));
+        unawaited(_stopRecordingAtCap());
       });
       _voiceRequestId = const Uuid().v4();
       _voiceNudgeId = null;
@@ -406,20 +422,151 @@ mixin _NudgeSheetSend on _NudgeSheetStateBase, _NudgeSheetDelivery {
     }
   }
 
+  /// Stops the mic at max duration without sending. Hold stays active so the
+  /// user can still swipe-cancel; release commits or discards.
+  Future<void> _stopRecordingAtCap() async {
+    if (!_recording || _finishingRecording || _stoppingAtCap) return;
+    _stoppingAtCap = true;
+    _recordingTimer?.cancel();
+    _recordingCapTimer?.cancel();
+    _recordingWatch.stop();
+    final actualDurationMs = _recordingWatch.elapsedMilliseconds;
+    final durationMs = actualDurationMs.clamp(
+      0,
+      VoiceNudgeAudio.maxAcceptedDurationMs,
+    );
+    LogManager.log(
+      LogLevel.info,
+      'NudgeService',
+      'VOICE_NUDGE_RECORD_CAP nudgeId=${_voiceRequestId ?? '-'} '
+          'durationMs=$actualDurationMs '
+          'capMs=${VoiceNudgeAudio.maxRecordingDuration.inMilliseconds} '
+          'awaitingRelease=true',
+      groupId: widget.group.groupId,
+    );
+    if (mounted) {
+      setState(() {
+        _recording = false;
+        _elapsed = VoiceNudgeAudio.maxRecordingDuration;
+        _message = _swipeCancel.recordingStatusMessage(
+          isRecording: true,
+          capped: true,
+        );
+        _messageIsError = false;
+        _messageIsWarning = _swipeCancel.isArmed;
+        _messagePending = !_swipeCancel.isArmed;
+      });
+    }
+
+    String? path;
+    try {
+      LogManager.log(
+        LogLevel.info,
+        'NudgeService',
+        'VOICE_NUDGE_COMPRESSION_START nudgeId=${_voiceRequestId ?? '-'}',
+        groupId: widget.group.groupId,
+      );
+      final stopWatch = Stopwatch()..start();
+      path = await _recorder.stop();
+      LogManager.log(
+        LogLevel.info,
+        'NudgeService',
+        'VOICE_NUDGE_COMPRESSION_END nudgeId=${_voiceRequestId ?? '-'} '
+            'elapsedMs=${stopWatch.elapsedMilliseconds} path=${path != null}',
+        groupId: widget.group.groupId,
+      );
+    } catch (error) {
+      _stoppingAtCap = false;
+      _voiceUploadReservation = null;
+      if (mounted) {
+        setState(() {
+          _message = _friendlyError(error);
+          _messageIsError = true;
+          _messageIsWarning = false;
+          _messagePending = false;
+        });
+      }
+      return;
+    }
+
+    if (!mounted) {
+      _stoppingAtCap = false;
+      if (path != null) {
+        try {
+          await File(path).delete();
+        } catch (_) {}
+      }
+      return;
+    }
+
+    // Finger already up while the mic was flushing — commit with the
+    // decision captured at release (or default send).
+    if (!_pointerHeld) {
+      _stoppingAtCap = false;
+      _pendingVoicePath = path;
+      _pendingVoiceDurationMs = durationMs;
+      await _commitPendingVoice(send: _sendAfterPointerEnd);
+      return;
+    }
+
+    setState(() {
+      _stoppingAtCap = false;
+      _pendingVoicePath = path;
+      _pendingVoiceDurationMs = durationMs;
+    });
+  }
+
+  Future<void> _commitPendingVoice({required bool send}) async {
+    if (_finishingRecording) return;
+    final path = _pendingVoicePath;
+    final durationMs = _pendingVoiceDurationMs;
+    _pendingVoicePath = null;
+    _pendingVoiceDurationMs = 0;
+    _stoppingAtCap = false;
+    await _completeVoiceClip(
+      send: send,
+      path: path,
+      durationMs: durationMs,
+      alreadyStopped: true,
+    );
+  }
+
   Future<void> _finishRecording({required bool send}) async {
     if (!_recording || _finishingRecording) return;
+    await _completeVoiceClip(
+      send: send,
+      path: null,
+      durationMs: _recordingWatch.elapsedMilliseconds.clamp(
+        0,
+        VoiceNudgeAudio.maxAcceptedDurationMs,
+      ),
+      alreadyStopped: false,
+    );
+  }
+
+  Future<void> _completeVoiceClip({
+    required bool send,
+    required String? path,
+    required int durationMs,
+    required bool alreadyStopped,
+  }) async {
+    if (_finishingRecording) return;
     _finishingRecording = true;
     _swipeCancel.reset();
     _recordingTimer?.cancel();
     _recordingCapTimer?.cancel();
-    _recordingWatch.stop();
+    if (!alreadyStopped) {
+      _recordingWatch.stop();
+    }
     // Recording feedback stays on a fixed default — Settings haptics only
     // apply to incoming voice-nudge playback.
     unawaited(
       send ? HapticFeedback.selectionClick() : HapticFeedback.mediumImpact(),
     );
-    final actualDurationMs = _recordingWatch.elapsedMilliseconds;
-    final durationMs = actualDurationMs.clamp(
+    final actualDurationMs = alreadyStopped
+        ? durationMs
+        : _recordingWatch.elapsedMilliseconds;
+    final clampedDurationMs = actualDurationMs.clamp(
       0,
       VoiceNudgeAudio.maxAcceptedDurationMs,
     );
@@ -440,6 +587,7 @@ mixin _NudgeSheetSend on _NudgeSheetStateBase, _NudgeSheetDelivery {
     if (mounted) {
       setState(() {
         _recording = false;
+        _stoppingAtCap = false;
         _busy = send;
         _sendingVoice = send;
         // Step 1: "Voice nudge sending"
@@ -451,35 +599,38 @@ mixin _NudgeSheetSend on _NudgeSheetStateBase, _NudgeSheetDelivery {
       });
     }
 
-    String? path;
+    var clipPath = path;
     var sent = false;
     String? voiceEventId;
     final minMs = VoiceNudgeAudio.minRecordingDuration.inMilliseconds;
-    final uploadReservation = send && durationMs >= minMs
+    final uploadReservation = send && clampedDurationMs >= minMs
         ? _voiceUploadReservation
         : null;
     _voiceUploadReservation = null;
     try {
-      // AAC-LC encoding happens inside the recorder while recording; the
-      // stop() call only flushes/finalizes the M4A container. This is the
-      // single measurable "compression" step on the sender.
-      LogManager.log(
-        LogLevel.info,
-        'NudgeService',
-        'VOICE_NUDGE_COMPRESSION_START nudgeId=${_voiceRequestId ?? '-'}',
-        groupId: widget.group.groupId,
-      );
-      final stopWatch = Stopwatch()..start();
-      path = await _recorder.stop();
-      LogManager.log(
-        LogLevel.info,
-        'NudgeService',
-        'VOICE_NUDGE_COMPRESSION_END nudgeId=${_voiceRequestId ?? '-'} '
-            'elapsedMs=${stopWatch.elapsedMilliseconds} path=${path != null}',
-        groupId: widget.group.groupId,
-      );
-      if (!send || path == null) return;
-      if (durationMs < minMs) {
+      if (!alreadyStopped) {
+        // AAC-LC encoding happens inside the recorder while recording; the
+        // stop() call only flushes/finalizes the M4A container. This is the
+        // single measurable "compression" step on the sender.
+        LogManager.log(
+          LogLevel.info,
+          'NudgeService',
+          'VOICE_NUDGE_COMPRESSION_START nudgeId=${_voiceRequestId ?? '-'}',
+          groupId: widget.group.groupId,
+        );
+        final stopWatch = Stopwatch()..start();
+        clipPath = await _recorder.stop();
+        LogManager.log(
+          LogLevel.info,
+          'NudgeService',
+          'VOICE_NUDGE_COMPRESSION_END nudgeId=${_voiceRequestId ?? '-'} '
+              'elapsedMs=${stopWatch.elapsedMilliseconds} '
+              'path=${clipPath != null}',
+          groupId: widget.group.groupId,
+        );
+      }
+      if (!send || clipPath == null) return;
+      if (clampedDurationMs < minMs) {
         if (mounted) {
           setState(() {
             _message = 'Hold a little longer to record.';
@@ -489,7 +640,7 @@ mixin _NudgeSheetSend on _NudgeSheetStateBase, _NudgeSheetDelivery {
         }
         return;
       }
-      final file = File(path);
+      final file = File(clipPath);
       // Overlap reading the M4A off disk with the upload-url reservation that
       // was kicked off at record-start — avoids serializing on slow paths.
       Uint8List audio;
@@ -515,7 +666,7 @@ mixin _NudgeSheetSend on _NudgeSheetStateBase, _NudgeSheetDelivery {
         groupId: widget.group.groupId,
         target: _effectiveTarget(),
         audio: audio,
-        durationMs: durationMs,
+        durationMs: clampedDurationMs,
         initiatedUpload: initiatedUpload,
       );
       _cooldowns.record(NudgeKind.voice);
@@ -547,12 +698,14 @@ mixin _NudgeSheetSend on _NudgeSheetStateBase, _NudgeSheetDelivery {
         });
       }
     } finally {
-      if (path != null) {
+      if (clipPath != null) {
         try {
-          await File(path).delete();
+          await File(clipPath).delete();
         } catch (_) {}
       }
       _recordingWatch.reset();
+      _pendingVoicePath = null;
+      _pendingVoiceDurationMs = 0;
       _finishingRecording = false;
       if (mounted) {
         setState(() {

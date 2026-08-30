@@ -45,11 +45,31 @@ void main() {
       expect(c.glyphKind, AudioOutputGlyphKind.headset);
       expect(c.proximityEnabled, isFalse);
       expect(c.userMode, CallAudioUserMode.earpiece);
+      // Preference stays earpiece, but LiveKit must not force speakerphone.
+      expect(c.speakerOn, isFalse);
+      expect(c.liveKitSpeakerOn, isFalse);
 
       c.onDeviceRouteChanged(AudioOutputRoute.speaker);
       expect(c.headphonesConnected, isFalse);
       expect(c.displayRoute, AudioOutputRoute.earpiece);
       expect(c.proximityEnabled, isTrue);
+    });
+
+    test('headphones release LiveKit speakerphone while preference stays speaker',
+        () {
+      final c = CallAudioRouteController()..onSessionConnected();
+      expect(c.speakerOn, isTrue);
+      expect(c.liveKitSpeakerOn, isTrue);
+
+      c.onDeviceRouteChanged(AudioOutputRoute.headset);
+      expect(c.headphonesConnected, isTrue);
+      expect(c.speakerOn, isTrue);
+      expect(c.liveKitSpeakerOn, isFalse);
+      expect(c.glyphKind, AudioOutputGlyphKind.headset);
+
+      c.onDeviceRouteChanged(AudioOutputRoute.speaker);
+      expect(c.liveKitSpeakerOn, isTrue);
+      expect(c.glyphKind, AudioOutputGlyphKind.speaker);
     });
 
     test('device route changes never flip mute or user mode', () {
