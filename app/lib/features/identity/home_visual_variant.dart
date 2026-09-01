@@ -1,54 +1,45 @@
 import 'package:one_one_app/one_one.dart';
 
 // ---------------------------------------------------------------------------
-// Enum — 4 pre-release design variants for home screen backdrop evaluation.
+// Enum — pre-release home screen backdrop variants for UI evaluation.
 // Remove before next public release or gate behind compile-time flag.
 // ---------------------------------------------------------------------------
 
 enum HomeVisualVariant {
-  /// 1 — current production look.
+  /// Current production look — blurred member collage.
   defaultLook(
     label: 'Default (current)',
-    subtitle: 'Opacity 0.35, blur 40 — the shipped look.',
-    backdropOpacity: 0.35,
-    blurSigma: 40,
+    subtitle: 'Current home screen — member collage backdrop.',
+    assetPath: null,
   ),
 
-  /// 2 — lighter/more transparent backdrop.
-  light(
-    label: 'Light — transparent',
-    subtitle: 'Opacity 0.18, blur 40 — softer background.',
-    backdropOpacity: 0.18,
-    blurSigma: 40,
+  /// Same layout and controls, doodle wallpaper 1 behind everything.
+  screen1(
+    label: 'Home screen 1',
+    subtitle: 'Doodle backdrop. Same layout, top and bottom contrast scrims.',
+    assetPath: 'assets/home_bg_images/home_bg_screen1.png',
   ),
 
-  /// 3 — more opaque, crisper.
-  vivid(
-    label: 'Vivid — more opaque, crisper',
-    subtitle: 'Opacity 0.52, blur 22 — richer colours, less blur.',
-    backdropOpacity: 0.52,
-    blurSigma: 22,
-  ),
-
-  /// 4 — heavy blur / dream-like.
-  heavyBlur(
-    label: 'Heavy blur — dream-like',
-    subtitle: 'Opacity 0.35, blur 72 — very smooth, diffuse.',
-    backdropOpacity: 0.35,
-    blurSigma: 72,
+  /// Same layout and controls, doodle wallpaper 2 behind everything.
+  screen2(
+    label: 'Home screen 2',
+    subtitle: 'Alternate doodle backdrop. Same layout and controls.',
+    assetPath: 'assets/home_bg_images/home_bg_screen2.png',
   );
 
   const HomeVisualVariant({
     required this.label,
     required this.subtitle,
-    required this.backdropOpacity,
-    required this.blurSigma,
+    required this.assetPath,
   });
 
   final String label;
   final String subtitle;
-  final double backdropOpacity;
-  final double blurSigma;
+
+  /// Bundled wallpaper for doodle variants. Null for the production look.
+  final String? assetPath;
+
+  bool get usesDoodleBackdrop => assetPath != null;
 }
 
 // ---------------------------------------------------------------------------
@@ -75,13 +66,15 @@ class HomeVisualVariantController {
   static final ValueNotifier<HomeVisualVariant> current =
       ValueNotifier<HomeVisualVariant>(HomeVisualVariant.defaultLook);
 
-  /// Load persisted state. Call once on settings screen init.
+  /// Load persisted state. Call once on settings / home screen init.
   static Future<void> ensureLoaded() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getString(_prefKeyVariant);
       if (raw != null) {
-        final match = HomeVisualVariant.values.where((v) => v.name == raw).firstOrNull;
+        final match = HomeVisualVariant.values
+            .where((v) => v.name == raw)
+            .firstOrNull;
         if (match != null) current.value = match;
       }
       unlocked.value = prefs.getBool(_prefKeyUnlocked) ?? false;

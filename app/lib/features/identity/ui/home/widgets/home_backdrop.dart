@@ -1,6 +1,6 @@
 part of '../../identity_home_screen.dart';
 
-// 1. Blurred member collage behind home chrome.
+// 1. Blurred member collage (default) or doodle wallpaper (test variants).
 // 2. Tile grid for group photos.
 
 class _HomeBackdrop extends StatelessWidget {
@@ -26,66 +26,180 @@ class _HomeBackdrop extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasMemberPhotos = members.any(_memberHasPhoto);
+    return ValueListenableBuilder<HomeVisualVariant>(
+      valueListenable: HomeVisualVariantController.current,
+      builder: (context, variant, _) {
+        if (variant.usesDoodleBackdrop) {
+          return _DoodleBackdrop(assetPath: variant.assetPath!);
+        }
+        return _CollageBackdrop(
+          members: members,
+          fallbackPhotoUrl: fallbackPhotoUrl,
+          fallbackPhotoBase64: fallbackPhotoBase64,
+          fallbackAvatarAsset: fallbackAvatarAsset,
+          accent: accent,
+          hasMemberPhotos: members.any(_memberHasPhoto),
+        );
+      },
+    );
+  }
+}
+
+/// Production look: blurred member collage with a dark overlay.
+class _CollageBackdrop extends StatelessWidget {
+  const _CollageBackdrop({
+    required this.members,
+    required this.fallbackPhotoUrl,
+    required this.fallbackPhotoBase64,
+    required this.fallbackAvatarAsset,
+    required this.accent,
+    required this.hasMemberPhotos,
+  });
+
+  static const double _backdropOpacity = 0.35;
+  static const double _blurSigma = 40;
+
+  final List<GroupMemberSummary> members;
+  final String? fallbackPhotoUrl;
+  final String? fallbackPhotoBase64;
+  final String? fallbackAvatarAsset;
+  final Color accent;
+  final bool hasMemberPhotos;
+
+  @override
+  Widget build(BuildContext context) {
     final hasFallbackPhoto =
         (fallbackPhotoUrl?.trim().isNotEmpty ?? false) ||
         (fallbackPhotoBase64?.trim().isNotEmpty ?? false) ||
         (fallbackAvatarAsset?.trim().isNotEmpty ?? false);
     final showCollage = members.isNotEmpty ? true : hasFallbackPhoto;
+    final baseOpacity = hasMemberPhotos || hasFallbackPhoto
+        ? _backdropOpacity
+        : 0.2;
+    final overlay = (1.15 - _backdropOpacity).clamp(0.42, 0.92);
 
-    return ValueListenableBuilder<HomeVisualVariant>(
-      valueListenable: HomeVisualVariantController.current,
-      builder: (context, variant, _) {
-        final baseOpacity = hasMemberPhotos || hasFallbackPhoto
-            ? variant.backdropOpacity
-            : 0.2;
-        final overlay = (1.15 - variant.backdropOpacity).clamp(0.42, 0.92);
-
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            const ColoredBox(color: Colors.black),
-            if (showCollage)
-              Opacity(
-                opacity: baseOpacity,
-                child: ImageFiltered(
-                  imageFilter: ImageFilter.blur(
-                    sigmaX: variant.blurSigma,
-                    sigmaY: variant.blurSigma,
-                  ),
-                  child: FittedBox(
-                    fit: BoxFit.cover,
-                    child: SizedBox(
-                      width: 400,
-                      height: 800,
-                      child: _BackdropMemberCollage(
-                        members: members,
-                        fallbackPhotoUrl: fallbackPhotoUrl,
-                        fallbackPhotoBase64: fallbackPhotoBase64,
-                        fallbackAvatarAsset: fallbackAvatarAsset,
-                      ),
-                    ),
-                  ),
-                ),
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        const ColoredBox(color: Colors.black),
+        if (showCollage)
+          Opacity(
+            opacity: baseOpacity,
+            child: ImageFiltered(
+              imageFilter: ImageFilter.blur(
+                sigmaX: _blurSigma,
+                sigmaY: _blurSigma,
               ),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withValues(alpha: overlay * 0.34),
-                    Colors.black.withValues(alpha: overlay * 0.62),
-                    Colors.black.withValues(alpha: overlay),
-                    Color.lerp(Colors.black, accent, 0.14)!,
-                  ],
-                  stops: const [0, 0.35, 0.72, 1],
+              child: FittedBox(
+                fit: BoxFit.cover,
+                child: SizedBox(
+                  width: 400,
+                  height: 800,
+                  child: _BackdropMemberCollage(
+                    members: members,
+                    fallbackPhotoUrl: fallbackPhotoUrl,
+                    fallbackPhotoBase64: fallbackPhotoBase64,
+                    fallbackAvatarAsset: fallbackAvatarAsset,
+                  ),
                 ),
               ),
             ),
-          ],
+          ),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.black.withValues(alpha: overlay * 0.34),
+                Colors.black.withValues(alpha: overlay * 0.62),
+                Colors.black.withValues(alpha: overlay),
+                Color.lerp(Colors.black, accent, 0.14)!,
+              ],
+              stops: const [0, 0.35, 0.72, 1],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Dark fade behind top or bottom chrome. No-op on the default look.
+class _HomeEdgeVeil extends StatelessWidget {
+  const _HomeEdgeVeil({
+    required this.fromTop,
+    required this.child,
+  });
+
+  final bool fromTop;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<HomeVisualVariant>(
+      valueListenable: HomeVisualVariantController.current,
+      builder: (context, variant, _) {
+        if (!variant.usesDoodleBackdrop) return child;
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: fromTop ? Alignment.topCenter : Alignment.bottomCenter,
+              end: fromTop ? Alignment.bottomCenter : Alignment.topCenter,
+              colors: [
+                Colors.black.withValues(alpha: 0.42),
+                Colors.black.withValues(alpha: 0.16),
+                Colors.transparent,
+              ],
+              stops: const [0, 0.62, 1],
+            ),
+          ),
+          child: child,
         );
       },
+    );
+  }
+}
+
+/// Full-bleed doodle wallpaper with top/bottom scrims so chrome stays readable.
+class _DoodleBackdrop extends StatelessWidget {
+  const _DoodleBackdrop({required this.assetPath});
+
+  final String assetPath;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        const ColoredBox(color: Colors.black),
+        Image.asset(
+          assetPath,
+          fit: BoxFit.cover,
+          alignment: Alignment.center,
+          filterQuality: FilterQuality.medium,
+        ),
+        // Light overall dim so doodles stay visible but don't compete with UI.
+        const ColoredBox(color: Color.fromRGBO(0, 0, 0, 0.12)),
+        // Stronger opacity at the top and bottom where chrome sits.
+        const DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color.fromRGBO(0, 0, 0, 0.42),
+                Color.fromRGBO(0, 0, 0, 0.16),
+                Color.fromRGBO(0, 0, 0, 0.04),
+                Color.fromRGBO(0, 0, 0, 0.06),
+                Color.fromRGBO(0, 0, 0, 0.22),
+                Color.fromRGBO(0, 0, 0, 0.50),
+              ],
+              stops: [0.0, 0.16, 0.38, 0.58, 0.78, 1.0],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

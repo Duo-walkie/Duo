@@ -912,7 +912,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   icon: Icons.science_outlined,
                                   title: 'Home screen',
                                   subtitle:
-                                      'Temporary looks for evaluating backdrop, blur, and overlay.',
+                                      'Temporary looks for evaluating doodle backdrops. Layout stays the same.',
                                 ),
                                 const SizedBox(height: 14),
                                 for (final option

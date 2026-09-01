@@ -730,40 +730,48 @@ class _IdentityHomeScreenState extends _IdentityHomeBase
             bottom: false,
             child: Column(
               children: [
-                // 3. Settings, setup, presence, speaker.
-                _TopChrome(
-                  onSettings: _openSettings,
-                  onSetup: _openSetupWarnings,
-                  hasSetupWarnings: warnings.isNotEmpty,
-                  busy: _busy,
-                  online: live,
-                  enabled: _serviceReady,
-                  onTogglePresence: _togglePresence,
-                  showAudioOutput: _isOnline,
-                  speakerOn: _callAudio.speakerOn,
-                  audioRoute: _audioRoute,
-                  audioMuted: _audioMuted,
-                  onToggleAudioOutput: _toggleAudioOutput,
-                  onToggleAudioMute: _toggleAudioMute,
-                ),
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(height: 4.h),
-                    // 4. Group name + friend chips.
-                    _FriendsStrip(
-                      groupName: focusedGroup?.name,
-                      friends: _friends,
-                      availability: liveAvailability,
-                      speakingUserIds: _speakingUserIds,
-                      connectionQualityByUserId:
-                          _remoteConnectionQualityByUserId,
-                      nudgeRepliesByUserId: _nudgeRepliesForGroup(
-                        focusedGroup?.groupId,
+                _HomeEdgeVeil(
+                  fromTop: true,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // 3. Settings, setup, presence, speaker.
+                      _TopChrome(
+                        onSettings: _openSettings,
+                        onSetup: _openSetupWarnings,
+                        hasSetupWarnings: warnings.isNotEmpty,
+                        busy: _busy,
+                        online: live,
+                        enabled: _serviceReady,
+                        onTogglePresence: _togglePresence,
+                        showAudioOutput: _isOnline,
+                        speakerOn: _callAudio.speakerOn,
+                        audioRoute: _audioRoute,
+                        audioMuted: _audioMuted,
+                        onToggleAudioOutput: _toggleAudioOutput,
+                        onToggleAudioMute: _toggleAudioMute,
                       ),
-                      onInvite: inviteAction,
-                    ),
-                  ],
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(height: 4.h),
+                          // 4. Group name + friend chips.
+                          _FriendsStrip(
+                            groupName: focusedGroup?.name,
+                            friends: _friends,
+                            availability: liveAvailability,
+                            speakingUserIds: _speakingUserIds,
+                            connectionQualityByUserId:
+                                _remoteConnectionQualityByUserId,
+                            nudgeRepliesByUserId: _nudgeRepliesForGroup(
+                              focusedGroup?.groupId,
+                            ),
+                            onInvite: inviteAction,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
                 if (_isOnline &&
                     (_effectiveLocalConnectionQuality ==
@@ -817,122 +825,137 @@ class _IdentityHomeScreenState extends _IdentityHomeBase
                     ),
                   ),
                 ),
-                // 6. Status hint (hidden while the keyboard is open).
-                if (!(_isOnline && viewingActiveGroup && !_isSessionConnecting))
-                  AnimatedOpacity(
-                    duration: const Duration(milliseconds: 180),
-                    opacity: keyboardOpen ? 0.0 : 1.0,
-                    child: AnimatedAlign(
-                      duration: const Duration(milliseconds: 220),
-                      curve: Curves.easeOutCubic,
-                      alignment: Alignment.topCenter,
-                      heightFactor: keyboardOpen ? 0.0 : 1.0,
-                      child: Padding(
-                        padding: EdgeInsets.fromLTRB(24.w, 0, 24.w, 6.h),
-                        child: Text(
-                          _isSessionConnecting
-                              ? (_state == 'reconnecting'
-                                    ? LiveKitStatus.reconnecting
-                                    : LiveKitStatus.connecting)
-                              : viewingActiveGroup
-                              ? (_isTransmitting
-                                    ? 'Mic on — tap to mute'
-                                    : 'Tap to Talk')
-                              : _isOnline
-                              ? 'connected to ${activeGroup?.name ?? 'another group'} • tap to nudge this group'
-                              : showGoLive
-                              ? 'Someone is live — tap Join? to join'
-                              : !_serviceReady
-                              ? 'invite a friend to enable voice service'
-                              : 'send a nudge to go online together',
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: const Color.fromRGBO(255, 255, 255, 0.55),
-                            fontSize: 13.sp,
-                            fontWeight: FontWeight.w500,
-                            height: 1.3,
+                _HomeEdgeVeil(
+                  fromTop: false,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // 6. Status hint (hidden while the keyboard is open).
+                      if (!(_isOnline &&
+                          viewingActiveGroup &&
+                          !_isSessionConnecting))
+                        AnimatedOpacity(
+                          duration: const Duration(milliseconds: 180),
+                          opacity: keyboardOpen ? 0.0 : 1.0,
+                          child: AnimatedAlign(
+                            duration: const Duration(milliseconds: 220),
+                            curve: Curves.easeOutCubic,
+                            alignment: Alignment.topCenter,
+                            heightFactor: keyboardOpen ? 0.0 : 1.0,
+                            child: Padding(
+                              padding: EdgeInsets.fromLTRB(24.w, 0, 24.w, 6.h),
+                              child: Text(
+                                _isSessionConnecting
+                                    ? (_state == 'reconnecting'
+                                          ? LiveKitStatus.reconnecting
+                                          : LiveKitStatus.connecting)
+                                    : viewingActiveGroup
+                                    ? (_isTransmitting
+                                          ? 'Mic on — tap to mute'
+                                          : 'Tap to Talk')
+                                    : _isOnline
+                                    ? 'connected to ${activeGroup?.name ?? 'another group'} • tap to nudge this group'
+                                    : showGoLive
+                                    ? 'Someone is live — tap Join? to join'
+                                    : !_serviceReady
+                                    ? 'invite a friend to enable voice service'
+                                    : 'send a nudge to go online together',
+                                textAlign: TextAlign.center,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: const Color.fromRGBO(
+                                    255,
+                                    255,
+                                    255,
+                                    0.55,
+                                  ),
+                                  fontSize: 13.sp,
+                                  fontWeight: FontWeight.w500,
+                                  height: 1.3,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      // 7. Edge nudge while mixed/live.
+                      if ((live && groupMixed) || showGoLive)
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: Padding(
+                            // Flush to the right edge of the safe area.
+                            padding: EdgeInsets.only(right: 0, bottom: 6.h),
+                            child: _EdgeQuickActions(
+                              showNudge: groupMixed || showGoLive,
+                              onNudge: _busy ? null : _openNudges,
+                            ),
+                          ),
+                        ),
+                      // 8. Group carousel (join / talk / create).
+                      AnimatedOpacity(
+                        duration: const Duration(milliseconds: 180),
+                        opacity: keyboardOpen ? 0.0 : 1.0,
+                        child: AnimatedAlign(
+                          duration: const Duration(milliseconds: 220),
+                          curve: Curves.easeOutCubic,
+                          alignment: Alignment.topCenter,
+                          heightFactor: keyboardOpen ? 0.0 : 1.0,
+                          child: IgnorePointer(
+                            ignoring: keyboardOpen,
+                            child: SizedBox(
+                              height: 160.h,
+                              child: _ExperienceCarousel(
+                                items: items,
+                                index: _carouselIndex,
+                                connectedGroupId: _onlineSession?.groupId,
+                                connecting: _isSessionConnecting,
+                                talkEnabled:
+                                    viewingActiveGroup &&
+                                    !_busy &&
+                                    !_isSessionConnecting,
+                                talkActive: _isTransmitting,
+                                talkBusy: _connectionModeBusy,
+                                accent: accent,
+                                nudgeGroupId:
+                                    (groupAllOffline ||
+                                        (_isOnline && !viewingActiveGroup))
+                                    ? focusedGroup?.groupId
+                                    : null,
+                                goLiveGroupId: showGoLive
+                                    ? focusedGroup?.groupId
+                                    : null,
+                                onNudge: _busy ? null : _openNudges,
+                                onSelected: (index) {
+                                  unawaited(_onGroupCarouselChanged(index));
+                                },
+                                onTalkStart: _startTalking,
+                                onTalkStop: () => _stopTalking(),
+                                onJoinVoiceGroup: _togglePresence,
+                                onCreateGroup: _openCreateGroup,
+                                onJoinGroup: _openJoinGroup,
+                              ),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ),
-                // 7. Edge nudge while mixed/live.
-                if ((live && groupMixed) || showGoLive)
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: Padding(
-                      // Flush to the right edge of the safe area.
-                      padding: EdgeInsets.only(right: 0, bottom: 6.h),
-                      child: _EdgeQuickActions(
-                        showNudge: groupMixed || showGoLive,
-                        onNudge: _busy ? null : _openNudges,
-                      ),
-                    ),
-                  ),
-                // 8. Group carousel (join / talk / create).
-                AnimatedOpacity(
-                  duration: const Duration(milliseconds: 180),
-                  opacity: keyboardOpen ? 0.0 : 1.0,
-                  child: AnimatedAlign(
-                    duration: const Duration(milliseconds: 220),
-                    curve: Curves.easeOutCubic,
-                    alignment: Alignment.topCenter,
-                    heightFactor: keyboardOpen ? 0.0 : 1.0,
-                    child: IgnorePointer(
-                      ignoring: keyboardOpen,
-                      child: SizedBox(
-                        height: 160.h,
-                        child: _ExperienceCarousel(
-                          items: items,
-                          index: _carouselIndex,
-                          connectedGroupId: _onlineSession?.groupId,
-                          connecting: _isSessionConnecting,
-                          talkEnabled:
-                              viewingActiveGroup &&
-                              !_busy &&
-                              !_isSessionConnecting,
-                          talkActive: _isTransmitting,
-                          talkBusy: _connectionModeBusy,
+                      if (focusedGroup != null) ...[
+                        SizedBox(height: 4.h),
+                        // 9. Composer.
+                        ChatBubbleBar(
+                          key: const ValueKey('home-chat-bubble-bar'),
                           accent: accent,
-                          nudgeGroupId:
-                              (groupAllOffline ||
-                                  (_isOnline && !viewingActiveGroup))
-                              ? focusedGroup?.groupId
-                              : null,
-                          goLiveGroupId: showGoLive
-                              ? focusedGroup?.groupId
-                              : null,
-                          onNudge: _busy ? null : _openNudges,
-                          onSelected: (index) {
-                            unawaited(_onGroupCarouselChanged(index));
-                          },
-                          onTalkStart: _startTalking,
-                          onTalkStop: () => _stopTalking(),
-                          onJoinVoiceGroup: _togglePresence,
-                          onCreateGroup: _openCreateGroup,
-                          onJoinGroup: _openJoinGroup,
+                          anyMemberOnline: anyMemberOnline,
+                          onSend: _sendChatMessage,
+                          onEmojiSelected: _triggerEmojiBurst,
                         ),
-                      ),
-                    ),
+                      ],
+                      // Live system inset + a short base gap so the main
+                      // button row sits near the bottom without crowding
+                      // the nav area.
+                      SizedBox(height: 8.h + bottomSystemInset),
+                    ],
                   ),
                 ),
-                if (focusedGroup != null) ...[
-                  SizedBox(height: 4.h),
-                  // 9. Composer.
-                  ChatBubbleBar(
-                    key: const ValueKey('home-chat-bubble-bar'),
-                    accent: accent,
-                    anyMemberOnline: anyMemberOnline,
-                    onSend: _sendChatMessage,
-                    onEmojiSelected: _triggerEmojiBurst,
-                  ),
-                ],
-                // Live system inset + a short base gap so the main
-                // button row sits near the bottom without crowding
-                // the nav area.
-                SizedBox(height: 8.h + bottomSystemInset),
               ],
             ),
           ),
