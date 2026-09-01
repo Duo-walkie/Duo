@@ -73,6 +73,7 @@ export 'app/startup_gate_screen.dart';
 export 'app/startup_performance.dart';
 
 // Core — firebase
+export 'core/firebase/analytics_events.dart';
 export 'core/firebase/app_database.dart';
 export 'core/firebase/app_telemetry.dart';
 export 'core/firebase/crashlytics_service.dart';
@@ -89,6 +90,7 @@ export 'core/logging/livekit_lifecycle_logger.dart';
 export 'core/logging/log_level.dart';
 export 'core/logging/log_line.dart';
 export 'core/logging/log_manager.dart';
+export 'core/logging/operational_log.dart';
 export 'core/logging/post_crash_report_dialog.dart';
 export 'core/logging/send_feedback_sheet.dart';
 export 'core/logging/user_facing_copy.dart';

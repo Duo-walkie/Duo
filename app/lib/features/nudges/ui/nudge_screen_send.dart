@@ -162,6 +162,29 @@ mixin _NudgeSheetSend on _NudgeSheetStateBase, _NudgeSheetDelivery {
               },
             ),
           );
+          unawaited(
+            AnalyticsService.logNudgeFailed(
+              groupId: widget.group.groupId,
+              kind: _lastSentNudgeKind?.name,
+              failureReason: NudgeReachability.deviceUnreachable,
+              deliveryMethod: 'fcm',
+            ),
+          );
+          OperationalLog.record(
+            event: OperationalLog.eventNudgeFailed,
+            eventType: OperationalLog.eventTypeNudge,
+            status: NudgeReachability.deviceUnreachable,
+            error: 'fcm_not_delivered',
+            sender: widget.currentUserId,
+            groupId: widget.group.groupId,
+            nudgeId: _lastEventId,
+            level: LogLevel.error,
+            debugMetadata: {
+              'send_status': 'partial_or_failed',
+              'failed_count': nudgeResult.failedCount,
+              'total_recipients': nudgeResult.totalRecipients,
+            },
+          );
           NudgeFailureMemory.instance.record(
             widget.group.groupId,
             nudgeResult.isFullFailure
@@ -216,6 +239,25 @@ mixin _NudgeSheetSend on _NudgeSheetStateBase, _NudgeSheetDelivery {
       final cancelled = error.toString().toLowerCase().contains('cancel');
       final expectedDelivery = error is NudgeDeliveryException;
       if (!cancelled && !expectedDelivery) {
+        final reachability = NudgeReachability.fromSendError(error);
+        unawaited(
+          AnalyticsService.logNudgeFailed(
+            groupId: widget.group.groupId,
+            kind: _lastSentNudgeKind?.name,
+            failureReason: reachability,
+            deliveryMethod: 'fcm',
+          ),
+        );
+        OperationalLog.record(
+          event: OperationalLog.eventNudgeFailed,
+          eventType: OperationalLog.eventTypeNudge,
+          status: reachability,
+          error: error.toString(),
+          sender: widget.currentUserId,
+          groupId: widget.group.groupId,
+          level: LogLevel.error,
+          debugMetadata: {'send_status': 'failed'},
+        );
         unawaited(
           CrashlyticsService.recordNudgeFailure(
             error: error,

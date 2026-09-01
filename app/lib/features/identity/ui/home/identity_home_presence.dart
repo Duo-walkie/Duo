@@ -300,6 +300,12 @@ mixin _IdentityHomePresence on _IdentityHomeBase {
       return;
     }
     if (_isViewingActiveGroup) {
+      unawaited(
+        AnalyticsService.logButtonClick(
+          buttonName: 'go_away',
+          screenName: 'home',
+        ),
+      );
       _showPresenceSnackbar(
         'You\'re going offline. Tap again when someone is live to rejoin without a nudge.',
       );
@@ -315,6 +321,18 @@ mixin _IdentityHomePresence on _IdentityHomeBase {
     // If someone else is already online in this group, let the user join
     // directly — no nudge required since the room is already active.
     if (_anyPeerOnline) {
+      unawaited(
+        AnalyticsService.logButtonClick(
+          buttonName: 'go_live',
+          screenName: 'home',
+        ),
+      );
+      unawaited(
+        AnalyticsService.logFeatureSelected(
+          feature: 'go_live',
+          screenName: 'home',
+        ),
+      );
       unawaited(_goOnline(userIntent: true));
       return;
     }
@@ -577,6 +595,7 @@ mixin _IdentityHomePresence on _IdentityHomeBase {
       }
       _peerWasLiveWithMe = false;
       _enteredViaNudge = false;
+      _completeLiveKitSession(groupId: session.groupId, reason: reason);
       await _disconnectLiveKit();
       // 2. Clear RTDB presence and local session.
       await _onlineRepository.goAway(session, reason: reason);
@@ -618,6 +637,12 @@ mixin _IdentityHomePresence on _IdentityHomeBase {
   /// voices overlap; there is no exclusive talk lock.
   Future<void> _startTalking() async {
     if (_isCallMode) return;
+    unawaited(
+      AnalyticsService.logButtonClick(
+        buttonName: 'talk',
+        screenName: 'home',
+      ),
+    );
     await _toggleConnectionMode();
   }
 

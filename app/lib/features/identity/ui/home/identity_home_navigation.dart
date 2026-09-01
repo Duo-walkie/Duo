@@ -11,10 +11,34 @@ mixin _IdentityHomeNavigation on _IdentityHomeBase {
   // (visible on the GroupActionScreen) lets the user return directly to the
   // home/live screen without losing context.
   void _openCreateGroup() {
+    unawaited(
+      AnalyticsService.logButtonClick(
+        buttonName: 'create_group',
+        screenName: 'home',
+      ),
+    );
+    unawaited(
+      AnalyticsService.logFeatureSelected(
+        feature: 'create_group',
+        screenName: 'home',
+      ),
+    );
     _openGroupAction(GroupActionMode.createGroup);
   }
 
   void _openJoinGroup() {
+    unawaited(
+      AnalyticsService.logButtonClick(
+        buttonName: 'join_group',
+        screenName: 'home',
+      ),
+    );
+    unawaited(
+      AnalyticsService.logFeatureSelected(
+        feature: 'join_group',
+        screenName: 'home',
+      ),
+    );
     _openGroupAction(GroupActionMode.joinByPin);
   }
 
@@ -51,6 +75,12 @@ mixin _IdentityHomeNavigation on _IdentityHomeBase {
   }
 
   Future<void> _createInviteForGroup(GroupSummary group) async {
+    unawaited(
+      AnalyticsService.logButtonClick(
+        buttonName: 'invite',
+        screenName: 'home',
+      ),
+    );
     await _runBusy(() async {
       final invite = await _groupRepository.createInvite(group.groupId);
       if (!mounted) return;
@@ -252,6 +282,12 @@ mixin _IdentityHomeNavigation on _IdentityHomeBase {
   }
 
   void _openSettings() {
+    unawaited(
+      AnalyticsService.logButtonClick(
+        buttonName: 'settings',
+        screenName: 'home',
+      ),
+    );
     final ownedGroups = _ownedGroups;
     unawaited(
       SettingsScreen.open(
@@ -269,6 +305,18 @@ mixin _IdentityHomeNavigation on _IdentityHomeBase {
     if (_incomingPromptNudge != null) return;
     final group = _selectedGroup;
     if (group == null) return;
+    unawaited(
+      AnalyticsService.logButtonClick(
+        buttonName: 'nudge',
+        screenName: 'home',
+      ),
+    );
+    unawaited(
+      AnalyticsService.logFeatureSelected(
+        feature: 'nudge',
+        screenName: 'home',
+      ),
+    );
     if (_session.settings.hapticsEnabled) {
       unawaited(HapticFeedback.selectionClick());
     }
