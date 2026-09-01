@@ -25,4 +25,26 @@ void main() {
     expect(find.text('Welcome to Duo'), findsNothing);
     expect(find.byType(BrandSplashScreen), findsOneWidget);
   });
+
+  testWidgets('welcome screen uses localized copy', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    await tester.pumpWidget(
+      ScreenUtilInit(
+        designSize: const Size(393, 873),
+        minTextAdapt: true,
+        builder: (context, child) {
+          return MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('en'),
+            home: child,
+          );
+        },
+        child: const GoogleAuthScreen(),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('Welcome to Duo'), findsOneWidget);
+    expect(find.text('Continue with Google'), findsOneWidget);
+  });
 }

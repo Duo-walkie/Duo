@@ -24,17 +24,20 @@ void main() {
       expect(settings.hapticsEnabled, isTrue);
     });
 
-    test('reads hapticsIntensity from json and ignores legacy false toggle', () {
-      final settings = UserSettingsRecord.fromJson({
-        'accentColorKey': 'coral',
-        'hapticsEnabled': false,
-        'hapticsIntensity': 'wild',
-        'audioOutputPreference': 'earpiece',
-        'updatedAt': 10,
-      });
-      expect(settings.hapticsIntensity, HapticsIntensity.wild);
-      expect(settings.hapticsEnabled, isTrue);
-    });
+    test(
+      'reads hapticsIntensity from json and ignores legacy false toggle',
+      () {
+        final settings = UserSettingsRecord.fromJson({
+          'accentColorKey': 'coral',
+          'hapticsEnabled': false,
+          'hapticsIntensity': 'wild',
+          'audioOutputPreference': 'earpiece',
+          'updatedAt': 10,
+        });
+        expect(settings.hapticsIntensity, HapticsIntensity.wild);
+        expect(settings.hapticsEnabled, isTrue);
+      },
+    );
 
     test('legacy records without intensity stay on light', () {
       final settings = UserSettingsRecord.fromJson({
@@ -43,6 +46,16 @@ void main() {
         'updatedAt': 10,
       });
       expect(settings.hapticsIntensity, HapticsIntensity.light);
+    });
+
+    test('preferredLocale round-trips when present', () {
+      final settings = UserSettingsRecord.fromJson({
+        'accentColorKey': 'coral',
+        'preferredLocale': 'de',
+        'updatedAt': 10,
+      });
+      expect(settings.preferredLocale, 'de');
+      expect(settings.toJson()['preferredLocale'], 'de');
     });
   });
 

@@ -20,6 +20,12 @@ class _GoogleAuthScreenState extends State<GoogleAuthScreen> {
   IdentityRepository get _repo => _identityRepository ??= IdentityRepository();
 
   @override
+  void initState() {
+    super.initState();
+    unawaited(DuoLocalization.start());
+  }
+
+  @override
   void dispose() {
     _identityRepository?.dispose();
     super.dispose();
@@ -55,17 +61,17 @@ class _GoogleAuthScreenState extends State<GoogleAuthScreen> {
       if (!mounted) return;
       setState(() {
         _isSigningIn = false;
-        _errorMessage = _friendlyError(error);
+        _errorMessage = _friendlyError(context, error);
       });
     }
   }
 
-  String _friendlyError(Object error) {
+  String _friendlyError(BuildContext context, Object error) {
     final message = error.toString();
     if (message.contains('canceled') || message.contains('cancelled')) {
-      return 'Google sign-in was cancelled. Please try again.';
+      return context.l10n.googleSignInCancelled;
     }
-    return 'Google sign-in couldn\'t be completed. Check your internet connection and try again.';
+    return context.l10n.googleSignInFailed;
   }
 
   @override
@@ -87,65 +93,80 @@ class _GoogleAuthScreenState extends State<GoogleAuthScreen> {
       NativeSplashBridge.markReady();
     });
 
-    return Scaffold(
-      backgroundColor: BrandSplashScreen.backgroundColor,
-      body: SafeArea(
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(28.w, 28.h, 28.w, 24.h),
-          child: Column(
-            children: [
-              const Spacer(flex: 2),
-              // Logo — static, no animation. Rendered in its final position
-              // from the very first frame.
-              Image.asset('assets/logo.png', width: 172.w, fit: BoxFit.contain),
-              SizedBox(height: 36.h),
-              Text(
-                'Welcome to Duo',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: const Color(0xff252a2e),
-                  fontSize: 26.sp,
-                  fontWeight: FontWeight.w700,
+    return WelcomeOnboardingHost(
+      child: Scaffold(
+        backgroundColor: BrandSplashScreen.backgroundColor,
+        body: SafeArea(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(28.w, 28.h, 28.w, 24.h),
+            child: Column(
+              children: [
+                Align(
+                  alignment: Alignment.topRight,
+                  child: const WelcomeLanguageToggle(),
                 ),
-              ),
-              SizedBox(height: 10.h),
-              Text(
-                'Sign in or create your account before setting up your profile.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: const Color.fromRGBO(37, 42, 46, 0.72),
-                  fontSize: 14.sp,
-                  height: 1.45,
+                const Spacer(flex: 2),
+                // Logo — static, no animation. Rendered in its final position
+                // from the very first frame.
+                Image.asset(
+                  'assets/logo.png',
+                  width: 172.w,
+                  fit: BoxFit.contain,
                 ),
-              ),
-              const Spacer(flex: 3),
-              if (_errorMessage != null) ...[
+                SizedBox(height: 36.h),
                 Text(
-                  _errorMessage!,
+                  context.l10n.welcomeTitle,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: const Color(0xff7a2f2f),
-                    fontSize: 12.sp,
-                    fontWeight: FontWeight.w500,
+                    color: const Color(0xff252a2e),
+                    fontSize: 26.sp,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-                SizedBox(height: 14.h),
-              ],
-              _GoogleSignInButton(
-                busy: false,
-                busyLabel: 'Signing in…',
-                onTap: _continueWithGoogle,
-              ),
-              SizedBox(height: 22.h),
-              Text(
-                'By continuing, you agree to our terms & policies.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: const Color.fromRGBO(56, 64, 71, 0.72),
-                  fontSize: 11.sp,
+                SizedBox(height: 10.h),
+                Text(
+                  context.l10n.welcomeSubtitle,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: const Color.fromRGBO(37, 42, 46, 0.72),
+                    fontSize: 14.sp,
+                    height: 1.45,
+                  ),
                 ),
-              ),
-            ],
+                const Spacer(flex: 3),
+                if (_errorMessage != null) ...[
+                  Text(
+                    _errorMessage!,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: const Color(0xff7a2f2f),
+                      fontSize: 12.sp,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  SizedBox(height: 14.h),
+                ],
+                _GoogleSignInButton(
+                  busy: false,
+                  busyLabel: context.l10n.signingIn,
+                  label: context.l10n.continueWithGoogle,
+                  onTap: _continueWithGoogle,
+                ),
+                SizedBox(height: 22.h),
+                Text(
+                  context.l10n.termsFooter,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: const Color.fromRGBO(56, 64, 71, 0.72),
+                    fontSize: 11.sp,
+                  ),
+                ),
+                DebugMarketPanel(
+                  compact: true,
+                  accent: const Color(0xff252a2e),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -157,10 +178,12 @@ class _GoogleSignInButton extends StatefulWidget {
   const _GoogleSignInButton({
     required this.busy,
     required this.onTap,
+    required this.label,
     this.busyLabel = 'Signing in…',
   });
   final bool busy;
   final VoidCallback onTap;
+  final String label;
   final String busyLabel;
   @override
   State<_GoogleSignInButton> createState() => _GoogleSignInButtonState();
@@ -204,7 +227,7 @@ class _GoogleSignInButtonState extends State<_GoogleSignInButton> {
                     ),
               SizedBox(width: 10.w),
               Text(
-                widget.busy ? widget.busyLabel : 'Continue with Google',
+                widget.busy ? widget.busyLabel : widget.label,
                 style: TextStyle(
                   color: const Color(0xff384047),
                   fontSize: 15.sp,

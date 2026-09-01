@@ -57,7 +57,7 @@ class _ProfilePictureScreenState extends State<ProfilePictureScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'choose an avatar',
+                context.l10n.chooseAvatarTitle,
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Colors.white,
@@ -67,7 +67,7 @@ class _ProfilePictureScreenState extends State<ProfilePictureScreen> {
               ),
               SizedBox(height: 8.h),
               Text(
-                'You can add a custom photo later in Settings.',
+                context.l10n.chooseAvatarSubtitle,
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.white60, fontSize: 13.sp),
               ),

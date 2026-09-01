@@ -216,7 +216,7 @@ class _SetupPermissionScreenState extends State<SetupPermissionScreen>
       if (!mounted) return;
       _completed = false;
       setState(() => _busy = false);
-      _showDeniedSnackBar('Setup could not be completed. Please try again.');
+      _showDeniedSnackBar(context.l10n.permissionSetupFailed);
     }
   }
 
@@ -249,8 +249,7 @@ class _SetupPermissionScreenState extends State<SetupPermissionScreen>
   /// the contained image's edges. Screens without a box keep the full-bleed
   /// `BoxFit.cover` and only apply a horizontal [shiftX] offset.
   Widget _buildStepBackground(_StepVisual visual) {
-    final hasBox =
-        visual.boxTopColor != null && visual.boxBottomColor != null;
+    final hasBox = visual.boxTopColor != null && visual.boxBottomColor != null;
     if (!hasBox) {
       Widget image = Image.asset(
         visual.backgroundAsset,
@@ -266,10 +265,7 @@ class _SetupPermissionScreenState extends State<SetupPermissionScreen>
           child: image,
         );
       }
-      return KeyedSubtree(
-        key: ValueKey(visual.backgroundAsset),
-        child: image,
-      );
+      return KeyedSubtree(key: ValueKey(visual.backgroundAsset), child: image);
     }
 
     return KeyedSubtree(
@@ -282,7 +278,8 @@ class _SetupPermissionScreenState extends State<SetupPermissionScreen>
           final maxHeight = constraints.maxHeight.isFinite
               ? constraints.maxHeight
               : MediaQuery.sizeOf(context).height;
-          final scale = min(
+          final scale =
+              min(
                 maxWidth / visual.imageWidth,
                 maxHeight / visual.imageHeight,
               ) *
@@ -299,10 +296,7 @@ class _SetupPermissionScreenState extends State<SetupPermissionScreen>
                     ? LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
-                        colors: [
-                          visual.boxTopColor!,
-                          visual.boxBottomColor!,
-                        ],
+                        colors: [visual.boxTopColor!, visual.boxBottomColor!],
                         stops: [
                           topBand / maxHeight,
                           (topBand + displayedHeight) / maxHeight,
@@ -410,9 +404,8 @@ class _SetupPermissionScreenState extends State<SetupPermissionScreen>
                         key: const ValueKey('mic-card'),
                         iconColor: visual.iconColor,
                         icon: visual.icon,
-                        title: 'mic',
-                        subtitle:
-                            'so your friends can hear you\nwhen you talk...',
+                        title: context.l10n.permissionMicTitle,
+                        subtitle: context.l10n.permissionMicSubtitle,
                         checked: _micGranted,
                         onTap: _requestMicPermission,
                       ),
@@ -420,8 +413,8 @@ class _SetupPermissionScreenState extends State<SetupPermissionScreen>
                         key: const ValueKey('notification-card'),
                         iconColor: visual.iconColor,
                         icon: visual.icon,
-                        title: 'notifications',
-                        subtitle: 'know when your friends are\ntalking to you',
+                        title: context.l10n.permissionNotificationsTitle,
+                        subtitle: context.l10n.permissionNotificationsSubtitle,
                         checked: _notificationGranted,
                         onTap: _requestNotificationPermission,
                       ),
@@ -429,8 +422,8 @@ class _SetupPermissionScreenState extends State<SetupPermissionScreen>
                         key: const ValueKey('background-card'),
                         iconColor: visual.iconColor,
                         icon: visual.icon,
-                        title: 'background activity',
-                        subtitle: 'receive nudges when duo\nisn\'t open',
+                        title: context.l10n.permissionBackgroundTitle,
+                        subtitle: context.l10n.permissionBackgroundSubtitle,
                         checked: _backgroundGranted,
                         onTap: _requestBackgroundPermission,
                       ),
@@ -438,7 +431,7 @@ class _SetupPermissionScreenState extends State<SetupPermissionScreen>
                   ),
                   SizedBox(height: 16.h),
                   Text(
-                    '*we need those for duo to work',
+                    context.l10n.permissionFootnote,
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: const Color.fromRGBO(255, 255, 255, 0.72),

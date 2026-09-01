@@ -22,6 +22,7 @@ export 'package:flutter/material.dart';
 export 'package:flutter/scheduler.dart';
 export 'package:flutter/services.dart';
 export 'package:flutter/widgets.dart';
+export 'package:flutter_localizations/flutter_localizations.dart';
 
 // Third party
 export 'package:archive/archive.dart'
@@ -95,6 +96,17 @@ export 'core/logging/user_facing_copy.dart';
 
 // Core
 export 'core/maps.dart';
+
+// Core — market / locale
+export 'core/market/locale_controller.dart';
+export 'core/market/market.dart';
+export 'core/market/market_config.dart';
+export 'core/market/market_controller.dart';
+export 'core/market/market_resolver.dart';
+export 'core/market/market_ui.dart';
+
+// Localization
+export 'l10n/l10n.dart';
 
 // Core — network
 export 'core/network/api_client.dart';

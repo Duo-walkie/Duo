@@ -282,6 +282,7 @@ class IdentityRepository {
     String? accentColorKey,
     HapticsIntensity? hapticsIntensity,
     String? audioOutputPreference,
+    String? preferredLocale,
   }) async {
     final user = _auth.currentUser;
     if (user == null) {
@@ -289,7 +290,8 @@ class IdentityRepository {
     }
 
     final now = _nowSeconds();
-    final current = _cachedSession?.settings ?? UserSettingsRecord.defaults(now);
+    final current =
+        _cachedSession?.settings ?? UserSettingsRecord.defaults(now);
     final cleanAccentKey = accentColorKey == null
         ? current.accentColorKey
         : (accentOptions.any((option) => option.key == accentColorKey)
@@ -302,6 +304,7 @@ class IdentityRepository {
       accentColorKey: cleanAccentKey,
       hapticsIntensity: hapticsIntensity,
       audioOutputPreference: cleanAudioOutput,
+      preferredLocale: preferredLocale,
       updatedAt: now,
     );
 
@@ -320,6 +323,39 @@ class IdentityRepository {
     }
 
     return ensureIdentity();
+  }
+
+  /// Persists the resolved Play/account market onto the user profile.
+  /// Does not overwrite an existing market (travel must not swap the product).
+  Future<void> persistMarketIfAbsent(String isoCode) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+    final clean = isoCode.trim().toUpperCase();
+    if (clean.isEmpty || clean == Market.unknown.isoCode) return;
+
+    final existing = _cachedSession?.user.market?.trim();
+    if (existing != null && existing.isNotEmpty) return;
+
+    final now = _nowSeconds();
+    await _database.ref('users/${user.uid}').update({
+      'market': clean,
+      'updatedAt': now,
+      'lastSeenAt': now,
+    });
+    final session = _cachedSession;
+    if (session != null) {
+      _publishSession(
+        IdentitySession(
+          user: session.user.copyWith(
+            market: clean,
+            updatedAt: now,
+            lastSeenAt: now,
+          ),
+          device: session.device,
+          settings: session.settings,
+        ),
+      );
+    }
   }
 
   Future<IdentitySession> updateProfilePhoto(Uint8List imageBytes) async {
@@ -610,7 +646,7 @@ class IdentityRepository {
       updatedAt: now,
       lastSeenAt: now,
     );
-    await ref.set(profile.toJson());
+    await ref.update(profile.toJson());
     return profile;
   }
 
@@ -619,12 +655,23 @@ class IdentityRepository {
     final snapshot = await ref.get();
 
     if (snapshot.exists && snapshot.value is Map<Object?, Object?>) {
-      return UserSettingsRecord.fromJson(
+      final settings = UserSettingsRecord.fromJson(
         snapshot.value! as Map<Object?, Object?>,
       );
+      final localLocale = LocaleController.languageCode;
+      if ((settings.preferredLocale == null ||
+              settings.preferredLocale!.trim().isEmpty) &&
+          localLocale.isNotEmpty) {
+        final merged = settings.copyWith(preferredLocale: localLocale);
+        await ref.update({'preferredLocale': localLocale, 'updatedAt': now});
+        return merged;
+      }
+      return settings;
     }
 
-    final settings = UserSettingsRecord.defaults(now);
+    final settings = UserSettingsRecord.defaults(
+      now,
+    ).copyWith(preferredLocale: LocaleController.languageCode);
     await ref.set(settings.toJson());
     return settings;
   }
@@ -710,6 +757,13 @@ class IdentityRepository {
         settings: settings,
       );
       _publishSession(session);
+      unawaited(
+        MarketController.syncWithAccount(
+          backendMarketIso: user.market,
+          persistIfAbsent: persistMarketIfAbsent,
+        ),
+      );
+      unawaited(LocaleController.syncWithAccount(settings.preferredLocale));
       return session;
     } catch (error, stack) {
       debugPrint(

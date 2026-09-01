@@ -94,7 +94,7 @@ class _DisplayNameScreenState extends State<DisplayNameScreen> {
                     textAlign: TextAlign.center,
                     cursorColor: Colors.white,
                     decoration: InputDecoration(
-                      hintText: 'your name',
+                      hintText: context.l10n.displayNameHint,
                       hintStyle: TextStyle(
                         color: Colors.white,
                         fontSize: 34.sp,
@@ -110,7 +110,7 @@ class _DisplayNameScreenState extends State<DisplayNameScreen> {
                   ),
                   SizedBox(height: 14.h),
                   Text(
-                    'this is how your friends will see you',
+                    context.l10n.displayNameSubtitle,
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Colors.white,

@@ -151,8 +151,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
   }
 
-  bool get _hasUnsavedSettings =>
-      _accentColorKey != _persistedAccentColorKey;
+  bool get _hasUnsavedSettings => _accentColorKey != _persistedAccentColorKey;
 
   void _acceptSession(IdentitySession session) {
     _session = session;
@@ -232,6 +231,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (mounted) {
         setState(() => _message = 'Testing section unlocked');
       }
+    }
+  }
+
+  Future<void> _setAppLanguage(AppLanguage language) async {
+    await LocaleController.setLanguage(language);
+    try {
+      final session = await widget.identityRepository.updateSettings(
+        preferredLocale: language.languageCode,
+      );
+      if (!mounted) return;
+      setState(() => _acceptSession(session));
+    } catch (error, stack) {
+      unawaited(
+        CrashlyticsService.recordError(
+          error,
+          stack,
+          reason: 'settings_language_save_failed',
+          feature: 'settings',
+          screenName: 'settings',
+        ),
+      );
     }
   }
 
@@ -654,9 +674,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         title: GestureDetector(
           onTap: _handleSettingsTitleTap,
           behavior: HitTestBehavior.opaque,
-          child: const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Text('Settings'),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Text(context.l10n.settingsTitle),
           ),
         ),
         centerTitle: true,
@@ -796,6 +816,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ],
               ),
+              SettingsLanguageSection(
+                accent: accent,
+                onLanguageSelected: _setAppLanguage,
+              ),
+              if (kDebugMode) DebugMarketPanel(accent: accent),
               const SizedBox(height: 28),
               const _SectionTitle('Background reliability'),
               const SizedBox(height: 12),
@@ -879,10 +904,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _NavigationRow(
                     icon: Icons.feedback_outlined,
                     label: 'Send Feedback',
-                    onTap: () => showSendFeedbackSheet(
-                      context,
-                      userId: _session.userId,
-                    ),
+                    onTap: () =>
+                        showSendFeedbackSheet(context, userId: _session.userId),
                   ),
                   const _SurfaceDivider(indent: 52),
                   _NavigationRow(
@@ -1926,10 +1949,7 @@ class _TestingVariantRow extends StatelessWidget {
                   const SizedBox(height: 3),
                   Text(
                     variant.subtitle,
-                    style: const TextStyle(
-                      color: Colors.white54,
-                      fontSize: 13,
-                    ),
+                    style: const TextStyle(color: Colors.white54, fontSize: 13),
                   ),
                 ],
               ),

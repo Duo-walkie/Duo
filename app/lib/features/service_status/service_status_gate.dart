@@ -7,6 +7,7 @@ Map<String, Object> serviceStatusRemoteDefaults() {
     'service_status': 'operational',
     'service_status_guidance': '',
     'service_status_updates_url': '',
+    MarketRemoteConfig.onboardingVariantKey: '',
   });
 }
 
@@ -139,9 +140,7 @@ class _ServiceStatusGateState extends State<ServiceStatusGate>
 
     if (_lastLoggedBlockedStatus != status) {
       _lastLoggedBlockedStatus = status;
-      unawaited(
-        AnalyticsService.logServiceStatusBlocked(status: status.name),
-      );
+      unawaited(AnalyticsService.logServiceStatusBlocked(status: status.name));
     }
 
     final screen = ServiceStatusScreen(
