@@ -47,13 +47,19 @@ void main() {
   });
 
   group('HomeVisualVariant', () {
-    test('ships four distinct looks', () {
-      expect(HomeVisualVariant.values, hasLength(4));
-      final opacities = HomeVisualVariant.values
-          .map((v) => v.backdropOpacity)
-          .toSet();
-      final blurs = HomeVisualVariant.values.map((v) => v.blurSigma).toSet();
-      expect(opacities.length + blurs.length, greaterThan(2));
+    test('ships default plus two doodle backdrops', () {
+      expect(HomeVisualVariant.values, hasLength(3));
+      expect(HomeVisualVariant.defaultLook.usesDoodleBackdrop, isFalse);
+      expect(
+        HomeVisualVariant.screen1.assetPath,
+        'assets/home_bg_images/home_bg_screen1.png',
+      );
+      expect(
+        HomeVisualVariant.screen2.assetPath,
+        'assets/home_bg_images/home_bg_screen2.png',
+      );
+      expect(HomeVisualVariant.screen1.usesDoodleBackdrop, isTrue);
+      expect(HomeVisualVariant.screen2.usesDoodleBackdrop, isTrue);
     });
   });
 }

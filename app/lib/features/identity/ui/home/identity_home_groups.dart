@@ -47,6 +47,9 @@ mixin _IdentityHomeGroups on _IdentityHomeBase {
         _groups = groups;
         _selectedGroup = selected;
         _membersByGroupId = membersByGroupId;
+        // membersByGroupId was just reset to only the selected group —
+        // let the widget-sync backfill refetch every group again.
+        _widgetMemberFetchAttempted.clear();
         _members = selected == null
             ? const []
             : membersByGroupId[selected.groupId] ?? const [];
@@ -55,6 +58,7 @@ mixin _IdentityHomeGroups on _IdentityHomeBase {
           _chatMessages = const [];
         }
       });
+      _syncDuoWidget();
       LogManager.setIdentity(groupId: selected?.groupId ?? '');
       if (selected != null) {
         unawaited(AppTelemetry.setActiveGroup(selected.groupId));
@@ -406,6 +410,7 @@ mixin _IdentityHomeGroups on _IdentityHomeBase {
     LogManager.setIdentity(groupId: group.groupId);
     unawaited(LastActiveGroupStore.write(_session.userId, group.groupId));
     unawaited(AppTelemetry.setActiveGroup(group.groupId));
+    _syncDuoWidget();
     if (cachedMembers == null) {
       await _loadMembers(group.groupId);
     }

@@ -33,7 +33,14 @@ class CallAudioRouteController {
   AudioOutputGlyphKind get glyphKind =>
       resolveAudioOutputGlyph(route: displayRoute, muted: muted);
 
+  /// Built-in speaker vs earpiece preference (survives headphone plug/unplug).
   bool get speakerOn => _userMode != CallAudioUserMode.earpiece;
+
+  /// Value for LiveKit `setSpeakerOn`. Must be false while a headset or
+  /// Bluetooth device is connected so the OS can own the route — otherwise
+  /// speakerphone stays forced on and volume/output stay on the loudspeaker
+  /// even though the call-bar glyph already shows headphones.
+  bool get liveKitSpeakerOn => !headphonesConnected && speakerOn;
 
   String get preferenceName =>
       _userMode == CallAudioUserMode.earpiece ? 'earpiece' : 'speaker';

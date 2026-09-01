@@ -176,14 +176,15 @@ mixin _IdentityHomeLiveKit on _IdentityHomeBase {
     );
   }
 
-  /// Applies the explicit user mode to LiveKit (speaker vs earpiece).
-  /// Headphones, when connected, continue to take priority at the OS level.
+  /// Applies speaker/earpiece preference to LiveKit. When headphones are
+  /// connected, [CallAudioRouteController.liveKitSpeakerOn] is false so the
+  /// OS can auto-route to the headset (icon + actual output stay aligned).
   Future<void> _applyUserAudioRoute() async {
     final room = _room;
     if (room == null) return;
     if (_callAudio.muted) return;
     try {
-      await room.setSpeakerOn(_callAudio.speakerOn);
+      await room.setSpeakerOn(_callAudio.liveKitSpeakerOn);
     } catch (_) {
       // Route changes are best effort on devices without a separate earpiece.
     }
@@ -209,15 +210,15 @@ mixin _IdentityHomeLiveKit on _IdentityHomeBase {
 
     try {
       if (wasMuted) {
-        // Tap after mute → speaker (E1).
+        // Tap after mute → speaker (E1), unless headphones own the route.
         await AudioOutputBridge.applyRemotePlaybackMute(_room, false);
         await AudioOutputBridge.setMuted(false);
-        await _room?.setSpeakerOn(true);
+        await _room?.setSpeakerOn(_callAudio.liveKitSpeakerOn);
         if (!mounted) return;
         unawaited(_reportMediaVolume());
         _showPresenceSnackbar('Volume unmuted');
       } else {
-        await _room?.setSpeakerOn(_callAudio.speakerOn);
+        await _room?.setSpeakerOn(_callAudio.liveKitSpeakerOn);
       }
     } catch (error, stack) {
       unawaited(
@@ -257,8 +258,9 @@ mixin _IdentityHomeLiveKit on _IdentityHomeBase {
     _callAudio.onDeviceRouteChanged(next.route);
     setState(() {});
     if (previousHeadphones != _callAudio.headphonesConnected) {
-      // Reassert speaker/earpiece after unplug; headphones win while plugged.
-      if (!_callAudio.headphonesConnected && !_callAudio.muted) {
+      // Plug-in: release speakerphone so OS routes to earphones.
+      // Unplug: restore the user's speaker/earpiece preference.
+      if (!_callAudio.muted) {
         unawaited(_applyUserAudioRoute());
       } else {
         unawaited(_syncProximityMonitoring());

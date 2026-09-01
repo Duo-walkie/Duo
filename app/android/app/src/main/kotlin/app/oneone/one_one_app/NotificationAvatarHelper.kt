@@ -12,6 +12,7 @@ import android.graphics.Rect
 import android.graphics.RectF
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.ConcurrentHashMap
@@ -54,6 +55,19 @@ object NotificationAvatarHelper {
         cachedLogoBitmap = scaled
         return scaled
     }
+
+    /** True once [url] has a successfully downloaded photo in the cache. */
+    fun hasCachedPhoto(url: String): Boolean {
+        val trimmed = url.trim()
+        return trimmed.isNotEmpty() && cache.containsKey(trimmed)
+    }
+
+    /**
+     * Bundled preset avatar (`assets/avatars*` in the Flutter asset pack),
+     * or null when [avatarAsset] is missing / not a known preset path.
+     */
+    fun bundledAvatar(context: Context, avatarAsset: String?): Bitmap? =
+        decodeAvatarAsset(context, avatarAsset)
 
     /**
      * Cached photo, bundled avatar, or app logo. Does not hit the network —
@@ -167,7 +181,12 @@ object NotificationAvatarHelper {
         }
         if (".." in path) return null
         cache["asset:$path"]?.let { return it }
-        val candidates = arrayOf("flutter_assets/$path", path)
+        val candidates = arrayOf(
+            "flutter_assets/$path",
+            path,
+            "flutter_assets/packages/one_one_app/$path",
+            "assets/$path",
+        )
         for (candidate in candidates) {
             try {
                 context.assets.open(candidate).use { stream ->

@@ -66,6 +66,12 @@ object ActiveVoiceSessionStore {
             .getString(serviceSessionIdKey, null)
             ?.takeIf { it.isNotBlank() }
 
+    /** Group currently in an active native voice session, if any. */
+    fun readGroupId(context: Context): String? =
+        context.getSharedPreferences(prefsName, Context.MODE_PRIVATE)
+            .getString(groupIdKey, null)
+            ?.takeIf { it.isNotBlank() }
+
     /**
      * Writes away state to RTDB for the stored session.
      *

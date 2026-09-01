@@ -11,7 +11,7 @@ import 'package:lucide_flutter/lucide_flutter.dart';
 /// Owns pointer routing (so the finger can leave the button), slide progress,
 /// cancel-armed state, and the trash/chevron hint UI. Recording start/stop and
 /// upload stay in the host screen — this only decides **send vs discard** on
-/// release.
+/// release (including after the mic has already stopped at the duration cap).
 ///
 /// Usage:
 /// ```dart
@@ -64,10 +64,15 @@ class VoiceRecordSwipeCancel extends ChangeNotifier {
   /// Pixel offset to lift the held button toward the trash target.
   Offset get buttonLiftOffset => Offset(0, -_slideUpPx * 0.28);
 
-  /// Status copy while recording, reflecting armed vs not.
-  String recordingStatusMessage({required bool isRecording}) {
+  /// Status copy while recording (or capped-and-still-holding).
+  String recordingStatusMessage({
+    required bool isRecording,
+    bool capped = false,
+  }) {
     if (!isRecording) return '';
-    return _armed ? 'Release to delete' : 'Recording\u2026 swipe up to cancel';
+    if (_armed) return 'Release to delete';
+    if (capped) return 'Release to send\u2026 swipe up to cancel';
+    return 'Recording\u2026 swipe up to cancel';
   }
 
   /// Start tracking a hold. [onHoldEnded] is invoked once with `true` to send

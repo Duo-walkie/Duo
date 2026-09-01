@@ -456,6 +456,7 @@ mixin _IdentityHomePresence on _IdentityHomeBase {
         _state = 'live';
         _message = LiveKitStatus.live;
       });
+      _syncDuoWidget();
       // Ensure remote emoji bursts reattach after going live (bootstrap may
       // have left a dead stream after a prior permission blip).
       _listenToEmojiBursts(group.groupId);
@@ -598,6 +599,7 @@ mixin _IdentityHomePresence on _IdentityHomeBase {
         _connectionMode = MemberAvailability.walkieTalkieMode;
         _message = LiveKitStatus.away;
       });
+      _syncDuoWidget();
       _syncPipSessionState();
     });
   }
