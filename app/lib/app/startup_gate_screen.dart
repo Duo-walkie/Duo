@@ -63,6 +63,15 @@ class _StartupGateScreenState extends State<StartupGateScreen>
       logStartupMilestone('local identity ready', stopwatch);
       if (!mounted) return;
       _readySession = session;
+      unawaited(
+        MarketController.syncWithAccount(
+          backendMarketIso: session.user.market,
+          persistIfAbsent: _identityRepository.persistMarketIfAbsent,
+        ),
+      );
+      unawaited(
+        LocaleController.syncWithAccount(session.settings.preferredLocale),
+      );
 
       final isReturningUser = await _identityRepository.hasCompletedSetup();
       logStartupMilestone('setup state resolved', stopwatch);

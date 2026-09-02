@@ -85,4 +85,11 @@ void main() {
     expect(cleared.avatarAsset, isNull);
     expect(cleared.profilePhotoUrl, 'https://example.com/photo.jpg');
   });
+
+  test('market is optional and round-trips', () {
+    final stored = profile(displayName: 'Asha').copyWith(market: 'DE');
+    expect(stored.market, 'DE');
+    expect(stored.toJson()['market'], 'DE');
+    expect(AppUserProfile.fromJson('user', stored.toJson()).market, 'DE');
+  });
 }

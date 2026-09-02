@@ -7,6 +7,7 @@ class UserSettingsRecord {
     required this.audioOutputPreference,
     required this.autoOnlineOnLaunch,
     required this.updatedAt,
+    this.preferredLocale,
   });
 
   final String accentColorKey;
@@ -18,6 +19,9 @@ class UserSettingsRecord {
   final String audioOutputPreference;
   final bool autoOnlineOnLaunch;
   final int updatedAt;
+
+  /// BCP-47 language code (`en`, `fr`, `de`, `es`, `ja`). Independent of market.
+  final String? preferredLocale;
 
   /// All three haptic tiers produce feedback; this stays true so existing
   /// call sites that only gate "should I vibrate at all?" keep working.
@@ -31,6 +35,8 @@ class UserSettingsRecord {
       'audioOutputPreference': audioOutputPreference,
       'autoOnlineOnLaunch': autoOnlineOnLaunch,
       'updatedAt': updatedAt,
+      if (preferredLocale != null && preferredLocale!.trim().isNotEmpty)
+        'preferredLocale': preferredLocale!.trim(),
     };
   }
 
@@ -57,6 +63,7 @@ class UserSettingsRecord {
           : 'speaker',
       autoOnlineOnLaunch: data['autoOnlineOnLaunch'] == true,
       updatedAt: _readInt(data['updatedAt']),
+      preferredLocale: data['preferredLocale']?.toString(),
     );
   }
 
@@ -66,6 +73,7 @@ class UserSettingsRecord {
     String? audioOutputPreference,
     bool? autoOnlineOnLaunch,
     int? updatedAt,
+    String? preferredLocale,
   }) {
     return UserSettingsRecord(
       accentColorKey: accentColorKey ?? this.accentColorKey,
@@ -74,6 +82,7 @@ class UserSettingsRecord {
           audioOutputPreference ?? this.audioOutputPreference,
       autoOnlineOnLaunch: autoOnlineOnLaunch ?? this.autoOnlineOnLaunch,
       updatedAt: updatedAt ?? this.updatedAt,
+      preferredLocale: preferredLocale ?? this.preferredLocale,
     );
   }
 }

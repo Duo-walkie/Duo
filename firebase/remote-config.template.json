@@ -16,6 +16,11 @@
       "description": "Reddit updates URL shown during maintenance.",
       "valueType": "STRING"
     },
+    "onboarding_variant": {
+      "defaultValue": { "value": "" },
+      "description": "Optional override for the compiled onboarding UI variant (default, india, usa, united_kingdom, germany, france, spain, italy, or *_v1 aliases). Empty uses the market's built-in default. Target this key with a user-property condition on `market`.",
+      "valueType": "STRING"
+    },
     "subscription_pricing_tier": {
       "defaultValue": { "value": "normal" },
       "description": "Active RevenueCat pricing tier: normal or extreme.",
