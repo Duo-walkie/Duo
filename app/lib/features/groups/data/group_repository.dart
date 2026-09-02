@@ -11,7 +11,7 @@ class GroupRepository {
   Future<GroupSummary> createGroup(String name) async {
     final response = await _apiClient.postJson('/v1/groups', {'name': name});
     final groupId = response['groupId'].toString();
-    unawaited(AnalyticsService.logGroupCreated(groupId: groupId));
+    unawaited(AnalyticsService.logGroupCreated(groupId: groupId, memberCount: 1));
     unawaited(CrashlyticsService.log('group_created:$groupId'));
     final snapshot = await _database.ref('groups/$groupId').get();
 

@@ -36,6 +36,12 @@ class _GroupActionScreenState extends State<GroupActionScreen>
   @override
   void initState() {
     super.initState();
+    unawaited(
+      AnalyticsService.logScreenView(
+        screenName: _isCreateMode ? 'create_group' : 'join_group',
+        screenClass: 'GroupActionScreen',
+      ),
+    );
     _textController.addListener(_handleTextChanged);
   }
 
@@ -71,6 +77,12 @@ class _GroupActionScreenState extends State<GroupActionScreen>
     });
 
     try {
+      unawaited(
+        AnalyticsService.logButtonClick(
+          buttonName: _isCreateMode ? 'submit_create_group' : 'submit_join_group',
+          screenName: _isCreateMode ? 'create_group' : 'join_group',
+        ),
+      );
       if (_isCreateMode) {
         await _groupRepository.createGroup(value);
 

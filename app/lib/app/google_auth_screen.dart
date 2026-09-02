@@ -22,6 +22,14 @@ class _GoogleAuthScreenState extends State<GoogleAuthScreen> {
   @override
   void initState() {
     super.initState();
+    if (!widget.initializing) {
+      unawaited(
+        AnalyticsService.logScreenView(
+          screenName: 'google_auth',
+          screenClass: 'GoogleAuthScreen',
+        ),
+      );
+    }
     unawaited(DuoLocalization.start());
   }
 
@@ -33,6 +41,12 @@ class _GoogleAuthScreenState extends State<GoogleAuthScreen> {
 
   Future<void> _continueWithGoogle() async {
     if (_isSigningIn) return;
+    unawaited(
+      AnalyticsService.logButtonClick(
+        buttonName: 'continue_with_google',
+        screenName: 'google_auth',
+      ),
+    );
     // IMMEDIATELY replace the welcome UI with the splash-colored underlay
     // so the user sees an instant transition rather than waiting on a
     // button spinner. The Firebase auth stream will swap this screen out

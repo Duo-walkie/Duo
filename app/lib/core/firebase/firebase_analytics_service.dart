@@ -40,7 +40,7 @@ class AnalyticsService {
     String? screenClass,
   }) {
     return _log(
-      'screen_view',
+      AnalyticsEvents.screenView,
       parameters: {
         'screen_name': screenName,
         if (screenClass != null) 'screen_class': screenClass,
@@ -54,7 +54,7 @@ class AnalyticsService {
     String? feature,
   }) {
     return _log(
-      'button_click',
+      AnalyticsEvents.buttonClick,
       parameters: {
         'button_name': buttonName,
         if (screenName != null) 'screen_name': screenName,
@@ -68,7 +68,7 @@ class AnalyticsService {
     Map<String, Object>? parameters,
   }) {
     return _log(
-      'feature_used',
+      AnalyticsEvents.featureUsed,
       parameters: {'feature': feature, ...?parameters},
     );
   }
@@ -99,7 +99,7 @@ class AnalyticsService {
     String? reason,
   }) {
     return _log(
-      'app_error',
+      AnalyticsEvents.appError,
       parameters: {
         'error_type': _truncate(errorType),
         'is_fatal': isFatal ? 1 : 0,
@@ -113,30 +113,30 @@ class AnalyticsService {
   // ─── Auth / identity ────────────────────────────────────────────────────
 
   static Future<void> logLogin({String method = 'google'}) {
-    return _log('login', parameters: {'method': method});
+    return _log(AnalyticsEvents.login, parameters: {'method': method});
   }
 
   static Future<void> logSignUp({String method = 'google'}) {
-    return _log('sign_up', parameters: {'method': method});
+    return _log(AnalyticsEvents.signUp, parameters: {'method': method});
   }
 
   static Future<void> logLogout() {
-    return _log('logout');
+    return _log(AnalyticsEvents.logout);
   }
 
   static Future<void> logAccountDeleted() {
-    return _log('account_deleted');
+    return _log(AnalyticsEvents.accountDeleted);
   }
 
   static Future<void> logProfileUpdated({String? field}) {
     return _log(
-      'profile_updated',
+      AnalyticsEvents.profileUpdated,
       parameters: {if (field != null) 'field': field},
     );
   }
 
   static Future<void> logSetupCompleted() {
-    return _log('setup_completed');
+    return _log(AnalyticsEvents.setupCompleted);
   }
 
   // ─── Presence / talk ────────────────────────────────────────────────────
@@ -147,7 +147,7 @@ class AnalyticsService {
     bool joinedCallMode = false,
   }) {
     return _log(
-      'go_online',
+      AnalyticsEvents.goOnline,
       parameters: {
         'group_id_suffix': _idSuffix(groupId),
         'connection_mode': connectionMode,
@@ -161,7 +161,7 @@ class AnalyticsService {
     required String reason,
   }) {
     return _log(
-      'go_away',
+      AnalyticsEvents.goAway,
       parameters: {
         'group_id_suffix': _idSuffix(groupId),
         'reason': reason,
@@ -171,7 +171,7 @@ class AnalyticsService {
 
   static Future<void> logTalkStart({required String groupId}) {
     return _log(
-      'talk_start',
+      AnalyticsEvents.talkStart,
       parameters: {'group_id_suffix': _idSuffix(groupId)},
     );
   }
@@ -181,7 +181,7 @@ class AnalyticsService {
     required String reason,
   }) {
     return _log(
-      'talk_stop',
+      AnalyticsEvents.talkStop,
       parameters: {
         'group_id_suffix': _idSuffix(groupId),
         'reason': reason,
@@ -194,7 +194,7 @@ class AnalyticsService {
     required String mode,
   }) {
     return _log(
-      'connection_mode_changed',
+      AnalyticsEvents.connectionModeChanged,
       parameters: {
         'group_id_suffix': _idSuffix(groupId),
         'mode': mode,
@@ -204,43 +204,57 @@ class AnalyticsService {
 
   static Future<void> logDailyUsageCapReached({required String groupId}) {
     return _log(
-      'daily_usage_cap_reached',
+      AnalyticsEvents.dailyUsageCapReached,
       parameters: {'group_id_suffix': _idSuffix(groupId)},
     );
   }
 
   // ─── Groups / invites ───────────────────────────────────────────────────
 
-  static Future<void> logGroupCreated({required String groupId}) {
+  static Future<void> logGroupCreated({
+    required String groupId,
+    int? memberCount,
+  }) {
     return _log(
-      'group_created',
-      parameters: {'group_id_suffix': _idSuffix(groupId)},
+      AnalyticsEvents.groupCreated,
+      parameters: {
+        'group_id_suffix': _idSuffix(groupId),
+        if (memberCount != null) 'member_count': memberCount,
+      },
     );
   }
 
   static Future<void> logGroupJoined({
     required String groupId,
     String source = 'invite',
+    int? memberCount,
   }) {
     return _log(
-      'group_joined',
+      AnalyticsEvents.groupJoined,
       parameters: {
         'group_id_suffix': _idSuffix(groupId),
         'source': source,
+        if (memberCount != null) 'member_count': memberCount,
       },
     );
   }
 
-  static Future<void> logGroupLeft({required String groupId}) {
+  static Future<void> logGroupLeft({
+    required String groupId,
+    int? memberCount,
+  }) {
     return _log(
-      'group_left',
-      parameters: {'group_id_suffix': _idSuffix(groupId)},
+      AnalyticsEvents.groupLeft,
+      parameters: {
+        'group_id_suffix': _idSuffix(groupId),
+        if (memberCount != null) 'member_count': memberCount,
+      },
     );
   }
 
   static Future<void> logInviteCreated({required String groupId}) {
     return _log(
-      'invite_created',
+      AnalyticsEvents.inviteCreated,
       parameters: {'group_id_suffix': _idSuffix(groupId)},
     );
   }
@@ -255,11 +269,13 @@ class AnalyticsService {
     int? durationMs,
   }) {
     return _log(
-      'nudge_sent',
+      AnalyticsEvents.nudgeSent,
       parameters: {
         'group_id_suffix': _idSuffix(groupId),
         'kind': kind,
+        'nudge_type': kind,
         'target_scope': targetScope,
+        'delivery_method': 'fcm',
         if (audioBytes != null) 'audio_bytes': audioBytes,
         if (durationMs != null) 'duration_ms': durationMs,
       },
@@ -272,7 +288,7 @@ class AnalyticsService {
     int? snoozeMinutes,
   }) {
     return _log(
-      'nudge_responded',
+      AnalyticsEvents.nudgeResponded,
       parameters: {
         'group_id_suffix': _idSuffix(groupId),
         'action': action,
@@ -281,19 +297,152 @@ class AnalyticsService {
     );
   }
 
+  static Future<void> logNudgeReceived({
+    required String groupId,
+    String? kind,
+    String deliveryMethod = 'fcm',
+  }) {
+    return _log(
+      AnalyticsEvents.nudgeReceived,
+      parameters: {
+        'group_id_suffix': _idSuffix(groupId),
+        if (kind != null) 'nudge_type': kind,
+        'delivery_method': deliveryMethod,
+      },
+    );
+  }
+
+  static Future<void> logNudgeFailed({
+    required String groupId,
+    String? kind,
+    String? failureReason,
+    String? deliveryMethod,
+  }) {
+    return _log(
+      AnalyticsEvents.nudgeFailed,
+      parameters: {
+        'group_id_suffix': _idSuffix(groupId),
+        if (kind != null) 'nudge_type': kind,
+        if (failureReason != null) 'failure_reason': _truncate(failureReason, 40),
+        if (deliveryMethod != null) 'delivery_method': deliveryMethod,
+      },
+    );
+  }
+
+  // ─── LiveKit ────────────────────────────────────────────────────────────
+
+  static Future<void> logLiveKitSessionStarted({required String groupId}) {
+    return _log(
+      AnalyticsEvents.livekitSessionStarted,
+      parameters: {'group_id_suffix': _idSuffix(groupId)},
+    );
+  }
+
+  static Future<void> logLiveKitSessionEnded({
+    required String groupId,
+    int? durationSeconds,
+    int? participantCount,
+  }) {
+    return _log(
+      AnalyticsEvents.livekitSessionEnded,
+      parameters: {
+        'group_id_suffix': _idSuffix(groupId),
+        if (durationSeconds != null) 'duration': durationSeconds,
+        if (participantCount != null) 'participant_count': participantCount,
+      },
+    );
+  }
+
+  // ─── Notifications ──────────────────────────────────────────────────────
+
+  static Future<void> logNotificationReceived({
+    String? kind,
+    String source = 'fcm',
+  }) {
+    return _log(
+      AnalyticsEvents.notificationReceived,
+      parameters: {
+        'source': source,
+        if (kind != null) 'nudge_type': kind,
+      },
+    );
+  }
+
+  static Future<void> logNotificationOpened({
+    String? kind,
+    String? action,
+  }) {
+    return _log(
+      AnalyticsEvents.notificationOpened,
+      parameters: {
+        if (kind != null) 'nudge_type': kind,
+        if (action != null) 'action': action,
+      },
+    );
+  }
+
+  // ─── User journey / subscriptions ───────────────────────────────────────
+
+  static Future<void> logFeatureSelected({
+    required String feature,
+    String? screenName,
+  }) {
+    return _log(
+      AnalyticsEvents.featureSelected,
+      parameters: {
+        'feature': feature,
+        if (screenName != null) 'screen_name': screenName,
+      },
+    );
+  }
+
+  static Future<void> logPaywallViewed({String? source}) {
+    return _log(
+      AnalyticsEvents.paywallViewed,
+      parameters: {if (source != null) 'source': source},
+    );
+  }
+
+  static Future<void> logTrialStarted({String? packageId}) {
+    return _log(
+      AnalyticsEvents.trialStarted,
+      parameters: {if (packageId != null) 'package_id': _truncate(packageId)},
+    );
+  }
+
+  static Future<void> logPurchaseStarted({String? packageId}) {
+    return _log(
+      AnalyticsEvents.purchaseStarted,
+      parameters: {if (packageId != null) 'package_id': _truncate(packageId)},
+    );
+  }
+
+  static Future<void> logPurchaseCompleted({
+    String? packageId,
+    String method = 'purchase',
+  }) {
+    return _log(
+      AnalyticsEvents.purchaseCompleted,
+      parameters: {
+        'method': method,
+        if (packageId != null) 'package_id': _truncate(packageId),
+      },
+    );
+  }
+
   // ─── App lifecycle ──────────────────────────────────────────────────────
 
   static Future<void> logAppOpen() {
-    return _log('app_open');
+    return _log(AnalyticsEvents.appOpen);
   }
 
   static Future<void> logSessionStarted() {
-    return _log('session_started');
+    return _log(AnalyticsEvents.sessionStarted);
   }
 
   static Future<void> logServiceStatusBlocked({required String status}) {
     return _log(
-      'service_status_blocked',
+      AnalyticsEvents.serviceStatusBlocked,
       parameters: {'status': status},
     );
   }

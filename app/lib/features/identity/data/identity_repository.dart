@@ -233,7 +233,7 @@ class IdentityRepository {
       isLegacyProfile: !data.containsKey('setupCompleted'),
     );
     if (completedLegacySetup) {
-      await markSetupComplete();
+      await markSetupComplete(logAnalytics: false);
     }
     return completedLegacySetup;
   }
@@ -241,7 +241,7 @@ class IdentityRepository {
   static String _setupCompleteKey(String userId) =>
       'one_one_setup_complete_$userId';
 
-  Future<void> markSetupComplete() async {
+  Future<void> markSetupComplete({bool logAnalytics = true}) async {
     final user = _auth.currentUser;
     if (user == null) {
       throw StateError('Cannot complete setup before sign-in.');
@@ -275,6 +275,9 @@ class IdentityRepository {
           settings: session.settings,
         ),
       );
+    }
+    if (logAnalytics) {
+      unawaited(AnalyticsService.logSetupCompleted());
     }
   }
 

@@ -95,6 +95,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void initState() {
     super.initState();
+    unawaited(
+      AnalyticsService.logScreenView(
+        screenName: 'settings',
+        screenClass: 'SettingsScreen',
+      ),
+    );
     _avatarsFuture = AvatarAssets.loadAll();
     unawaited(HomeVisualVariantController.ensureLoaded());
     final currentSession = widget.identityRepository.currentSession;
@@ -540,6 +546,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   /// Opens the in-app Duo Pro paywall (branded UI + RevenueCat packages).
   Future<void> _showPaywall() async {
+    unawaited(
+      AnalyticsService.logButtonClick(
+        buttonName: 'duo_pro',
+        screenName: 'settings',
+      ),
+    );
+    unawaited(
+      AnalyticsService.logFeatureSelected(
+        feature: 'paywall',
+        screenName: 'settings',
+      ),
+    );
     try {
       final purchased = await ElevenProPaywallScreen.open(context);
       if (!mounted) return;

@@ -4,7 +4,6 @@ import 'package:one_one_app/one_one.dart';
 // Logic: home/identity_home_*.dart   UI: home/widgets/*.dart
 
 // Logic clusters (mixins on [_IdentityHomeBase]).
-part 'home/identity_home_debug.dart';
 part 'home/identity_home_pip.dart';
 part 'home/identity_home_lifecycle.dart';
 part 'home/identity_home_groups.dart';
@@ -135,14 +134,7 @@ abstract class _IdentityHomeBase extends State<IdentityHomeScreen>
 
   int _carouselIndex = 0;
 
-  // [DEBUG] Go-live latency tracing added Aug 12. Remove before production
-  // release. Tracks the timestamp LiveKit last finished connecting, and
-  // whether the first post-connect subscribe/audio events have already been
-  // logged, so those steps are only logged once per go-live (not on every
-  // later speaker change).
-  int? _goLiveConnectResolvedAtMs;
-  bool _goLiveFirstSubscribeLogged = false;
-  bool _goLiveFirstAudioLogged = false;
+  DateTime? _liveKitConnectedAt;
 
   bool _loadingGroups = true;
   bool _busy = false;
@@ -235,6 +227,7 @@ abstract class _IdentityHomeBase extends State<IdentityHomeScreen>
   Future<void> _handleConnectionLoss(String message);
   // ignore: unused_element_parameter
   Future<void> _disconnectLiveKit({bool urgent = false});
+  void _completeLiveKitSession({required String groupId, String? reason});
   Future<void> _setMicrophoneEnabled(bool enabled);
   Future<void> _runBusy(Future<void> Function() action);
   void _setMessage(String message);

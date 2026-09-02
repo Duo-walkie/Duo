@@ -62,6 +62,8 @@ class _ElevenProPaywallScreenState extends State<ElevenProPaywallScreen> {
   @override
   void initState() {
     super.initState();
+    unawaited(AnalyticsService.logScreenView(screenName: 'paywall'));
+    unawaited(AnalyticsService.logPaywallViewed(source: 'settings'));
     unawaited(_load());
   }
 
@@ -123,6 +125,17 @@ class _ElevenProPaywallScreenState extends State<ElevenProPaywallScreen> {
       _busy = true;
       _error = null;
     });
+    unawaited(
+      AnalyticsService.logButtonClick(
+        buttonName: 'purchase',
+        screenName: 'paywall',
+      ),
+    );
+    unawaited(
+      AnalyticsService.logPurchaseStarted(
+        packageId: package.storeProduct.identifier,
+      ),
+    );
     try {
       final rc = await RevenueCatService.initialize();
       final info = await rc.purchasePackage(package);
@@ -130,6 +143,22 @@ class _ElevenProPaywallScreenState extends State<ElevenProPaywallScreen> {
           info.entitlements.active.containsKey(AppConfig.proEntitlementId);
       if (!mounted) return;
       if (entitled) {
+        final entitlement =
+            info.entitlements.active[AppConfig.proEntitlementId];
+        final isTrial = entitlement?.periodType == PeriodType.trial ||
+            entitlement?.periodType == PeriodType.intro;
+        if (isTrial) {
+          unawaited(
+            AnalyticsService.logTrialStarted(
+              packageId: package.storeProduct.identifier,
+            ),
+          );
+        }
+        unawaited(
+          AnalyticsService.logPurchaseCompleted(
+            packageId: package.storeProduct.identifier,
+          ),
+        );
         Navigator.of(context).pop(true);
         return;
       }
@@ -166,6 +195,12 @@ class _ElevenProPaywallScreenState extends State<ElevenProPaywallScreen> {
           info.entitlements.active.containsKey(AppConfig.proEntitlementId);
       if (!mounted) return;
       if (entitled) {
+        unawaited(
+          AnalyticsService.logPurchaseCompleted(
+            packageId: _selected?.storeProduct.identifier,
+            method: 'restore',
+          ),
+        );
         Navigator.of(context).pop(true);
         return;
       }

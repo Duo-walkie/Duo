@@ -138,6 +138,11 @@ class AndroidVoiceNudgeBridge {
     final map = arguments.map((key, value) => MapEntry(key.toString(), value));
     final nudge = parseIncomingNudge(map);
     if (nudge != null) {
+      final kind = map['type']?.toString() ?? map['kind']?.toString();
+      unawaited(
+        AnalyticsService.logNudgeReceived(groupId: nudge.groupId, kind: kind),
+      );
+      unawaited(AnalyticsService.logNotificationReceived(kind: kind));
       _incomingSignals.add(nudge);
       return;
     }
@@ -231,7 +236,16 @@ class AndroidVoiceNudgeBridge {
       'takePendingNudgeAction',
     );
     if (raw == null) return null;
-    return NudgeNotificationAction.tryParse(raw);
+    final action = NudgeNotificationAction.tryParse(raw);
+    if (action != null) {
+      unawaited(
+        AnalyticsService.logNotificationOpened(
+          kind: raw['type']?.toString() ?? raw['kind']?.toString(),
+          action: action.action,
+        ),
+      );
+    }
+    return action;
   }
 
   /// Cached incoming nudges recorded by the native FCM receiver, including

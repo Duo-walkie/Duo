@@ -10,12 +10,6 @@ mixin _IdentityHomeNudges on _IdentityHomeBase {
     // 1. Pull Accept/Connect from native (or a deferred action).
     if (_nudgeActionInFlight) return;
     NudgeNotificationAction? action;
-    // [DEBUG] Go-live latency tracing added Aug 12. Remove before production
-    // release.
-    final step1StartedAt = _goLiveStepStart(
-      1,
-      'Nudge accepted by receiver (user action) — taking pending action from native bridge',
-    );
     try {
       action =
           _deferredNudgeAction ??
@@ -29,12 +23,6 @@ mixin _IdentityHomeNudges on _IdentityHomeBase {
         _deferredNudgeAction = action;
         return;
       }
-      _goLiveStepEnd(
-        1,
-        'Nudge accepted by receiver (user action) — action=${action.action} '
-        'eventId=${action.eventId} groupId=${action.groupId}',
-        step1StartedAt,
-      );
       _deferredNudgeAction = null;
       if (action.isOpenOnly) {
         _nudgeInbox.upsert(
@@ -120,12 +108,6 @@ mixin _IdentityHomeNudges on _IdentityHomeBase {
     // Mark before awaiting goOnline so a parallel FCM/native path with the
     // same eventId cannot start a second connect mid-handshake.
     _processedNudgeEventIds.add(action.eventId);
-    // [DEBUG] Go-live latency tracing added Aug 12. Remove before production
-    // release.
-    final step2StartedAt = _goLiveStepStart(
-      2,
-      'FCM/notification payload parsed — resolving target group locally',
-    );
     final index = _groups.indexWhere(
       (group) => group.groupId == action.groupId,
     );
@@ -133,11 +115,6 @@ mixin _IdentityHomeNudges on _IdentityHomeBase {
       setState(() => _message = 'That nudge group is no longer available.');
       return;
     }
-    _goLiveStepEnd(
-      2,
-      'FCM/notification payload parsed — resolved groupId=${action.groupId} at carouselIndex=$index',
-      step2StartedAt,
-    );
 
     await _onGroupCarouselChanged(index);
     if (!mounted) return;

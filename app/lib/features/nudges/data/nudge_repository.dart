@@ -230,6 +230,29 @@ class NudgeRepository {
         'audioBytes=${audio.length} elapsedMs=${flowWatch.elapsedMilliseconds} '
         '${error.runtimeType}: $error',
       );
+      final reachability = NudgeReachability.fromSendError(error);
+      unawaited(
+        AnalyticsService.logNudgeFailed(
+          groupId: groupId,
+          kind: 'voice',
+          failureReason: reachability,
+          deliveryMethod: 'fcm',
+        ),
+      );
+      OperationalLog.record(
+        event: OperationalLog.eventNudgeFailed,
+        eventType: OperationalLog.eventTypeNudge,
+        status: reachability,
+        error: error.toString(),
+        groupId: groupId,
+        level: LogLevel.error,
+        debugMetadata: {
+          'nudge_type': 'voice',
+          'send_status': 'failed',
+          'checkpoint': 'voice_nudge_upload',
+          'audio_bytes': audio.length,
+        },
+      );
       LogManager.log(
         LogLevel.error,
         'NudgeService',
@@ -281,20 +304,84 @@ class NudgeRepository {
     String? groupId,
     String? kind,
   }) {
+    final nudgeType = switch (kind) {
+      'ring_nudge' => 'ring',
+      'voice_nudge' => 'voice',
+      'nudge' => 'push',
+      _ => kind,
+    };
     final recipientUsers = _readCount(response['recipientUsers']);
     final targetDevices = _readCount(response['targetDevices']);
     final sent = _readCount(response['sent']);
     if (recipientUsers == 0) {
+      unawaited(
+        AnalyticsService.logNudgeFailed(
+          groupId: groupId ?? '',
+          kind: nudgeType,
+          failureReason: NudgeReachability.deviceUnreachable,
+          deliveryMethod: 'fcm',
+        ),
+      );
+      OperationalLog.record(
+        event: OperationalLog.eventNudgeFailed,
+        eventType: OperationalLog.eventTypeNudge,
+        status: NudgeReachability.deviceUnreachable,
+        error: 'no_recipients',
+        groupId: groupId,
+        level: LogLevel.warn,
+        debugMetadata: {'nudge_type': kind, 'send_status': 'failed'},
+      );
       throw const NudgeDeliveryException(
         'No active friends were found for this nudge.',
       );
     }
     if (targetDevices == 0) {
+      unawaited(
+        AnalyticsService.logNudgeFailed(
+          groupId: groupId ?? '',
+          kind: nudgeType,
+          failureReason: NudgeReachability.deviceUnreachable,
+          deliveryMethod: 'fcm',
+        ),
+      );
+      OperationalLog.record(
+        event: OperationalLog.eventNudgeFailed,
+        eventType: OperationalLog.eventTypeNudge,
+        status: NudgeReachability.deviceUnreachable,
+        error: 'no_registered_device',
+        groupId: groupId,
+        level: LogLevel.warn,
+        debugMetadata: {'nudge_type': kind, 'send_status': 'failed'},
+      );
       throw const NudgeDeliveryException(
         'The recipient has no registered Android device. Ask them to open Duo once.',
       );
     }
     if (sent == 0) {
+      unawaited(
+        AnalyticsService.logNudgeFailed(
+          groupId: groupId ?? '',
+          kind: nudgeType,
+          failureReason: NudgeReachability.deviceUnreachable,
+          deliveryMethod: 'fcm',
+        ),
+      );
+      OperationalLog.record(
+        event: OperationalLog.eventNudgeFailed,
+        eventType: OperationalLog.eventTypeNudge,
+        status: NudgeReachability.deviceUnreachable,
+        error: 'fcm_not_delivered',
+        groupId: groupId,
+        nudgeId: response['notificationEventId']?.toString(),
+        level: LogLevel.error,
+        debugMetadata: {
+          'nudge_type': kind,
+          'send_status': 'failed',
+          'delivery_status': 'fcm_rejected',
+          'recipient_users': recipientUsers,
+          'target_devices': targetDevices,
+        },
+      );
       unawaited(
         CrashlyticsService.recordFcmNotificationHandlingFailure(
           error: StateError(
@@ -304,7 +391,7 @@ class NudgeRepository {
           worker: 'FCM-BE-W1',
           groupId: groupId,
           eventId: response['notificationEventId']?.toString(),
-          kind: kind,
+          kind: nudgeType,
         ),
       );
       throw const NudgeDeliveryException(
