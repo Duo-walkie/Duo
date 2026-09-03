@@ -60,8 +60,8 @@ class _TopChrome extends StatelessWidget {
                     children: [
                       _GlassIconButton(
                         tooltip: hasSetupWarnings
-                            ? 'Settings / Setup'
-                            : 'Settings',
+                            ? context.l10n.homeSettingsSetup
+                            : context.l10n.homeSettings,
                         icon: Icons.settings_outlined,
                         onPressed: onSettings,
                         onLongPress: onSetup,
@@ -135,10 +135,10 @@ class _StatusToggle extends StatelessWidget {
       opacity: busy || !enabled ? 0.55 : 1,
       child: Tooltip(
         message: !enabled
-            ? 'Available after another member joins'
+            ? context.l10n.homeStatusUnavailable
             : online
-            ? 'Tap to go away'
-            : 'Go online when someone is already live, or send a nudge to go together',
+            ? context.l10n.homeStatusGoAway
+            : context.l10n.homeStatusGoOnline,
         child: SizedBox(
           width: 66.w,
           height: 40,

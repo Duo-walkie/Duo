@@ -349,7 +349,7 @@ class _StartupGateScreenState extends State<StartupGateScreen>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'We couldn\'t finish setting up your account.',
+                    context.l10n.startupSetupFailed,
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: const Color(0xff7a2f2f),
@@ -360,7 +360,7 @@ class _StartupGateScreenState extends State<StartupGateScreen>
                   SizedBox(height: 14.h),
                   OutlinedButton(
                     onPressed: _isLoggingIn ? null : _continueAfterLogin,
-                    child: const Text('Try again'),
+                    child: Text(context.l10n.startupTryAgain),
                   ),
                 ],
               ),

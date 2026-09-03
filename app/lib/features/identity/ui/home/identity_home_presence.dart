@@ -869,7 +869,7 @@ mixin _IdentityHomePresence on _IdentityHomeBase {
               ],
             ),
             action: SnackBarAction(
-              label: 'Talk',
+              label: context.l10n.homeTalk,
               textColor: const Color(0xfffff1a8),
               onPressed: () {
                 if (!_isCallMode) unawaited(_toggleConnectionMode());

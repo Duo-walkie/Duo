@@ -102,7 +102,7 @@ class _PostCrashReportDialogState extends State<_PostCrashReportDialog> {
       if (!mounted) return;
       setState(() {
         _sending = false;
-        _error = 'Couldn\'t send the report. Check your connection and try again.';
+        _error = context.l10n.crashSendFailed;
       });
     }
   }
@@ -113,15 +113,12 @@ class _PostCrashReportDialogState extends State<_PostCrashReportDialog> {
       canPop: false,
       child: AlertDialog(
         backgroundColor: const Color(0xff1b1b1b),
-        title: const Text('The app ran into a problem'),
+        title: Text(context.l10n.crashTitle),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
-              'Please send a report so we can look into what happened. '
-              'This includes recent on-device logs from this phone.',
-            ),
+            Text(context.l10n.crashBody),
             if (_error != null) ...[
               const SizedBox(height: 12),
               Text(
@@ -139,7 +136,11 @@ class _PostCrashReportDialogState extends State<_PostCrashReportDialog> {
                     dimension: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : Text(_error == null ? 'Send Report' : 'Try Again'),
+                : Text(
+                    _error == null
+                        ? context.l10n.crashSendReport
+                        : context.l10n.crashTryAgain,
+                  ),
           ),
         ],
       ),

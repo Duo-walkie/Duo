@@ -122,11 +122,12 @@ class _GroupActionScreenState extends State<GroupActionScreen>
 
   @override
   Widget build(BuildContext context) {
-    final title = _isCreateMode ? 'create group' : 'join by pin';
+    final l10n = context.l10n;
+    final title = _isCreateMode ? l10n.createGroupTitle : l10n.joinGroupTitle;
     final subtitle = _isCreateMode
-        ? 'name the group you want to start'
-        : 'ask your friend for their pin';
-    final hintText = _isCreateMode ? 'Group name' : 'Invite PIN';
+        ? l10n.createGroupSubtitle
+        : l10n.joinGroupSubtitle;
+    final hintText = _isCreateMode ? l10n.createGroupHint : l10n.joinGroupHint;
     final accentColor = accentColorForKey(
       widget.session.settings.accentColorKey,
     );
@@ -143,7 +144,7 @@ class _GroupActionScreenState extends State<GroupActionScreen>
               Align(
                 alignment: Alignment.centerLeft,
                 child: IconButton(
-                  tooltip: 'Back',
+                  tooltip: l10n.backTooltip,
                   onPressed: _busy
                       ? null
                       : () => Navigator.of(context).maybePop(),

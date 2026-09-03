@@ -72,6 +72,7 @@ export 'app/profile_picture_screen.dart';
 export 'app/setup_permission_screen.dart';
 export 'app/startup_gate_screen.dart';
 export 'app/startup_performance.dart';
+export 'app/welcome_onboarding_screen.dart';
 
 // Core — firebase
 export 'core/firebase/analytics_events.dart';

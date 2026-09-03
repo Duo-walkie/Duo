@@ -61,7 +61,7 @@ class _NoGroupsScreenState extends State<NoGroupsScreen> {
 
   void _showGroupRequired(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Join or create a group first')),
+      SnackBar(content: Text(context.l10n.noGroupsNeedGroupFirst)),
     );
   }
 
@@ -72,7 +72,7 @@ class _NoGroupsScreenState extends State<NoGroupsScreen> {
         backgroundColor: const Color(0xff000000),
         foregroundColor: Colors.white,
         leading: IconButton(
-          tooltip: 'Settings',
+          tooltip: context.l10n.homeSettings,
           onPressed: () {
             unawaited(
               SettingsScreen.open(
@@ -104,7 +104,7 @@ class _NoGroupsScreenState extends State<NoGroupsScreen> {
                       ),
                       SizedBox(height: 22.h),
                       Text(
-                        'Invite at least one friend to get started',
+                        context.l10n.noGroupsTitle,
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.headlineLarge
                             ?.copyWith(
@@ -114,7 +114,7 @@ class _NoGroupsScreenState extends State<NoGroupsScreen> {
                       ),
                       SizedBox(height: 10.h),
                       Text(
-                        'add your besties, the ones you talk to everyday 🫶',
+                        context.l10n.noGroupsSubtitle,
                         textAlign: TextAlign.center,
                         style: Theme.of(
                           context,
@@ -124,7 +124,7 @@ class _NoGroupsScreenState extends State<NoGroupsScreen> {
                       FilledButton.icon(
                         onPressed: () => _openCreateGroup(context),
                         icon: const Icon(Icons.group_add_rounded),
-                        label: const Text('Create Group'),
+                        label: Text(context.l10n.noGroupsCreate),
                         style: FilledButton.styleFrom(
                           backgroundColor: const Color(0xffF8BE03),
                           foregroundColor: Colors.black,
@@ -134,7 +134,7 @@ class _NoGroupsScreenState extends State<NoGroupsScreen> {
                       OutlinedButton.icon(
                         onPressed: () => _showGroupRequired(context),
                         icon: const Icon(Icons.share_outlined),
-                        label: const Text('Share an invite'),
+                        label: Text(context.l10n.noGroupsShareInvite),
                       ),
                       SizedBox(height: 26.h),
                       Row(
@@ -161,7 +161,7 @@ class _NoGroupsScreenState extends State<NoGroupsScreen> {
               Column(
                 children: [
                   Text(
-                    'Have a group already? Use the PIN from a friend.',
+                    context.l10n.noGroupsHavePin,
                     textAlign: TextAlign.center,
                     style: Theme.of(
                       context,
@@ -173,7 +173,7 @@ class _NoGroupsScreenState extends State<NoGroupsScreen> {
                     child: OutlinedButton.icon(
                       onPressed: () => _openJoinGroup(context),
                       icon: const Icon(Icons.login),
-                      label: const Text('Join with PIN'),
+                      label: Text(context.l10n.noGroupsJoinPin),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.white,
                         foregroundColor: Colors.black,
@@ -197,7 +197,7 @@ class _DisabledControl extends StatelessWidget {
   final VoidCallback onTap;
   @override
   Widget build(BuildContext context) => IconButton(
-    tooltip: 'Join or create a group first',
+    tooltip: context.l10n.noGroupsNeedGroupFirst,
     onPressed: onTap,
     icon: Icon(icon, color: Colors.white30),
   );

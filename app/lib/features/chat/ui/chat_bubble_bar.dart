@@ -1,5 +1,7 @@
 import 'package:one_one_app/one_one.dart';
 
+import '../../identity/ui/legal_document_content.dart';
+
 /// Bottom messages bar whose content depends on group online state:
 /// - All offline: predefined text chips + pinned keyboard.
 /// - Anyone online: emoji row (+ more) + pinned keyboard.
@@ -27,13 +29,6 @@ class ChatBubbleBar extends StatefulWidget {
   /// Fires when a fixed-row emoji or one from the "more emojis" picker is
   /// chosen. Wired by the host to the existing emoji-burst path.
   final ValueChanged<String> onEmojiSelected;
-
-  static const List<String> presets = [
-    "I'll join in 15 min",
-    'Where is everyone?',
-    'On my way',
-    'Give me 5 min',
-  ];
 
   static const List<String> quickEmojis = [
     '😂',
@@ -230,6 +225,7 @@ class _ChatBubbleBarState extends State<ChatBubbleBar> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
       ),
       builder: (sheetContext) {
+        final l10n = sheetContext.l10n;
         final maxSheetHeight =
             MediaQuery.sizeOf(sheetContext).height * 0.7 -
             MediaQuery.viewInsetsOf(sheetContext).bottom;
@@ -253,7 +249,7 @@ class _ChatBubbleBarState extends State<ChatBubbleBar> {
                   ),
                   SizedBox(height: 16.h),
                   Text(
-                    'More emojis',
+                    l10n.chatMoreEmojis,
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 16.sp,
@@ -323,7 +319,9 @@ class _ChatBubbleBarState extends State<ChatBubbleBar> {
   /// Scrollable content on the leading side; keyboard (and optional more)
   /// pinned at the trailing end outside the scroll view.
   Widget _buildActionRow({required Key key}) {
+    final l10n = context.l10n;
     final online = widget.anyMemberOnline;
+    final presets = chatPresetsFor(l10n);
     // Online emoji chips are a touch taller than offline text presets —
     // keep this compact so 5 chat bubbles still fit above it when live.
     return SizedBox(
@@ -354,7 +352,7 @@ class _ChatBubbleBarState extends State<ChatBubbleBar> {
                       showTrailingFade: _showTrailingChipFade,
                       onScroll: _updateChipScrollFade,
                       children: [
-                        for (final preset in ChatBubbleBar.presets) ...[
+                        for (final preset in presets) ...[
                           _PresetChip(
                             label: preset,
                             enabled: !_sending,
@@ -378,6 +376,7 @@ class _ChatBubbleBarState extends State<ChatBubbleBar> {
   }
 
   Widget _buildComposer() {
+    final l10n = context.l10n;
     final wordCount = _controller.text.trim().isEmpty
         ? 0
         : _controller.text.trim().split(RegExp(r'\s+')).length;
@@ -419,9 +418,9 @@ class _ChatBubbleBarState extends State<ChatBubbleBar> {
                         _WordLimitFormatter(ChatMessageRepository.maxWords),
                       ],
                       style: TextStyle(color: Colors.white, fontSize: 16.sp),
-                      decoration: const InputDecoration(
-                        hintText: 'Message the group…',
-                        hintStyle: TextStyle(color: Colors.white38),
+                      decoration: InputDecoration(
+                        hintText: l10n.chatMessageHint,
+                        hintStyle: const TextStyle(color: Colors.white38),
                         border: InputBorder.none,
                         isDense: true,
                       ),
@@ -580,7 +579,7 @@ class _MoreEmojisButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: 'More emojis',
+      label: context.l10n.chatMoreEmojis,
       child: Material(
         color: accent.withValues(alpha: 0.16),
         shape: const CircleBorder(),
@@ -611,7 +610,7 @@ class _KeyboardButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: 'Write a custom message',
+      label: context.l10n.chatWriteCustomMessage,
       child: Material(
         color: accent.withValues(alpha: 0.16),
         shape: const CircleBorder(),

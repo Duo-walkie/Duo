@@ -27,7 +27,9 @@ void main() {
   });
 
   testWidgets('welcome screen uses localized copy', (tester) async {
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({
+      WelcomeOnboardingScreen.seenPrefKey: true,
+    });
     await tester.pumpWidget(
       ScreenUtilInit(
         designSize: const Size(393, 873),
@@ -43,7 +45,7 @@ void main() {
         child: const GoogleAuthScreen(),
       ),
     );
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(find.text('Welcome to Duo'), findsOneWidget);
     expect(find.text('Continue with Google'), findsOneWidget);
   });

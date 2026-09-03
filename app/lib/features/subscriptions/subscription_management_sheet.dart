@@ -1,9 +1,9 @@
 import 'package:one_one_app/one_one.dart';
 
-/// Manage Subscription sheet with store management + Team Duo contact.
+/// Manage Subscription sheet — in-app contact only.
 ///
-/// Keeps Customer Center for store-side cancel/upgrade flows while exposing
-/// a clear in-app contact path during Duo Pro beta.
+/// Store cancel/upgrade lives on the Duo Pro paywall. This sheet is the
+/// Team Duo inbox path from Settings.
 class SubscriptionManagementSheet extends StatelessWidget {
   const SubscriptionManagementSheet({super.key});
 
@@ -20,21 +20,6 @@ class SubscriptionManagementSheet extends StatelessWidget {
 
   static Future<void> contactTeamDuo(BuildContext context) {
     return _promptContactTeamDuo(context);
-  }
-
-  Future<void> _openCustomerCenter(BuildContext context) async {
-    Navigator.of(context).pop();
-    try {
-      await RevenueCatUI.presentCustomerCenter();
-    } catch (error) {
-      debugPrint('Customer Center error: $error');
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not open subscription management.'),
-        ),
-      );
-    }
   }
 
   Future<void> _contactTeamDuo(BuildContext context) {
@@ -64,63 +49,30 @@ class SubscriptionManagementSheet extends StatelessWidget {
             Row(
               children: [
                 Image.asset(
-                  'assets/logo-new.png',
+                  'assets/logo.png',
                   width: 36,
                   height: 36,
                   fit: BoxFit.contain,
                 ),
                 const SizedBox(width: 12),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            'Manage Subscription',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 17,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          SizedBox(width: 8),
-                          _SheetBetaBadge(),
-                        ],
-                      ),
-                      SizedBox(height: 2),
-                      Text(
-                        'Duo Pro is currently in beta.',
-                        style: TextStyle(color: Colors.white54, fontSize: 12.5),
-                      ),
-                    ],
+                Expanded(
+                  child: Text(
+                    context.l10n.subManageTitle,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 18),
             _SheetAction(
-              icon: Icons.manage_accounts_outlined,
-              label: 'Manage in store',
-              subtitle: 'Upgrade, cancel, or restore with App Store / Play',
-              onTap: () => _openCustomerCenter(context),
-            ),
-            const SizedBox(height: 8),
-            _SheetAction(
               icon: Icons.mail_outline_rounded,
-              label: 'Contact Team Duo',
-              subtitle: 'Billing questions & beta feedback',
+              label: context.l10n.subContactTeam,
+              subtitle: context.l10n.subContactTeamSubtitle,
               onTap: () => _contactTeamDuo(context),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'During beta, reply times may vary. For store refunds, use '
-              'Manage in store when available.',
-              style: TextStyle(
-                color: Colors.white38,
-                fontSize: 11.5,
-                height: 1.35,
-              ),
             ),
           ],
         ),
@@ -144,17 +96,17 @@ Future<void> _promptContactTeamDuo(BuildContext context) async {
     builder: (dialogContext) {
       return AlertDialog(
         backgroundColor: const Color(0xff1b1b1b),
-        title: const Text(
-          'Contact Team Duo',
-          style: TextStyle(color: Colors.white),
+        title: Text(
+          context.l10n.subContactTeam,
+          style: const TextStyle(color: Colors.white),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Duo Pro is in beta. Email us about billing, access, or feedback:',
-              style: TextStyle(color: Colors.white70, height: 1.4),
+            Text(
+              context.l10n.subContactBody,
+              style: const TextStyle(color: Colors.white70, height: 1.4),
             ),
             const SizedBox(height: 14),
             SelectableText(
@@ -165,48 +117,21 @@ Future<void> _promptContactTeamDuo(BuildContext context) async {
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
-              'Email address copied to your clipboard.',
-              style: TextStyle(color: Colors.white54, fontSize: 12.5),
+            Text(
+              context.l10n.subEmailCopied,
+              style: const TextStyle(color: Colors.white54, fontSize: 12.5),
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Close'),
+            child: Text(context.l10n.subClose),
           ),
         ],
       );
     },
   );
-}
-
-class _SheetBetaBadge extends StatelessWidget {
-  const _SheetBetaBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-      decoration: BoxDecoration(
-        color: const Color(0xffffb020).withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(
-          color: const Color(0xffffb020).withValues(alpha: 0.55),
-        ),
-      ),
-      child: const Text(
-        'BETA',
-        style: TextStyle(
-          color: Color(0xffffb020),
-          fontSize: 10,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 0.6,
-        ),
-      ),
-    );
-  }
 }
 
 class _SheetAction extends StatelessWidget {

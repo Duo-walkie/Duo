@@ -37,14 +37,20 @@ class WelcomeLanguageToggle extends StatelessWidget {
                       value: language,
                       child: Row(
                         children: [
-                          Icon(
-                            language == current
-                                ? Icons.check_rounded
-                                : Icons.language_rounded,
-                            size: 18,
-                            color: color,
+                          Text(
+                            language.flagEmoji,
+                            style: const TextStyle(fontSize: 18),
                           ),
                           const SizedBox(width: 10),
+                          if (language == current)
+                            Icon(
+                              Icons.check_rounded,
+                              size: 18,
+                              color: color,
+                            )
+                          else
+                            const SizedBox(width: 18),
+                          const SizedBox(width: 8),
                           Text(
                             language.nativeName,
                             style: TextStyle(
@@ -68,7 +74,7 @@ class WelcomeLanguageToggle extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.language_rounded, size: 16.sp, color: color),
+                    Text(current.flagEmoji, style: TextStyle(fontSize: 14.sp)),
                     SizedBox(width: 6.w),
                     Text(
                       current.nativeName,
@@ -172,6 +178,7 @@ class SettingsLanguageSection extends StatelessWidget {
                         for (final language in config.supportedLanguages)
                           _ChoiceRow(
                             label: language.nativeName,
+                            leading: language.flagEmoji,
                             selected: language == current,
                             accent: accent,
                             onTap: () =>
@@ -338,9 +345,11 @@ class _ChoiceRow extends StatelessWidget {
     required this.selected,
     required this.accent,
     required this.onTap,
+    this.leading,
   });
 
   final String label;
+  final String? leading;
   final bool selected;
   final Color accent;
   final VoidCallback onTap;
@@ -362,6 +371,10 @@ class _ChoiceRow extends StatelessWidget {
               size: 22,
             ),
             const SizedBox(width: 12),
+            if (leading != null) ...[
+              Text(leading!, style: const TextStyle(fontSize: 20)),
+              const SizedBox(width: 10),
+            ],
             Expanded(
               child: Text(
                 label,

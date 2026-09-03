@@ -68,10 +68,9 @@ class _SendFeedbackSheetState extends State<_SendFeedbackSheet> {
       );
       if (!mounted) return;
       final messenger = ScaffoldMessenger.maybeOf(context);
+      final thanks = context.l10n.feedbackThanks;
       Navigator.pop(context);
-      messenger?.showSnackBar(
-        const SnackBar(content: Text('Thanks, your report was sent')),
-      );
+      messenger?.showSnackBar(SnackBar(content: Text(thanks)));
     } catch (error) {
       LogManager.log(
         LogLevel.error,
@@ -83,13 +82,14 @@ class _SendFeedbackSheetState extends State<_SendFeedbackSheet> {
       if (!mounted) return;
       setState(() {
         _sending = false;
-        _error = 'Couldn\'t send your report. Check your connection and try again.';
+        _error = context.l10n.feedbackSendFailed;
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     return BottomSystemSafeArea(
       child: Padding(
@@ -98,18 +98,18 @@ class _SendFeedbackSheetState extends State<_SendFeedbackSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
-              'Send Feedback',
-              style: TextStyle(
+            Text(
+              l10n.settingsSendFeedback,
+              style: const TextStyle(
                 color: Colors.white,
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: 6),
-            const Text(
-              'Describe what went wrong. Recent on-device logs will be attached.',
-              style: TextStyle(color: Colors.white54, fontSize: 12.5),
+            Text(
+              l10n.feedbackSubtitle,
+              style: const TextStyle(color: Colors.white54, fontSize: 12.5),
             ),
             const SizedBox(height: 14),
             TextField(
@@ -119,7 +119,7 @@ class _SendFeedbackSheetState extends State<_SendFeedbackSheet> {
               maxLength: 2000,
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
-                hintText: 'What happened? (optional)',
+                hintText: l10n.feedbackHint,
                 hintStyle: const TextStyle(color: Colors.white38),
                 filled: true,
                 fillColor: const Color(0xff101010),
@@ -149,7 +149,7 @@ class _SendFeedbackSheetState extends State<_SendFeedbackSheet> {
                       dimension: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('Send Report'),
+                  : Text(l10n.crashSendReport),
             ),
           ],
         ),

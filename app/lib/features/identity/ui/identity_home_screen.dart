@@ -844,15 +844,17 @@ class _IdentityHomeScreenState extends _IdentityHomeBase
                                           : LiveKitStatus.connecting)
                                     : viewingActiveGroup
                                     ? (_isTransmitting
-                                          ? 'Mic on — tap to mute'
-                                          : 'Tap to Talk')
+                                          ? context.l10n.homeMicOnMute
+                                          : context.l10n.homeTapToTalk)
                                     : _isOnline
-                                    ? 'connected to ${activeGroup?.name ?? 'another group'} • tap to nudge this group'
+                                    ? context.l10n.homeConnectedToOtherGroup(
+                                        activeGroup?.name ?? '',
+                                      )
                                     : showGoLive
-                                    ? 'Someone is live — tap Join? to join'
+                                    ? context.l10n.homeSomeoneLive
                                     : !_serviceReady
-                                    ? 'invite a friend to enable voice service'
-                                    : 'send a nudge to go online together',
+                                    ? context.l10n.homeInviteFriendVoice
+                                    : context.l10n.homeSendNudgeTogether,
                                 textAlign: TextAlign.center,
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,

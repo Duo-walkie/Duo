@@ -90,7 +90,7 @@ class _MainAvatarCircle extends StatelessWidget {
               const ColoredBox(color: Color(0x40000000)),
               Center(
                 child: Text(
-                  'Join?',
+                  context.l10n.homeJoinQuestion,
                   maxLines: 1,
                   overflow: TextOverflow.fade,
                   softWrap: false,
@@ -222,7 +222,7 @@ class _MainAvatarCircle extends StatelessWidget {
             ? 'Nudge ${item.group.name}'
             : talkActive
             ? 'Stop talking'
-            : 'Tap to Talk',
+            : context.l10n.homeTapToTalk,
         child: GestureDetector(
           onTap: talkBusy
               ? null

@@ -54,6 +54,14 @@ void main() {
       );
     });
 
+    test('language pickers expose a country flag', () {
+      expect(AppLanguage.english.flagEmoji, '🇬🇧');
+      expect(AppLanguage.french.flagEmoji, '🇫🇷');
+      expect(AppLanguage.spanish.flagEmoji, '🇪🇸');
+      expect(AppLanguage.german.flagEmoji, '🇩🇪');
+      expect(AppLanguage.italian.flagEmoji, '🇮🇹');
+    });
+
     test('unsupported locale falls back to the market default', () {
       expect(
         MarketConfig.defaultsFor(Market.usa).coerce(AppLanguage.french),

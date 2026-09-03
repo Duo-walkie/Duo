@@ -235,7 +235,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _titleTapCount = 0;
       unawaited(HomeVisualVariantController.unlockTesting());
       if (mounted) {
-        setState(() => _message = 'Testing section unlocked');
+        setState(() => _message = context.l10n.settingsTestingUnlocked);
       }
     }
   }
@@ -328,7 +328,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         unawaited(CrashlyticsService.log('settings_prefs_save_setState'));
         setState(() {
           _acceptSession(session);
-          _message = 'Settings saved';
+          _message = context.l10n.settingsSaved;
           _saving = false;
         });
       });
@@ -358,14 +358,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final email = provider.email?.trim();
       if (email != null && email.isNotEmpty) return email;
     }
-    return 'Google account';
+    return context.l10n.settingsGoogleAccount;
   }
 
   Future<void> _logOut() async {
+    final l10n = context.l10n;
     final confirmed = await _confirmAccountAction(
-      title: 'Log out?',
-      message: 'You will need to sign in with Google to use Duo again.',
-      actionLabel: 'Log out',
+      title: l10n.settingsLogOutTitle,
+      message: l10n.settingsLogOutMessage,
+      actionLabel: l10n.settingsLogOut,
     );
     if (!confirmed || !mounted) return;
 
@@ -386,11 +387,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _deleteAccount() async {
+    final l10n = context.l10n;
     final confirmed = await _confirmAccountAction(
-      title: 'Delete account permanently?',
-      message:
-          'Your Duo profile, device information, and preferences will be deleted. This cannot be undone.',
-      actionLabel: 'Delete account',
+      title: l10n.settingsDeleteAccountTitle,
+      message: l10n.settingsDeleteAccountMessage,
+      actionLabel: l10n.settingsDeleteAccount,
       destructive: true,
     );
     if (!confirmed || !mounted) return;
@@ -406,8 +407,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _message =
-            'Account deletion couldn\'t be completed. Sign in with Google again and retry.';
+        _message = context.l10n.settingsDeleteAccountFailed;
       });
     } finally {
       if (mounted) setState(() => _accountActionInProgress = false);
@@ -428,7 +428,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(dialogContext, false),
-                child: const Text('Cancel'),
+                child: Text(context.l10n.settingsCancel),
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(dialogContext, true),
@@ -484,11 +484,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 14),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
                   child: Text(
-                    'Manage Group',
-                    style: TextStyle(
+                    context.l10n.settingsManageGroup,
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 17,
                       fontWeight: FontWeight.w700,
@@ -496,11 +496,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 14),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
                   child: Text(
-                    'Groups you created',
-                    style: TextStyle(color: Colors.white54, fontSize: 12.5),
+                    context.l10n.settingsManageGroupSubtitle,
+                    style: const TextStyle(color: Colors.white54, fontSize: 12.5),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -562,16 +562,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final purchased = await ElevenProPaywallScreen.open(context);
       if (!mounted) return;
       if (purchased) {
-        setState(() => _message = 'Welcome to Duo Pro!');
+        setState(() => _message = context.l10n.settingsWelcomeDuoPro);
       }
     } catch (error) {
       if (!mounted) return;
-      setState(() => _message = 'Could not open subscription options.');
+      setState(() => _message = context.l10n.settingsPaywallFailed);
       debugPrint('Paywall error: $error');
     }
   }
 
-  /// Manage Subscription sheet: store Customer Center + Contact Team Duo.
+  /// Contact Team Duo from the Manage Subscription sheet.
   Future<void> _showManageSubscription() {
     return SubscriptionManagementSheet.show(context);
   }
@@ -588,8 +588,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (!mounted) return;
       setState(
         () => _message = status.isGranted
-            ? 'Microphone permission granted.'
-            : 'Microphone permission was denied.',
+            ? context.l10n.settingsMicGranted
+            : context.l10n.settingsMicDenied,
       );
       await _refreshPermissions();
     } finally {
@@ -607,8 +607,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (!mounted) return;
       setState(
         () => _message = status.isGranted
-            ? 'Notification permission granted.'
-            : 'Notification permission was denied.',
+            ? context.l10n.settingsNotificationGranted
+            : context.l10n.settingsNotificationDenied,
       );
       await _refreshPermissions();
     } finally {
@@ -629,8 +629,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
       if (!mounted) return;
       setState(
-        () => _message =
-            'Battery optimization request sent. Check your device settings.',
+        () => _message = context.l10n.settingsBatteryRequestSent,
       );
       await _refreshPermissions();
     } finally {
@@ -657,7 +656,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
       if (!mounted) return;
       await _refreshPermissions();
-      setState(() => _message = 'Closed-app receive setup checked.');
+      setState(() => _message = context.l10n.settingsClosedAppChecked);
     } finally {
       _permissionRequestInFlight = false;
     }
@@ -675,6 +674,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final accent = accentColorForKey(_accentColorKey);
     final showSaveButton = _hasUnsavedSettings || _saving;
     final closedAppReceiveReady =
@@ -734,7 +734,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             ),
                           )
                         : const Icon(Icons.check_rounded),
-                    label: const Text('Save color'),
+                    label: Text(l10n.settingsSaveColor),
                   ),
                 ),
               )
@@ -758,28 +758,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const SizedBox(height: 22),
               if (widget.manageableGroups.isNotEmpty &&
                   widget.onManageGroup != null) ...[
-                const _SectionTitle('Group'),
+                _SectionTitle(l10n.settingsSectionGroup),
                 const SizedBox(height: 12),
                 _SettingsSurface(
                   padding: EdgeInsets.zero,
                   children: [
                     _NavigationRow(
                       icon: Icons.group_outlined,
-                      label: 'Manage Group',
+                      label: l10n.settingsManageGroup,
                       onTap: _openGroupManagement,
                     ),
                   ],
                 ),
                 const SizedBox(height: 28),
               ],
-              const _SectionTitle('Preferences'),
+              _SectionTitle(l10n.settingsSectionPreferences),
               const SizedBox(height: 12),
               _SettingsSurface(
                 children: [
                   _PreferenceHeading(
                     icon: Icons.palette_outlined,
-                    title: 'Accent color',
-                    subtitle: 'Choose the color used across Duo.',
+                    title: l10n.settingsAccentColorTitle,
+                    subtitle: l10n.settingsAccentColorSubtitle,
                   ),
                   const SizedBox(height: 16),
                   // Two rows of six — 12 accents fill both runs on phone widths.
@@ -821,9 +821,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const _SurfaceDivider(),
                   _PreferenceHeading(
                     icon: Icons.vibration_outlined,
-                    title: 'Haptics',
-                    subtitle:
-                        'Incoming voice nudges — ${_hapticsIntensity.subtitle}',
+                    title: l10n.settingsHapticsTitle,
+                    subtitle: l10n.settingsHapticsSubtitle(
+                      _hapticsIntensity.localizedSubtitle(l10n),
+                    ),
                   ),
                   const SizedBox(height: 14),
                   _HapticsTierRow(
@@ -838,68 +839,76 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 accent: accent,
                 onLanguageSelected: _setAppLanguage,
               ),
-              if (kDebugMode) DebugMarketPanel(accent: accent),
+              ValueListenableBuilder<bool>(
+                valueListenable: HomeVisualVariantController.unlocked,
+                builder: (context, testingUnlocked, _) {
+                  if (!testingUnlocked || !kDebugMode) {
+                    return const SizedBox.shrink();
+                  }
+                  return DebugMarketPanel(accent: accent);
+                },
+              ),
               const SizedBox(height: 28),
-              const _SectionTitle('Background reliability'),
+              _SectionTitle(l10n.settingsSectionBackground),
               const SizedBox(height: 12),
               _SettingsSurface(
                 children: [
                   _ChecklistItem(
                     ok: _session.device.micPermissionGranted,
-                    label: 'Microphone permission',
+                    label: l10n.settingsMicPermission,
                     detail: _session.device.micPermissionGranted
-                        ? 'Ready'
-                        : 'Required before you can talk.',
+                        ? l10n.settingsMicReady
+                        : l10n.settingsMicRequired,
                     onTap: _requestMicPermission,
                   ),
                   _ChecklistItem(
                     ok: _session.device.notificationPermissionGranted,
-                    label: 'Notification permission',
+                    label: l10n.settingsNotificationPermission,
                     detail: _session.device.notificationPermissionGranted
-                        ? 'Ready for background activity'
-                        : 'Required for reliable background activity.',
+                        ? l10n.settingsNotificationReady
+                        : l10n.settingsNotificationRequired,
                     onTap: _requestNotificationPermission,
                   ),
                   _ChecklistItem(
                     ok: _session.device.batteryOptimizationIgnored,
-                    label: 'Battery optimization',
+                    label: l10n.settingsBatteryOptimization,
                     detail: _session.device.batteryOptimizationIgnored
-                        ? 'Unrestricted'
-                        : 'Your device may interrupt long sessions.',
+                        ? l10n.settingsBatteryUnrestricted
+                        : l10n.settingsBatteryMayInterrupt,
                     onTap: _requestBatteryOptimization,
                   ),
                   _ChecklistItem(
                     ok: closedAppReceiveReady,
-                    label: 'Closed-app receive',
+                    label: l10n.settingsClosedAppReceive,
                     detail: closedAppReceiveReady
-                        ? 'Ready for nudges when the app is not open.'
-                        : 'Allow notifications and unrestricted background activity.',
+                        ? l10n.settingsClosedAppReady
+                        : l10n.settingsClosedAppRequired,
                     showDivider: false,
                     onTap: _requestClosedAppPermissions,
                   ),
                 ],
               ),
               const SizedBox(height: 28),
-              const _SectionTitle('Legal'),
+              _SectionTitle(l10n.settingsSectionLegal),
               const SizedBox(height: 12),
               _SettingsSurface(
                 padding: EdgeInsets.zero,
                 children: [
                   _NavigationRow(
                     icon: Icons.description_outlined,
-                    label: 'Terms & Conditions',
+                    label: l10n.settingsTerms,
                     onTap: () => _openLegalDocument(LegalDocument.terms),
                   ),
                   const _SurfaceDivider(indent: 52),
                   _NavigationRow(
                     icon: Icons.privacy_tip_outlined,
-                    label: 'Privacy Policy',
+                    label: l10n.settingsPrivacy,
                     onTap: () => _openLegalDocument(LegalDocument.privacy),
                   ),
                 ],
               ),
               const SizedBox(height: 28),
-              const _SectionTitle('Subscription', showBeta: true),
+              _SectionTitle(l10n.settingsSectionSubscription),
               const SizedBox(height: 12),
               _SettingsSurface(
                 padding: EdgeInsets.zero,
@@ -907,29 +916,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _ElevenProSettingsCard(onTap: _showPaywall),
                   const _SurfaceDivider(indent: 52),
                   _NavigationRow(
-                    icon: Icons.manage_accounts_outlined,
-                    label: 'Manage Subscription',
+                    icon: Icons.mail_outline_rounded,
+                    label: l10n.subContactTeam,
                     onTap: _showManageSubscription,
                   ),
                 ],
               ),
               const SizedBox(height: 28),
-              const _SectionTitle('Support'),
+              _SectionTitle(l10n.settingsSectionSupport),
               const SizedBox(height: 12),
               _SettingsSurface(
                 padding: EdgeInsets.zero,
                 children: [
                   _NavigationRow(
                     icon: Icons.feedback_outlined,
-                    label: 'Send Feedback',
+                    label: l10n.settingsSendFeedback,
                     onTap: () =>
                         showSendFeedbackSheet(context, userId: _session.userId),
                   ),
-                  const _SurfaceDivider(indent: 52),
-                  _NavigationRow(
-                    icon: Icons.bug_report_outlined,
-                    label: 'Debug Logs',
-                    onTap: () => showDebugLogsSheet(context),
+                  ValueListenableBuilder<bool>(
+                    valueListenable: HomeVisualVariantController.unlocked,
+                    builder: (context, unlocked, _) {
+                      if (!unlocked) return const SizedBox.shrink();
+                      return Column(
+                        children: [
+                          const _SurfaceDivider(indent: 52),
+                          _NavigationRow(
+                            icon: Icons.bug_report_outlined,
+                            label: l10n.settingsDebugLogs,
+                            onTap: () => showDebugLogsSheet(context),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ],
               ),
@@ -942,18 +961,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const _SectionTitle('Testing'),
+                        _SectionTitle(l10n.settingsTestingSection),
                         const SizedBox(height: 12),
                         ValueListenableBuilder<HomeVisualVariant>(
                           valueListenable: HomeVisualVariantController.current,
                           builder: (context, variant, _) {
                             return _SettingsSurface(
                               children: [
-                                const _PreferenceHeading(
+                                _PreferenceHeading(
                                   icon: Icons.science_outlined,
-                                  title: 'Home screen',
-                                  subtitle:
-                                      'Temporary looks for evaluating doodle backdrops. Layout stays the same.',
+                                  title: l10n.settingsTestingHomeTitle,
+                                  subtitle: l10n.settingsTestingHomeSubtitle,
                                 ),
                                 const SizedBox(height: 14),
                                 for (final option
@@ -981,14 +999,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 },
               ),
               const SizedBox(height: 28),
-              const _SectionTitle('Account'),
+              _SectionTitle(l10n.settingsSectionAccount),
               const SizedBox(height: 12),
               _SettingsSurface(
                 children: [
                   _PreferenceHeading(
                     icon: Icons.account_circle_outlined,
                     title: _signedInEmail,
-                    subtitle: 'Signed in with Google',
+                    subtitle: l10n.settingsSignedInWithGoogle,
                   ),
                   const SizedBox(height: 16),
                   OutlinedButton.icon(
@@ -1004,7 +1022,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.logout_rounded),
-                    label: const Text('Log out'),
+                    label: Text(l10n.settingsLogOut),
                   ),
                   const SizedBox(height: 8),
                   TextButton.icon(
@@ -1014,7 +1032,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       foregroundColor: const Color(0xffff8a80),
                     ),
                     icon: const Icon(Icons.delete_outline_rounded),
-                    label: const Text('Delete account'),
+                    label: Text(l10n.settingsDeleteAccount),
                   ),
                 ],
               ),
@@ -1097,7 +1115,7 @@ class _ProfileHeader extends StatelessWidget {
               color: accent,
               shape: const CircleBorder(),
               child: IconButton(
-                tooltip: 'Edit profile',
+                tooltip: context.l10n.settingsEditProfile,
                 onPressed: enabled ? onEditProfile : null,
                 icon: const Icon(Icons.edit_outlined),
                 color: Colors.black,
@@ -1277,7 +1295,10 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
       // deactivation. Local state is enough for this frame; the parent applies
       // the returned session after the route is fully gone.
       await _popSheet(
-        _EditProfileSheetResult(session: session, message: 'Profile updated'),
+        _EditProfileSheetResult(
+          session: session,
+          message: context.l10n.settingsProfileUpdated,
+        ),
       );
     } catch (error, stack) {
       unawaited(
@@ -1299,6 +1320,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final accent = accentColorForKey(widget.accentColorKey);
     final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
     final draftAsset = _pendingAvatarAsset ?? _session.user.avatarAsset;
@@ -1334,7 +1356,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Edit profile',
+                            l10n.settingsEditProfile,
                             style: Theme.of(context).textTheme.headlineSmall
                                 ?.copyWith(
                                   color: Colors.white,
@@ -1342,16 +1364,16 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
                                 ),
                           ),
                           const SizedBox(height: 6),
-                          const Text(
-                            'This is how friends see you in your groups.',
-                            style: TextStyle(color: Colors.white60),
+                          Text(
+                            l10n.settingsEditProfileSubtitle,
+                            style: const TextStyle(color: Colors.white60),
                           ),
                         ],
                       ),
                     ),
                   ),
                   IconButton(
-                    tooltip: 'Close',
+                    tooltip: l10n.settingsClose,
                     onPressed: busy
                         ? null
                         : () => unawaited(
@@ -1377,11 +1399,11 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
                     onChanged: (_) => setState(() {}),
                     onSubmitted: busy ? null : (_) => _save(),
                     style: const TextStyle(color: Colors.white),
-                    decoration: _darkInputDecoration('Display name'),
+                    decoration: _darkInputDecoration(l10n.settingsDisplayName),
                   ),
                   const SizedBox(height: 28),
-                  const Text(
-                    'AVATAR',
+                  Text(
+                    l10n.settingsAvatarSection,
                     style: TextStyle(
                       color: Colors.white54,
                       fontSize: 12,
@@ -1458,10 +1480,10 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
                           ),
                     label: Text(
                       _saving
-                          ? 'Saving…'
+                          ? l10n.settingsSaving
                           : hasChanges
-                          ? 'Save profile'
-                          : 'Done',
+                          ? l10n.settingsSaveProfile
+                          : l10n.settingsDone,
                     ),
                   ),
                 ),
@@ -1529,16 +1551,16 @@ class _AvatarSection extends StatelessWidget {
                   : Colors.transparent,
             ),
           ),
-          segments: const [
+          segments: [
             ButtonSegment(
               value: _AvatarSectionMode.avatar,
-              icon: Icon(Icons.face_retouching_natural_outlined),
-              label: Text('Avatar'),
+              icon: const Icon(Icons.face_retouching_natural_outlined),
+              label: Text(context.l10n.settingsAvatar),
             ),
             ButtonSegment(
               value: _AvatarSectionMode.photo,
-              icon: Icon(Icons.photo_camera_outlined),
-              label: Text('Photo'),
+              icon: const Icon(Icons.photo_camera_outlined),
+              label: Text(context.l10n.settingsPhoto),
             ),
           ],
           selected: {mode},
@@ -1643,7 +1665,11 @@ class _AvatarTabContent extends StatelessWidget {
                             ),
                           )
                         : const Icon(Icons.check_rounded),
-                    label: Text(saving ? 'Saving…' : 'Save avatar'),
+                    label: Text(
+                      saving
+                          ? context.l10n.settingsSaving
+                          : context.l10n.settingsSaveProfile,
+                    ),
                   ),
                 ],
               ],
@@ -1706,7 +1732,9 @@ class _PhotoTabContent extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                hasPhoto ? 'Your uploaded photo' : 'No photo uploaded yet',
+                hasPhoto
+                    ? context.l10n.settingsYourPhoto
+                    : context.l10n.settingsNoPhoto,
                 style: const TextStyle(color: Colors.white),
               ),
               const SizedBox(height: 10),
@@ -1725,7 +1753,11 @@ class _PhotoTabContent extends StatelessWidget {
                         ),
                       )
                     : const Icon(Icons.upload_outlined, size: 18),
-                label: Text(hasPhoto ? 'Change photo' : 'Upload photo'),
+                label: Text(
+                  hasPhoto
+                      ? context.l10n.settingsChangePhoto
+                      : context.l10n.settingsUploadPhoto,
+                ),
               ),
             ],
           ),
@@ -1736,26 +1768,20 @@ class _PhotoTabContent extends StatelessWidget {
 }
 
 class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.label, {this.showBeta = false});
+  const _SectionTitle(this.label);
 
   final String label;
-  final bool showBeta;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Text(
-          label.toUpperCase(),
-          style: const TextStyle(
-            color: Colors.white54,
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0,
-          ),
-        ),
-        if (showBeta) ...[const SizedBox(width: 8), const _SettingsBetaBadge()],
-      ],
+    return Text(
+      label.toUpperCase(),
+      style: const TextStyle(
+        color: Colors.white54,
+        fontSize: 12,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0,
+      ),
     );
   }
 }
@@ -1770,61 +1796,34 @@ class _ElevenProSettingsCard extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-      child: const Padding(
-        padding: EdgeInsets.fromLTRB(18, 14, 14, 14),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 14, 14, 14),
         child: Row(
           children: [
-            Icon(Icons.workspace_premium_outlined, color: Colors.white70),
-            SizedBox(width: 14),
+            const Icon(Icons.workspace_premium_outlined, color: Colors.white70),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Duo Pro',
-                    style: TextStyle(
+                    context.l10n.settingsDuoPro,
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  SizedBox(height: 2),
+                  const SizedBox(height: 2),
                   Text(
-                    'View plans',
-                    style: TextStyle(color: Colors.white54, fontSize: 13),
+                    context.l10n.settingsViewPlans,
+                    style: const TextStyle(color: Colors.white54, fontSize: 13),
                   ),
                 ],
               ),
             ),
-            Icon(Icons.chevron_right_rounded, color: Colors.white38),
+            const Icon(Icons.chevron_right_rounded, color: Colors.white38),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SettingsBetaBadge extends StatelessWidget {
-  const _SettingsBetaBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-      decoration: BoxDecoration(
-        color: const Color(0xffffb020).withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(
-          color: const Color(0xffffb020).withValues(alpha: 0.55),
-        ),
-      ),
-      child: const Text(
-        'BETA',
-        style: TextStyle(
-          color: Color(0xffffb020),
-          fontSize: 10,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 0.6,
         ),
       ),
     );
@@ -1900,7 +1899,7 @@ class _HapticsTierChip extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                option.label,
+                option.localizedLabel(context.l10n),
                 style: TextStyle(
                   color: labelColor,
                   fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
@@ -2052,11 +2051,11 @@ class _ColorSwatch extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Tooltip(
-      message: option.label,
+      message: option.localizedLabel(context.l10n),
       child: Semantics(
         button: true,
         selected: selected,
-        label: '${option.label} accent',
+        label: option.localizedLabel(context.l10n),
         child: InkWell(
           onTap: enabled ? onSelected : null,
           customBorder: const CircleBorder(),

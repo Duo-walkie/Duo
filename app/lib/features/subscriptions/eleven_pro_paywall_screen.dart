@@ -367,7 +367,7 @@ class _ElevenProPaywallScreenState extends State<ElevenProPaywallScreen> {
                                     disabledBackgroundColor:
                                         accent.withValues(alpha: 0.35),
                                     shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
+                                      borderRadius: BorderRadius.circular(28),
                                     ),
                                   ),
                                   child: _busy
@@ -380,8 +380,8 @@ class _ElevenProPaywallScreenState extends State<ElevenProPaywallScreen> {
                                         )
                                       : Text(
                                           _selected == null
-                                              ? 'Continue'
-                                              : 'Continue · ${_selected!.storeProduct.priceString}',
+                                              ? 'Choose Plan'
+                                              : 'Choose Plan · ${_selected!.storeProduct.priceString}',
                                           style: const TextStyle(
                                             fontWeight: FontWeight.w700,
                                             fontSize: 16,
@@ -399,8 +399,7 @@ class _ElevenProPaywallScreenState extends State<ElevenProPaywallScreen> {
                               ),
                               const SizedBox(height: 4),
                               const Text(
-                                'Prices are set by the App Store or Google Play. '
-                                'Duo Pro is currently in beta.',
+                                'Prices are set by the App Store or Google Play.',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   color: Colors.white38,
@@ -434,35 +433,18 @@ class _PaywallHero extends StatelessWidget {
         child: Column(
           children: [
             Image.asset(
-              'assets/logo-new.png',
+              'assets/logo.png',
               width: 112,
               height: 112,
               fit: BoxFit.contain,
             ),
             const SizedBox(height: 18),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text(
-                  'Duo Pro',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                const _BetaBadge(),
-              ],
-            ),
-            const SizedBox(height: 10),
             const Text(
-              'Get early access while Duo Pro is in beta. Plans and perks may change as we polish the experience.',
-              textAlign: TextAlign.center,
+              'Duo Pro',
               style: TextStyle(
-                color: Colors.white60,
-                fontSize: 13.5,
-                height: 1.45,
+                color: Colors.white,
+                fontSize: 24,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ],
@@ -472,52 +454,13 @@ class _PaywallHero extends StatelessWidget {
   }
 }
 
-class _BetaBadge extends StatelessWidget {
-  const _BetaBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-      decoration: BoxDecoration(
-        color: const Color(0xffffb020).withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(
-          color: const Color(0xffffb020).withValues(alpha: 0.55),
-        ),
-      ),
-      child: const Text(
-        'BETA',
-        style: TextStyle(
-          color: Color(0xffffb020),
-          fontSize: 11,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 0.6,
-        ),
-      ),
-    );
-  }
-}
-
 class _FeatureList extends StatelessWidget {
   const _FeatureList();
 
-  static const _items = <(IconData, String, String)>[
-    (
-      Icons.bolt_outlined,
-      'Early Pro access',
-      'Unlock Duo Pro features as they roll out during beta.',
-    ),
-    (
-      Icons.support_agent_outlined,
-      'Talk to Team Duo',
-      'Reach us directly for billing or beta feedback.',
-    ),
-    (
-      Icons.autorenew_rounded,
-      'Flexible subscription',
-      'Change or cancel anytime from Manage Subscription.',
-    ),
+  static const _items = <(IconData, String)>[
+    (Icons.bolt_outlined, 'Unlock Pro features'),
+    (Icons.support_agent_outlined, 'Talk to Team Duo anytime'),
+    (Icons.autorenew_rounded, 'Change or cancel anytime'),
   ];
 
   @override
@@ -541,26 +484,12 @@ class _FeatureList extends StatelessWidget {
                     Icon(_items[i].$1, color: Colors.white70, size: 22),
                     const SizedBox(width: 14),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _items[i].$2,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            _items[i].$3,
-                            style: const TextStyle(
-                              color: Colors.white54,
-                              fontSize: 13,
-                              height: 1.35,
-                            ),
-                          ),
-                        ],
+                      child: Text(
+                        _items[i].$2,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ],
@@ -692,30 +621,24 @@ class _AlreadyProBody extends StatelessWidget {
         children: [
           const Spacer(),
           Image.asset(
-            'assets/logo-new.png',
+            'assets/logo.png',
             width: 120,
             height: 120,
             fit: BoxFit.contain,
           ),
           const SizedBox(height: 20),
-          const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                'You\'re on Duo Pro',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              SizedBox(width: 10),
-              _BetaBadge(),
-            ],
+          const Text(
+            'You\'re on Duo Pro',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(height: 10),
           const Text(
-            'Thanks for testing Duo Pro while it\'s in beta. Manage your plan or contact Team Duo anytime from Settings.',
+            'Thanks for supporting Duo.',
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.white60, height: 1.45),
           ),
@@ -729,7 +652,7 @@ class _AlreadyProBody extends StatelessWidget {
                 backgroundColor: accent,
                 foregroundColor: Colors.black,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(28),
                 ),
               ),
               child: const Text(

@@ -39,14 +39,14 @@ class _DebugLogsSheetState extends State<_DebugLogsSheet> {
   Future<void> _share() async {
     final file = _info?.file ?? LogManager.todayFile();
     if (file == null || !file.existsSync()) {
-      setState(() => _message = 'No log file yet.');
+      setState(() => _message = context.l10n.debugLogsNoFile);
       return;
     }
     LogManager.log(LogLevel.info, 'LogManager', 'Share log file requested');
     await SharePlus.instance.share(
       ShareParams(
         files: [XFile(file.path, mimeType: 'text/plain')],
-        subject: 'Duo debug logs',
+        subject: context.l10n.debugLogsShareSubject,
       ),
     );
   }
@@ -56,11 +56,12 @@ class _DebugLogsSheetState extends State<_DebugLogsSheet> {
     await Clipboard.setData(ClipboardData(text: text));
     LogManager.log(LogLevel.info, 'LogManager', 'Copied log text to clipboard');
     if (!mounted) return;
-    setState(() => _message = 'Copied to clipboard');
+    setState(() => _message = context.l10n.debugLogsCopied);
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final info = _info;
     return BottomSystemSafeArea(
       child: Padding(
@@ -69,11 +70,11 @@ class _DebugLogsSheetState extends State<_DebugLogsSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 14),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
               child: Text(
-                'Debug Logs',
-                style: TextStyle(
+                l10n.settingsDebugLogs,
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 17,
                   fontWeight: FontWeight.w700,
@@ -85,35 +86,38 @@ class _DebugLogsSheetState extends State<_DebugLogsSheet> {
               padding: const EdgeInsets.symmetric(horizontal: 14),
               child: Text(
                 _loading
-                    ? 'Reading today’s log file…'
+                    ? l10n.debugLogsReading
                     : info == null
-                    ? 'No log file has been written yet today.'
-                    : 'Today’s file · ${info.sizeLabel} · last updated ${_formatTime(info.lastModified)}',
+                    ? l10n.debugLogsEmpty
+                    : l10n.debugLogsTodayFile(
+                        info.sizeLabel,
+                        _formatTime(info.lastModified),
+                      ),
                 style: const TextStyle(color: Colors.white54, fontSize: 12.5),
               ),
             ),
             const SizedBox(height: 8),
             ListTile(
               leading: const Icon(Icons.ios_share, color: Colors.white70),
-              title: const Text(
-                'Share Log File',
-                style: TextStyle(color: Colors.white),
+              title: Text(
+                l10n.debugLogsShareTitle,
+                style: const TextStyle(color: Colors.white),
               ),
-              subtitle: const Text(
-                'Opens the system share sheet with today’s .txt file',
-                style: TextStyle(color: Colors.white54, fontSize: 12.5),
+              subtitle: Text(
+                l10n.debugLogsShareSubtitle,
+                style: const TextStyle(color: Colors.white54, fontSize: 12.5),
               ),
               onTap: _share,
             ),
             ListTile(
               leading: const Icon(Icons.copy_outlined, color: Colors.white70),
-              title: const Text(
-                'Copy to Clipboard',
-                style: TextStyle(color: Colors.white),
+              title: Text(
+                l10n.debugLogsCopyTitle,
+                style: const TextStyle(color: Colors.white),
               ),
-              subtitle: const Text(
-                'Copies the full text of today’s log file',
-                style: TextStyle(color: Colors.white54, fontSize: 12.5),
+              subtitle: Text(
+                l10n.debugLogsCopySubtitle,
+                style: const TextStyle(color: Colors.white54, fontSize: 12.5),
               ),
               onTap: _copy,
             ),

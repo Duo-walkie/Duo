@@ -96,6 +96,15 @@ enum AppLanguage {
     AppLanguage.italian => 'Italiano',
   };
 
+  /// Country flag shown next to [nativeName] in language pickers.
+  String get flagEmoji => switch (this) {
+    AppLanguage.english => '🇬🇧',
+    AppLanguage.french => '🇫🇷',
+    AppLanguage.german => '🇩🇪',
+    AppLanguage.spanish => '🇪🇸',
+    AppLanguage.italian => '🇮🇹',
+  };
+
   Locale get locale => Locale(languageCode);
 
   static AppLanguage fromLanguageCode(String? raw) {

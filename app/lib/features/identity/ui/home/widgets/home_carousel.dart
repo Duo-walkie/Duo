@@ -207,7 +207,7 @@ class _ExperienceCarouselState extends State<_ExperienceCarousel>
     if (!actuallySelected) {
       circle = Semantics(
         button: true,
-        label: 'Select ${item.group.name} group',
+        label: context.l10n.homeSelectGroup(item.group.name),
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: () => _animateTo(itemIndex, notifySelection: true),
@@ -235,8 +235,8 @@ class _ExperienceCarouselState extends State<_ExperienceCarousel>
                         children: [
                           Text(
                             widget.talkActive
-                                ? 'Tap to Stop Talking'
-                                : 'Tap to Talk',
+                                ? context.l10n.homeTapToStopTalking
+                                : context.l10n.homeTapToTalk,
                             maxLines: 1,
                             style: TextStyle(
                               color: Colors.white70,
@@ -266,13 +266,13 @@ class _ExperienceCarouselState extends State<_ExperienceCarousel>
           _DashedAddCircle(
             onTap: widget.onJoinGroup,
             compact: true,
-            label: '+ join\ngroup',
+            label: context.l10n.homeJoinGroup,
           ),
           const Spacer(),
           _DashedAddCircle(
             onTap: widget.onCreateGroup,
             compact: true,
-            label: '+ create\nnew group',
+            label: context.l10n.homeCreateGroup,
           ),
           SizedBox(width: 16.w),
         ],
@@ -285,7 +285,7 @@ class _ExperienceCarouselState extends State<_ExperienceCarousel>
         _DashedAddCircle(
           onTap: widget.onJoinGroup,
           compact: true,
-          label: '+ join\ngroup',
+          label: context.l10n.homeJoinGroup,
         ),
         SizedBox(width: 8.w),
         Expanded(
@@ -360,7 +360,7 @@ class _ExperienceCarouselState extends State<_ExperienceCarousel>
         _DashedAddCircle(
           onTap: widget.onCreateGroup,
           compact: true,
-          label: '+ create\nnew group',
+          label: context.l10n.homeCreateGroup,
         ),
         SizedBox(width: 12.w),
       ],
