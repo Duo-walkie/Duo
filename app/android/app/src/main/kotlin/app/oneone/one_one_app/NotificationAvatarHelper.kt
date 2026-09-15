@@ -21,7 +21,7 @@ import java.util.concurrent.Executors
 /**
  * Builds the large notification icon for nudge notifications, in order:
  * 1. circular Cloudinary profile photo when [photoUrl] is reachable
- * 2. bundled preset avatar when [avatarAsset] is a valid `assets/avatars*` path
+ * 2. bundled preset avatar when [avatarAsset] is a valid `assets/avatars_new*` path
  * 3. the app logo (`assets/logo.png` bundled as [new_logo])
  *
  * Network I/O never runs on the caller thread. Use [applyLargeIcon] so the
@@ -63,7 +63,7 @@ object NotificationAvatarHelper {
     }
 
     /**
-     * Bundled preset avatar (`assets/avatars*` in the Flutter asset pack),
+     * Bundled preset avatar (`assets/avatars_new/` in the Flutter asset pack),
      * or null when [avatarAsset] is missing / not a known preset path.
      */
     fun bundledAvatar(context: Context, avatarAsset: String?): Bitmap? =
@@ -176,7 +176,7 @@ object NotificationAvatarHelper {
     private fun decodeAvatarAsset(context: Context, avatarAsset: String?): Bitmap? {
         val path = avatarAsset?.trim().orEmpty()
         if (path.isEmpty()) return null
-        if (!path.startsWith("assets/avatars/") && !path.startsWith("assets/avatars2/")) {
+        if (!isBundledAvatarPath(path)) {
             return null
         }
         if (".." in path) return null
@@ -201,6 +201,13 @@ object NotificationAvatarHelper {
         }
         Log.w(VoiceNudgeDiagnostics.tag, "[AVATAR] asset miss $path")
         return null
+    }
+
+    /** Current pack plus retired Classic/Studio prefixes still stored on old accounts. */
+    fun isBundledAvatarPath(path: String): Boolean {
+        return path.startsWith("assets/avatars_new/") ||
+            path.startsWith("assets/avatars/") ||
+            path.startsWith("assets/avatars2/")
     }
 
     private fun downloadCircular(url: String, context: Context): Bitmap? {

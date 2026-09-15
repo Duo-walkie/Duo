@@ -43,7 +43,9 @@ void main() {
         child: const GoogleAuthScreen(),
       ),
     );
-    await tester.pumpAndSettle();
+    await tester.pump();
+    // Enter animation + idle float never fully settle; advance past entrance.
+    await tester.pump(const Duration(milliseconds: 1800));
     expect(find.text('Welcome to Duo'), findsOneWidget);
     expect(find.text('Continue with Google'), findsOneWidget);
     expect(find.byType(BrandSplashScreen), findsNothing);

@@ -100,6 +100,11 @@ class _StartupGateScreenState extends State<StartupGateScreen>
           return;
         }
         await _markSetupComplete(session.userId);
+        if (!mounted) return;
+        if (_needsAvatarRefresh(session)) {
+          _presentAvatarRefresh(session, groupsPrefetch: groupsPrefetch);
+          return;
+        }
         await _presentHomeOrTrialGate(
           session,
           groupsPrefetch: groupsPrefetch,
@@ -171,7 +176,40 @@ class _StartupGateScreenState extends State<StartupGateScreen>
     final readySession = await _identityRepository.ensureIdentity();
     _readySession = readySession;
     if (!mounted) return;
+    if (_needsAvatarRefresh(readySession)) {
+      _presentAvatarRefresh(readySession);
+      return;
+    }
     await _presentHomeOrTrialGate(readySession);
+  }
+
+  bool _needsAvatarRefresh(IdentitySession session) {
+    return AvatarAssets.needsRefresh(
+      avatarAsset: session.user.avatarAsset,
+      profilePhotoUrl: session.user.profilePhotoUrl,
+      profilePhotoBase64: session.user.profilePhotoBase64,
+    );
+  }
+
+  void _presentAvatarRefresh(
+    IdentitySession session, {
+    Future<List<GroupSummary>>? groupsPrefetch,
+  }) {
+    setState(() {
+      _nextScreen = ProfilePictureScreen(
+        session: session,
+        identityRepository: _identityRepository,
+        refreshRetiredAvatar: true,
+        onComplete: (updatedSession) async {
+          _readySession = updatedSession;
+          if (!mounted) return;
+          await _presentHomeOrTrialGate(
+            updatedSession,
+            groupsPrefetch: groupsPrefetch,
+          );
+        },
+      );
+    });
   }
 
   /// Home, nudges and chat are free forever — the free trial only gates

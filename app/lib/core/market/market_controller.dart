@@ -60,6 +60,8 @@ class MarketController {
 
     final backendMarket = Market.fromIsoCode(backendMarketIso);
     if (backendMarket != Market.unknown) {
+      // Keep probing Play so device logs always include storefront country.
+      unawaited(_logPlayStorefrontCountry());
       _publish(
         MarketSnapshot(
           market: backendMarket,
@@ -145,6 +147,18 @@ class MarketController {
         'market_source': next.source.logLabel,
         'onboarding_variant': next.config.onboardingVariant.remoteValue,
       });
+    } catch (_) {}
+  }
+
+  static Future<void> _logPlayStorefrontCountry() async {
+    try {
+      final playIso = (await PlayStorefrontCountry.read())?.trim().toUpperCase();
+      final code = playIso == null || playIso.isEmpty ? 'unavailable' : playIso;
+      LogManager.log(
+        LogLevel.info,
+        'Market',
+        'Play storefront country=$code',
+      );
     } catch (_) {}
   }
 }

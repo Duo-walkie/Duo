@@ -164,6 +164,24 @@ abstract class AppLocalizations {
   /// **'You can add a custom photo later in Settings.'**
   String get chooseAvatarSubtitle;
 
+  /// No description provided for @chooseAvatarRefreshTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'new avatars are here'**
+  String get chooseAvatarRefreshTitle;
+
+  /// No description provided for @chooseAvatarRefreshSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'The old set has been retired. Pick one that feels like you.'**
+  String get chooseAvatarRefreshSubtitle;
+
+  /// Funky teaser under the avatar grid
+  ///
+  /// In en, this message translates to:
+  /// **'more avatars coming soon'**
+  String get chooseAvatarComingSoon;
+
   /// No description provided for @displayNameHint.
   ///
   /// In en, this message translates to:

@@ -100,8 +100,7 @@ flutter:
     - assets/
     - assets/sounds/
     - assets/lottie/
-    - assets/avatars/
-    - assets/avatars2/
+    - assets/avatars_new/
     - assets/home_bg_images/
     - assets/duo_stickers/
     - google_fonts/

@@ -5,11 +5,14 @@
 1. `POST /v1/groups/:groupId/invites` returns the existing one-time PIN plus an
    HTTPS `inviteUrl`.
 2. Android shares the HTTPS URL through the system share sheet.
-3. A verified link opens `MainActivity`. The invite code is persisted natively,
-   so the link survives a cold start, Google authentication, and onboarding.
+3. A verified App Link opens `MainActivity` directly. If the browser still
+   opens the HTTPS URL (unverified links, in-app browsers), Android gets a
+   landing page that opens Duo when it is installed and otherwise sends the
+   user to Play Store with the invite code as the Play Install Referrer.
 4. Once an authenticated identity is ready, the app calls the existing join
    endpoint, clears the pending code only after success (or a terminal invite
-   error), and opens Home focused on the joined group.
+   error), and opens Home focused on the joined group. Fresh installs recover
+   the same code from the Play Install Referrer.
 5. The PIN remains available as a fallback.
 
 ## One-time deployment setup
@@ -27,14 +30,19 @@
   package `app.oneone.one_one_app` and every expected SHA-256 fingerprint as
   JSON, without authentication or a redirect.
 - Deploy the backend before distributing an app build that shares these links.
-  Without domain verification, the HTTPS endpoint still redirects installed
-  Android devices to `oneone://invite/<code>` as a compatibility fallback.
+  Without domain verification, the HTTPS landing page still opens the installed
+  app via `oneone://invite/<code>` / the Android intent URL, and sends everyone
+  else to Play Store with the install referrer.
 
 ## Device verification
 
 - Create an invite and share it to the second Android device.
-- Test while logged in, logged out, and after removing the app from Recents.
-- In each state, tap the link and confirm the recipient joins without entering
-  the PIN and lands with the invited group selected.
+- With the app installed: tap the link and confirm the recipient joins without
+  entering the PIN and lands with the invited group selected. They must not be
+  sent to Play Store.
+- Without the app: tap the link, install from Play Store, complete setup, and
+  confirm they land in the invited group without entering the PIN.
+- Repeat the installed-app path while logged in, logged out, and after removing
+  the app from Recents.
 - Test an expired and fully-used invite; the app must show the server error and
   must not repeatedly retry that terminal link.

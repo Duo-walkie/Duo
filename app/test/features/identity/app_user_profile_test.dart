@@ -66,16 +66,16 @@ void main() {
 
   test('preset avatar is persisted without a photo upload', () {
     final avatar = profile().copyWith(
-      avatarAsset: 'assets/avatars/avatar_01.png',
+      avatarAsset: 'assets/avatars_new/cute-duck.png',
     );
 
-    expect(avatar.toJson()['avatarAsset'], 'assets/avatars/avatar_01.png');
+    expect(avatar.toJson()['avatarAsset'], 'assets/avatars_new/cute-duck.png');
     expect(avatar.hasProfilePhoto, isTrue);
   });
 
   test('copyWith clearAvatarAsset drops the preset', () {
     final avatar = profile().copyWith(
-      avatarAsset: 'assets/avatars/avatar_01.png',
+      avatarAsset: 'assets/avatars_new/cute-duck.png',
     );
     final cleared = avatar.copyWith(
       clearAvatarAsset: true,

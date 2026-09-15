@@ -28,6 +28,8 @@ class MarketResolver {
   Future<MarketSnapshot> resolve({MarketSnapshot? cached}) async {
     final debugMarket = kDebugMode ? await _readDebugOverride() : null;
     if (debugMarket != null && debugMarket != Market.unknown) {
+      // Still probe Play so on-device logs always capture storefront country.
+      unawaited(_logPlayCountry());
       return MarketSnapshot(
         market: debugMarket,
         source: MarketSource.debugOverride,
@@ -35,7 +37,15 @@ class MarketResolver {
       );
     }
 
-    final backendIso = await _readBackendMarket();
+    // Always fetch Play (in parallel with backend) so storefront country is
+    // logged even when account market wins resolution.
+    final backendFuture = _readBackendMarket();
+    final playFuture = _readPlayCountry();
+    final backendIso = await backendFuture;
+    final playIsoRaw = await playFuture;
+    final playIso = playIsoRaw?.trim().toUpperCase();
+    _recordPlayCountry(playIso);
+
     final backendMarket = Market.fromIsoCode(backendIso);
     if (backendMarket != Market.unknown) {
       return MarketSnapshot(
@@ -45,13 +55,12 @@ class MarketResolver {
       );
     }
 
-    final playIso = await _readPlayCountry();
     final playMarket = Market.fromIsoCode(playIso);
-    if (playIso != null && playIso.trim().isNotEmpty) {
+    if (playIso != null && playIso.isNotEmpty) {
       return MarketSnapshot(
         market: playMarket,
         source: MarketSource.playStore,
-        isoCountryCode: playIso.trim().toUpperCase(),
+        isoCountryCode: playIso,
       );
     }
 
@@ -78,6 +87,22 @@ class MarketResolver {
     }
 
     return MarketSnapshot.unknown;
+  }
+
+  Future<void> _logPlayCountry() async {
+    try {
+      final playIso = (await _readPlayCountry())?.trim().toUpperCase();
+      _recordPlayCountry(playIso);
+    } catch (_) {}
+  }
+
+  static void _recordPlayCountry(String? playIso) {
+    final code = playIso == null || playIso.isEmpty ? 'unavailable' : playIso;
+    LogManager.log(
+      LogLevel.info,
+      'Market',
+      'Play storefront country=$code',
+    );
   }
 }
 

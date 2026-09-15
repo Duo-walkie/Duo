@@ -44,6 +44,16 @@ class AppLocalizationsFr extends AppLocalizations {
       'Vous pourrez ajouter une photo personnalisée plus tard dans Réglages.';
 
   @override
+  String get chooseAvatarRefreshTitle => 'de nouveaux avatars sont là';
+
+  @override
+  String get chooseAvatarRefreshSubtitle =>
+      'L\'ancienne série n\'est plus disponible. Choisissez celui qui vous ressemble.';
+
+  @override
+  String get chooseAvatarComingSoon => 'plus d\'avatars bientôt';
+
+  @override
   String get displayNameHint => 'votre nom';
 
   @override

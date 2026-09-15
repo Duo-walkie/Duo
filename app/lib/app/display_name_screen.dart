@@ -44,7 +44,10 @@ class _DisplayNameScreenState extends State<DisplayNameScreen> {
     final name = _nameController.text.trim();
     if (name.isEmpty || _saving) return;
 
-    setState(() => _saving = true);
+    _saving = true;
+    // Dismiss keyboard before navigation so inset animation doesn't overflow.
+    _focusNode.unfocus();
+    FocusManager.instance.primaryFocus?.unfocus();
 
     try {
       await widget.identityRepository.updateDisplayName(name);
@@ -63,7 +66,8 @@ class _DisplayNameScreenState extends State<DisplayNameScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xff000000),
-      resizeToAvoidBottomInset: true,
+      // Keep layout stable while the keyboard animates closed on submit.
+      resizeToAvoidBottomInset: false,
       body: SafeArea(
         child: Stack(
           children: [
@@ -134,24 +138,13 @@ class _DisplayNameScreenState extends State<DisplayNameScreen> {
                     shape: BoxShape.circle,
                     color: Color(0xff242424),
                   ),
-                  child: _saving
-                      ? Center(
-                          child: SizedBox(
-                            width: 20.w,
-                            height: 20.w,
-                            child: const CircularProgressIndicator(
-                              strokeWidth: 2.4,
-                              color: Colors.white,
-                            ),
-                          ),
-                        )
-                      : Icon(
-                          Icons.arrow_forward_rounded,
-                          color: _canSubmit
-                              ? Colors.white
-                              : const Color.fromRGBO(255, 255, 255, 0.35),
-                          size: 24.sp,
-                        ),
+                  child: Icon(
+                    Icons.arrow_forward_rounded,
+                    color: _canSubmit
+                        ? Colors.white
+                        : const Color.fromRGBO(255, 255, 255, 0.35),
+                    size: 24.sp,
+                  ),
                 ),
               ),
             ),

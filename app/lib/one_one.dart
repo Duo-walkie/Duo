@@ -67,6 +67,7 @@ export 'app/brand_splash_screen.dart';
 export 'app/display_name_screen.dart';
 export 'app/firebase_setup_blocked_screen.dart';
 export 'app/google_auth_screen.dart';
+export 'app/google_auth_screen_legacy.dart';
 export 'app/native_splash_bridge.dart';
 export 'app/one_one_app.dart';
 export 'app/profile_picture_screen.dart';
@@ -162,6 +163,7 @@ export 'features/identity/ui/no_groups_screen.dart';
 export 'features/identity/ui/profile_avatar.dart';
 export 'features/identity/ui/profile_photo_editor.dart';
 export 'features/identity/ui/settings_screen.dart';
+export 'features/identity/ui/welcome_redesign_preview_screen.dart';
 
 // Features — nudges
 export 'features/nudges/data/active_nudge_inbox.dart';

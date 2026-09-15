@@ -51,18 +51,8 @@ class _NoGroupsScreenState extends State<NoGroupsScreen> {
     );
   }
 
-  void _openCreateGroup(BuildContext context) {
-    Navigator.of(context).push(_slideUpRoute(GroupActionMode.createGroup));
-  }
-
   void _openJoinGroup(BuildContext context) {
     Navigator.of(context).push(_slideUpRoute(GroupActionMode.joinByPin));
-  }
-
-  void _showGroupRequired(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(context.l10n.noGroupsNeedGroupFirst)),
-    );
   }
 
   void _openInviteContactsSheet(BuildContext context) {
@@ -121,10 +111,10 @@ class _NoGroupsScreenState extends State<NoGroupsScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(
-                        Icons.groups_rounded,
-                        size: 92,
-                        color: Color(0xffF8BE03),
+                      Image.asset(
+                        'assets/duo_stickers/waiting-binoculars.png',
+                        width: 168.w,
+                        fit: BoxFit.contain,
                       ),
                       SizedBox(height: 22.h),
                       Text(
@@ -145,7 +135,6 @@ class _NoGroupsScreenState extends State<NoGroupsScreen> {
                         ).textTheme.bodyLarge?.copyWith(color: Colors.white),
                       ),
                       SizedBox(height: 28.h),
-                      // Primary CTA: invite contacts and create group in one shot.
                       SizedBox(
                         width: double.infinity,
                         child: FilledButton.icon(
@@ -162,44 +151,6 @@ class _NoGroupsScreenState extends State<NoGroupsScreen> {
                             ),
                           ),
                         ),
-                      ),
-                      SizedBox(height: 14.h),
-                      // Secondary: create group manually.
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: () => _openCreateGroup(context),
-                          icon: const Icon(Icons.group_add_rounded),
-                          label: Text(context.l10n.noGroupsCreate),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.white70,
-                            side: const BorderSide(color: Colors.white24),
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: 10.h),
-                      OutlinedButton.icon(
-                        onPressed: () => _showGroupRequired(context),
-                        icon: const Icon(Icons.share_outlined),
-                        label: Text(context.l10n.noGroupsShareInvite),
-                      ),
-                      SizedBox(height: 26.h),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _DisabledControl(
-                            icon: Icons.notifications_active_rounded,
-                            onTap: () => _showGroupRequired(context),
-                          ),
-                          _DisabledControl(
-                            icon: Icons.back_hand_rounded,
-                            onTap: () => _showGroupRequired(context),
-                          ),
-                          _DisabledControl(
-                            icon: Icons.keyboard_rounded,
-                            onTap: () => _showGroupRequired(context),
-                          ),
-                        ],
                       ),
                     ],
                   ),
@@ -236,16 +187,4 @@ class _NoGroupsScreenState extends State<NoGroupsScreen> {
       ),
     );
   }
-}
-
-class _DisabledControl extends StatelessWidget {
-  const _DisabledControl({required this.icon, required this.onTap});
-  final IconData icon;
-  final VoidCallback onTap;
-  @override
-  Widget build(BuildContext context) => IconButton(
-    tooltip: context.l10n.noGroupsNeedGroupFirst,
-    onPressed: onTap,
-    icon: Icon(icon, color: Colors.white30),
-  );
 }

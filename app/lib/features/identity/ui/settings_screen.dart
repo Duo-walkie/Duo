@@ -995,6 +995,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     onTap: () =>
                         showSendFeedbackSheet(context, userId: _session.userId),
                   ),
+                  const _SurfaceDivider(indent: 52),
+                  _NavigationRow(
+                    icon: Icons.history_outlined,
+                    label: 'Legacy welcome (deprecated)',
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        // ignore: deprecated_member_use_from_same_package
+                        builder: (_) => const DeprecatedGoogleAuthScreen(),
+                      ),
+                    ),
+                  ),
                   ValueListenableBuilder<bool>(
                     valueListenable: HomeVisualVariantController.unlocked,
                     builder: (context, unlocked, _) {
@@ -1438,7 +1449,9 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            l10n.settingsEditProfileSubtitle,
+                            AvatarAssets.isRetiredAvatarPath(draftAsset ?? '')
+                                ? l10n.chooseAvatarRefreshSubtitle
+                                : l10n.settingsEditProfileSubtitle,
                             style: const TextStyle(color: Colors.white60),
                           ),
                         ],
@@ -1709,8 +1722,8 @@ class _AvatarTabContent extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Nested under Settings' ListView so every avatar across both
-                // packs is reachable via the outer scroll.
+                // Nested under Settings' ListView so every avatar is
+                // reachable via the outer scroll.
                 AvatarPickerGrid(
                   avatars: snapshot.data!,
                   selectedAsset: selectedAsset,
