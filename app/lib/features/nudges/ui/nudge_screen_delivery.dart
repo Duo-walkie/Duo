@@ -106,11 +106,49 @@ mixin _NudgeSheetDelivery on _NudgeSheetStateBase {
           ),
       ],
     );
-    // 2. Wait for acks (~4s). Do not mark dead yet.
+    // 2. Wait for acks. Do not mark dead yet.
     _deliveryTimeoutTimer = Timer(_deliveryStatusCheckTimeout, () {
       if (!mounted || _awaitingEventId != eventId) return;
       _onDeliveryStatusCheckElapsed(eventId);
     });
+  }
+
+  /// Re-attach RTDB after the sheet is reopened so a late played ACK can
+  /// clear a premature timeout, and so a wait interrupted by dismiss can
+  /// finish instead of sitting on "Delivering…" forever.
+  void _resumeOrReconcileLastDelivery() {
+    final last = NudgeStatusMemory.instance.forGroup(widget.group.groupId);
+    final eventId = (last?.eventId.isNotEmpty == true)
+        ? last!.eventId
+        : _lastEventId;
+    if (eventId == null || eventId.isEmpty) return;
+
+    if (last?.status == LastNudgeStatus.waiting) {
+      _startDeliveryStatusWatch(eventId);
+      _awaitingEventId = eventId;
+      _deliveryWaitStartedAt = last!.at;
+      final elapsed = DateTime.now().difference(last.at);
+      if (elapsed >= NudgeDeliveryWindow.total) {
+        unawaited(_onDeliveryGraceElapsed(eventId));
+      } else if (elapsed >= NudgeDeliveryWindow.statusCheck) {
+        unawaited(_runDeliveryStatusCheck(eventId));
+      } else {
+        _deliveryTimeoutTimer?.cancel();
+        _deliveryTimeoutTimer = Timer(
+          NudgeDeliveryWindow.statusCheck - elapsed,
+          () {
+            if (!mounted || _awaitingEventId != eventId) return;
+            _onDeliveryStatusCheckElapsed(eventId);
+          },
+        );
+      }
+      return;
+    }
+
+    if (last?.status == LastNudgeStatus.failed) {
+      _startDeliveryStatusWatch(eventId);
+      unawaited(_reconcileFromRtdb(eventId, source: 'sheet_reopen'));
+    }
   }
 
   // 3. Status check: RTDB get, then grace if still pending
@@ -354,7 +392,7 @@ mixin _NudgeSheetDelivery on _NudgeSheetStateBase {
     final existing = _resultsByUserId[matchedId];
     // Never let a timeout/failed overwrite a real played ACK (stale timer /
     // duplicate reconcile), and skip no-op re-applies from RTDB watches.
-    if (existing != null && existing.played && !result.played) {
+    if (!NudgeDeliveryResult.shouldApply(result, existing: existing)) {
       return;
     }
     if (existing != null &&

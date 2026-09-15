@@ -25,6 +25,51 @@ void main() {
     });
   });
 
+  group('NudgeDeliveryWindow', () {
+    test('is long enough for a cold first-nudge confirmation', () {
+      expect(NudgeDeliveryWindow.statusCheck, const Duration(seconds: 10));
+      expect(NudgeDeliveryWindow.grace, const Duration(seconds: 10));
+      expect(NudgeDeliveryWindow.total, const Duration(seconds: 20));
+      expect(
+        NudgeDeliveryWindow.total,
+        greaterThan(const Duration(seconds: 7)),
+      );
+    });
+  });
+
+  group('NudgeDeliveryResult.shouldApply', () {
+    const played = NudgeDeliveryResult(
+      eventId: 'evt',
+      status: 'played',
+      recipientUserId: 'u1',
+    );
+    const failed = NudgeDeliveryResult(
+      eventId: 'evt',
+      status: 'failed',
+      reason: 'timeout',
+      recipientUserId: 'u1',
+    );
+
+    test('applies the first result', () {
+      expect(NudgeDeliveryResult.shouldApply(failed), isTrue);
+      expect(NudgeDeliveryResult.shouldApply(played), isTrue);
+    });
+
+    test('late played ACK replaces a synthesized timeout', () {
+      expect(
+        NudgeDeliveryResult.shouldApply(played, existing: failed),
+        isTrue,
+      );
+    });
+
+    test('timeout cannot overwrite a real played ACK', () {
+      expect(
+        NudgeDeliveryResult.shouldApply(failed, existing: played),
+        isFalse,
+      );
+    });
+  });
+
   group('LastNudgeRecipientSignifier persistence (B1)', () {
     late NudgeStatusMemory memory;
 

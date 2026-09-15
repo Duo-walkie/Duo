@@ -9,6 +9,8 @@ class OneOneApplication : Application() {
         super.onCreate()
         DeviceLog.init(this)
         DeviceLog.info("LogManager", "Native DeviceLog initialized")
+        NudgeDeliveryStatusRtdb.enablePersistence()
+        NudgeDeliveryStatusRtdb.warm(this)
         val crashlytics = FirebaseCrashlytics.getInstance()
         crashlytics.setCustomKey("android_version", Build.VERSION.RELEASE ?: "")
         crashlytics.setCustomKey("device_model", Build.MODEL)

@@ -371,6 +371,7 @@ class VoiceNudgeMessagingService : FirebaseMessagingService() {
 
     override fun onMessageReceived(message: RemoteMessage) {
         DeviceLog.init(this)
+        NudgeDeliveryStatusRtdb.warm(this)
         val data = message.data
         Log.i(
             VoiceNudgeDiagnostics.tag,
@@ -560,6 +561,8 @@ class VoiceNudgeMessagingService : FirebaseMessagingService() {
             putExtra(VoiceNudgeContract.extraSenderName, senderName)
             putExtra(VoiceNudgeContract.extraGroupName, data["groupName"])
             putExtra(VoiceNudgeContract.extraSenderUserId, data["senderUserId"])
+            putExtra(VoiceNudgeContract.extraRecipientUserId, data["recipientUserId"])
+            putExtra(VoiceNudgeContract.extraRecipientName, data["recipientName"])
             putExtra(VoiceNudgeContract.extraSenderPhotoUrl, senderPhotoUrl)
             putExtra(VoiceNudgeContract.extraSenderAvatarAsset, senderAvatarAsset)
             putExtra(VoiceNudgeContract.extraDurationMs, durationMs)

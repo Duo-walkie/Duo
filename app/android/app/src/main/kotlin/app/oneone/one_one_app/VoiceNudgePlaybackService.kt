@@ -78,6 +78,7 @@ class VoiceNudgePlaybackService : Service() {
     override fun onCreate() {
         super.onCreate()
         DeviceLog.init(this)
+        NudgeDeliveryStatusRtdb.warm(this)
         DeviceLog.info("NudgeService", "VoiceNudgePlaybackService created")
         Log.d(VoiceNudgeDiagnostics.tag, "[FCM-D] Playback service created")
         VoiceNudgeAudioCache.deleteOrphans(this)
@@ -1033,6 +1034,8 @@ class VoiceNudgePlaybackService : Service() {
             status = status,
             reason = reason,
             attention = attention,
+            recipientUserId = request.recipientUserId,
+            recipientName = request.recipientName,
         )
         DeviceLog.info(
             "NudgeService",
@@ -1911,6 +1914,8 @@ class VoiceNudgePlaybackService : Service() {
             senderName = senderName,
             groupName = getStringExtra(VoiceNudgeContract.extraGroupName),
             senderUserId = getStringExtra(VoiceNudgeContract.extraSenderUserId),
+            recipientUserId = getStringExtra(VoiceNudgeContract.extraRecipientUserId),
+            recipientName = getStringExtra(VoiceNudgeContract.extraRecipientName),
             senderPhotoUrl = getStringExtra(VoiceNudgeContract.extraSenderPhotoUrl),
             senderAvatarAsset = getStringExtra(VoiceNudgeContract.extraSenderAvatarAsset),
             durationMs = durationMs,
@@ -1936,6 +1941,8 @@ class VoiceNudgePlaybackService : Service() {
             senderName = getStringExtra(VoiceNudgeContract.extraSenderName) ?: "Someone",
             groupName = getStringExtra(VoiceNudgeContract.extraGroupName),
             senderUserId = getStringExtra(VoiceNudgeContract.extraSenderUserId),
+            recipientUserId = getStringExtra(VoiceNudgeContract.extraRecipientUserId),
+            recipientName = getStringExtra(VoiceNudgeContract.extraRecipientName),
             senderPhotoUrl = getStringExtra(VoiceNudgeContract.extraSenderPhotoUrl),
             senderAvatarAsset = getStringExtra(VoiceNudgeContract.extraSenderAvatarAsset),
             durationMs = 0,
@@ -1962,6 +1969,8 @@ class VoiceNudgePlaybackService : Service() {
         val senderName: String,
         val groupName: String?,
         val senderUserId: String?,
+        val recipientUserId: String?,
+        val recipientName: String?,
         val senderPhotoUrl: String?,
         val senderAvatarAsset: String?,
         val durationMs: Long,

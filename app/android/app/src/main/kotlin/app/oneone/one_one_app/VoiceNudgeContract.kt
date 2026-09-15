@@ -20,6 +20,8 @@ object VoiceNudgeContract {
     const val extraEventId = "eventId"
     const val extraSenderName = "senderName"
     const val extraSenderUserId = "senderUserId"
+    const val extraRecipientUserId = "recipientUserId"
+    const val extraRecipientName = "recipientName"
     const val extraSenderPhotoUrl = "senderPhotoUrl"
     const val extraSenderAvatarAsset = "senderAvatarAsset"
     const val extraDurationMs = "durationMs"
@@ -112,6 +114,8 @@ object VoiceNudgeDeliveryAck {
         kind: String?,
         ackUrl: String? = null,
         deliveryToken: String? = null,
+        recipientUserId: String? = null,
+        recipientName: String? = null,
     ) {
         NudgeDeliveryStatusRtdb.write(
             senderUserId = senderUserId,
@@ -121,6 +125,8 @@ object VoiceNudgeDeliveryAck {
             status = status,
             reason = reason,
             attention = attention,
+            recipientUserId = recipientUserId,
+            recipientName = recipientName,
         )
         // Legacy audit POST — fire-and-forget; sender UI does not depend on it.
         if (!ackUrl.isNullOrBlank() && !deliveryToken.isNullOrBlank()) {
@@ -144,6 +150,8 @@ object VoiceNudgeDeliveryAck {
             kind = data["kind"] ?: data["type"],
             ackUrl = data["ackUrl"],
             deliveryToken = data["deliveryToken"],
+            recipientUserId = data["recipientUserId"],
+            recipientName = data["recipientName"],
         )
     }
 

@@ -22,7 +22,10 @@ class NudgeDeliveryStatusStore {
       'NudgeService',
       'Delivery RTDB watch start path=$path eventId=$eventId',
     );
-    return _database.ref(path).onValue.map((event) {
+    _database.goOnline();
+    final ref = _database.ref(path);
+    unawaited(ref.keepSynced(true));
+    return ref.onValue.map((event) {
       final results = _parseDeliveries(eventId, event.snapshot.value);
       LogManager.log(
         LogLevel.info,
@@ -43,6 +46,7 @@ class NudgeDeliveryStatusStore {
     final path = 'userNudgeDeliveries/$senderUserId/$eventId';
     final sw = Stopwatch()..start();
     try {
+      _database.goOnline();
       final snapshot = await _database.ref(path).get();
       sw.stop();
       final results = _parseDeliveries(eventId, snapshot.value);

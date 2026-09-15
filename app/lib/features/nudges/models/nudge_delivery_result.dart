@@ -33,6 +33,16 @@ class NudgeDeliveryResult {
   /// (muted / very low volume).
   bool get playedButNotAudible => played && attention != null;
 
+  /// A real played ACK always wins over a synthesized timeout/failure.
+  static bool shouldApply(
+    NudgeDeliveryResult incoming, {
+    NudgeDeliveryResult? existing,
+  }) {
+    if (existing == null) return true;
+    if (existing.played && !incoming.played) return false;
+    return true;
+  }
+
   /// Human-readable description of the audibility concern for UI display.
   String? get attentionLabel {
     return switch (attention) {
@@ -66,6 +76,19 @@ class NudgeDeliveryResult {
           : raw['recipientUserId'].toString().trim(),
     );
   }
+}
+
+/// Sender confirmation window.
+///
+/// FCM `sent=1` only means Google accepted the push — not that the phone
+/// played it. Cold Samsung/Motorola starts need: FCM wake, first ExoPlayer
+/// init (~2.5s), audio download, then an RTDB write. A 4s+3s window was
+/// synthesizing "did not reach" while playback actually succeeded; the
+/// consecutive nudge then looked fine because the process was already warm.
+abstract final class NudgeDeliveryWindow {
+  static const Duration statusCheck = Duration(seconds: 10);
+  static const Duration grace = Duration(seconds: 10);
+  static Duration get total => statusCheck + grace;
 }
 
 /// Shared delivery-failure reason normalization.

@@ -61,8 +61,8 @@ class _QuickNudgeSheet extends StatefulWidget {
 
 abstract class _NudgeSheetStateBase extends State<_QuickNudgeSheet> {
   static const _autoDismissDelay = Duration(seconds: 5);
-  final Duration _deliveryStatusCheckTimeout = const Duration(seconds: 4);
-  final Duration _deliveryGracePeriod = const Duration(seconds: 3);
+  final Duration _deliveryStatusCheckTimeout = NudgeDeliveryWindow.statusCheck;
+  final Duration _deliveryGracePeriod = NudgeDeliveryWindow.grace;
 
   final NudgeRepository _repository = NudgeRepository();
   final AudioRecorder _recorder = AudioRecorder();
@@ -148,10 +148,10 @@ abstract class _NudgeSheetStateBase extends State<_QuickNudgeSheet> {
     if (last == null) return;
     _lastSentNudgeKind = last.kind;
     if (last.eventId.isNotEmpty) _lastEventId = last.eventId;
-    if (last.signifiers.isNotEmpty &&
-        last.status != LastNudgeStatus.sent &&
-        last.status != LastNudgeStatus.waiting) {
-      _showDeliveryBadges = true;
+    if (last.signifiers.isNotEmpty && last.status != LastNudgeStatus.sent) {
+      if (last.status != LastNudgeStatus.waiting) {
+        _showDeliveryBadges = true;
+      }
       for (final signifier in last.signifiers) {
         _expectedRecipients[signifier.userId] = _PendingRecipient(
           userId: signifier.userId,
@@ -161,6 +161,7 @@ abstract class _NudgeSheetStateBase extends State<_QuickNudgeSheet> {
         if (reply != null) {
           _repliesByUserId[signifier.userId] = reply;
         }
+        if (last.status == LastNudgeStatus.waiting) continue;
         _resultsByUserId[signifier.userId] = NudgeDeliveryResult(
           eventId: last.eventId,
           status: signifier.failed ? 'failed' : 'played',
@@ -373,6 +374,7 @@ class _QuickNudgeSheetState extends _NudgeSheetStateBase
     _selectedUserIds.addAll(_nudgeableFriends.map((f) => f.userId));
     _restorePersistedFailures();
     _restoreLastNudgeStatus();
+    _resumeOrReconcileLastDelivery();
   }
 
   void _onSwipeCancelChanged() {
