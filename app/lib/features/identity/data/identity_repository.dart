@@ -159,10 +159,7 @@ class IdentityRepository {
       throw StateError('Cannot update display name before sign-in.');
     }
 
-    final cleanName = displayName.trim();
-    if (cleanName.isEmpty) {
-      throw ArgumentError('Display name cannot be empty.');
-    }
+    final cleanName = validateDisplayName(displayName);
 
     final now = _nowSeconds();
     await _database.ref('users/${user.uid}').update({

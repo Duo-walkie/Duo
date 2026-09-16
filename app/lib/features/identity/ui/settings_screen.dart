@@ -1480,12 +1480,14 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
                   TextField(
                     controller: _nameController,
                     autofocus: false,
+                    maxLength: AppUserProfile.maxDisplayNameLength,
                     textCapitalization: TextCapitalization.words,
                     textInputAction: TextInputAction.done,
                     onChanged: (_) => setState(() {}),
                     onSubmitted: busy ? null : (_) => _save(),
                     style: const TextStyle(color: Colors.white),
-                    decoration: _darkInputDecoration(l10n.settingsDisplayName),
+                    decoration: _darkInputDecoration(l10n.settingsDisplayName)
+                        .copyWith(counterText: ''),
                   ),
                   const SizedBox(height: 28),
                   Text(

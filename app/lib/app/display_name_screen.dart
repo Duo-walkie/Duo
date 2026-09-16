@@ -88,6 +88,7 @@ class _DisplayNameScreenState extends State<DisplayNameScreen> {
                     textInputAction: TextInputAction.done,
                     textCapitalization: TextCapitalization.words,
                     autocorrect: false,
+                    maxLength: AppUserProfile.maxDisplayNameLength,
                     maxLines: 1,
                     style: TextStyle(
                       color: Colors.white,
@@ -110,6 +111,7 @@ class _DisplayNameScreenState extends State<DisplayNameScreen> {
                       focusedBorder: InputBorder.none,
                       contentPadding: EdgeInsets.zero,
                       isDense: true,
+                      counterText: '',
                     ),
                   ),
                   SizedBox(height: 14.h),

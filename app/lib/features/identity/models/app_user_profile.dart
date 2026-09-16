@@ -1,4 +1,7 @@
 class AppUserProfile {
+  /// Matches backend group name cap; keeps names readable in UI and push copy.
+  static const int maxDisplayNameLength = 48;
+
   const AppUserProfile({
     required this.userId,
     required this.displayName,
@@ -118,6 +121,19 @@ class AppUserProfile {
       market: market ?? this.market,
     );
   }
+}
+
+String validateDisplayName(String raw) {
+  final trimmed = raw.trim();
+  if (trimmed.isEmpty) {
+    throw ArgumentError('Display name cannot be empty.');
+  }
+  if (trimmed.length > AppUserProfile.maxDisplayNameLength) {
+    throw ArgumentError(
+      'Display name must be at most ${AppUserProfile.maxDisplayNameLength} characters.',
+    );
+  }
+  return trimmed;
 }
 
 bool hasCompletedProfileSetup(

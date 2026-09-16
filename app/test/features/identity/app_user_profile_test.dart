@@ -86,6 +86,22 @@ void main() {
     expect(cleared.profilePhotoUrl, 'https://example.com/photo.jpg');
   });
 
+  test('validateDisplayName rejects empty and overlong names', () {
+    expect(() => validateDisplayName('   '), throwsArgumentError);
+    expect(
+      () => validateDisplayName('a' * (AppUserProfile.maxDisplayNameLength + 1)),
+      throwsArgumentError,
+    );
+    expect(
+      validateDisplayName('  Asha  '),
+      'Asha',
+    );
+    expect(
+      validateDisplayName('a' * AppUserProfile.maxDisplayNameLength).length,
+      AppUserProfile.maxDisplayNameLength,
+    );
+  });
+
   test('market is optional and round-trips', () {
     final stored = profile(displayName: 'Asha').copyWith(market: 'DE');
     expect(stored.market, 'DE');
