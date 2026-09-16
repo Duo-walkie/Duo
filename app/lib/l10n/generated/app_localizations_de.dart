@@ -696,6 +696,15 @@ class AppLocalizationsDe extends AppLocalizations {
       'sende einen nudge, um gemeinsam online zu gehen';
 
   @override
+  String get homeFriendInvited => 'Invited';
+
+  @override
+  String get homeChatWaitingForFriend => 'chat unlocks when your friend joins';
+
+  @override
+  String get waitingContinueToHome => 'Continue to home';
+
+  @override
   String get chatPresetJoin15Min => 'Ich komme in 15 Min';
 
   @override

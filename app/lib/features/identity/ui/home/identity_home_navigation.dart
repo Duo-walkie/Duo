@@ -84,6 +84,8 @@ mixin _IdentityHomeNavigation on _IdentityHomeBase {
     await _runBusy(() async {
       final invite = await _groupRepository.createInvite(group.groupId);
       if (!mounted) return;
+      await _markGroupInvitePending(group.groupId);
+      if (!mounted) return;
       setState(() => _message = 'Invite created');
       await _showShareInviteSheet(invite);
     });

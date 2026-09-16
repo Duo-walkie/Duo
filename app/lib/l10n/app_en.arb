@@ -174,7 +174,7 @@
   "homeSetupNeedBattery": "Battery optimization may interrupt background mode.",
   "noGroupsTitle": "Invite at least one friend to get started",
   "noGroupsSubtitle": "add your besties, the ones you talk to everyday 🫶",
-  "noGroupsCreate": "Create Group",
+  "noGroupsCreate": "Create New Group",
   "noGroupsShareInvite": "Share an invite",
   "noGroupsInviteClosedOnes": "Invite Your Closed Ones",
   "noGroupsHavePin": "Have a group already? Use the PIN from a friend.",
@@ -231,6 +231,18 @@
   "homeLiveVoiceLocked": "Live voice requires Duo Pro — nudges and chat stay free",
   "homeInviteFriendVoice": "invite a friend to enable voice service",
   "homeSendNudgeTogether": "send a nudge to go online together",
+  "homeFriendInvited": "Invited",
+  "@homeFriendInvited": {
+    "description": "Friends-strip label while an outbound invite is still waiting to be accepted"
+  },
+  "homeChatWaitingForFriend": "chat unlocks when your friend joins",
+  "@homeChatWaitingForFriend": {
+    "description": "Hint under grayed chat while waiting for an invitee to join"
+  },
+  "waitingContinueToHome": "Continue to home",
+  "@waitingContinueToHome": {
+    "description": "Lets the sender leave the waiting screen after creating an invite"
+  },
   "chatPresetJoin15Min": "I'll join in 15 min",
   "chatPresetWhereEveryone": "Where is everyone?",
   "chatPresetOnMyWay": "On my way",

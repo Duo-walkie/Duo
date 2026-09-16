@@ -15,12 +15,17 @@ class ChatBubbleBar extends StatefulWidget {
     required this.anyMemberOnline,
     required this.onSend,
     required this.onEmojiSelected,
+    this.enabled = true,
   });
 
   final Color accent;
 
   /// When true (mixed or all online), text chips are replaced by emojis.
   final bool anyMemberOnline;
+
+  /// When false, the bar is visible but grayed out and non-interactive
+  /// (e.g. waiting for an invitee to join the group).
+  final bool enabled;
 
   /// Sends a preset or custom message. Rethrows on failure so the bar can
   /// surface a brief inline error instead of silently swallowing it.
@@ -304,7 +309,7 @@ class _ChatBubbleBarState extends State<ChatBubbleBar> {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedSwitcher(
+    final content = AnimatedSwitcher(
       duration: const Duration(milliseconds: 220),
       child: _composing
           ? _buildComposer()
@@ -313,6 +318,11 @@ class _ChatBubbleBarState extends State<ChatBubbleBar> {
                 widget.anyMemberOnline ? 'emoji-row' : 'preset-row',
               ),
             ),
+    );
+    if (widget.enabled) return content;
+    return Opacity(
+      opacity: 0.42,
+      child: IgnorePointer(child: content),
     );
   }
 

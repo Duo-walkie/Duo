@@ -239,6 +239,42 @@ mixin _IdentityHomeGroups on _IdentityHomeBase {
       _membersByGroupId = {..._membersByGroupId, groupId: members};
     });
     _listenToMemberProfiles(members);
+    unawaited(_syncPendingInviteForMembers(groupId, members));
+  }
+
+  Future<void> _loadPendingInviteGroupIds() async {
+    final pending = await PendingGroupInvitesStore.read(_session.userId);
+    if (!mounted) return;
+    setState(() => _pendingInviteGroupIds = pending);
+    final selectedId = _selectedGroup?.groupId;
+    if (selectedId != null) {
+      unawaited(_syncPendingInviteForMembers(selectedId, _members));
+    }
+  }
+
+  @override
+  Future<void> _markGroupInvitePending(String groupId) async {
+    await PendingGroupInvitesStore.mark(_session.userId, groupId);
+    if (!mounted) return;
+    setState(() {
+      _pendingInviteGroupIds = {..._pendingInviteGroupIds, groupId};
+    });
+  }
+
+  Future<void> _syncPendingInviteForMembers(
+    String groupId,
+    List<GroupMemberSummary> members,
+  ) async {
+    final hasPeer = groupHasServicePeer(
+      members: members,
+      currentUserId: _session.userId,
+    );
+    if (!hasPeer || !_pendingInviteGroupIds.contains(groupId)) return;
+    await PendingGroupInvitesStore.clear(_session.userId, groupId);
+    if (!mounted) return;
+    setState(() {
+      _pendingInviteGroupIds = {..._pendingInviteGroupIds}..remove(groupId);
+    });
   }
 
   /// Profile photos are loaded with members via RTDB. This just clears any

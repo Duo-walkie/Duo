@@ -698,6 +698,15 @@ class AppLocalizationsFr extends AppLocalizations {
       'envoie un nudge pour passer en ligne ensemble';
 
   @override
+  String get homeFriendInvited => 'Invited';
+
+  @override
+  String get homeChatWaitingForFriend => 'chat unlocks when your friend joins';
+
+  @override
+  String get waitingContinueToHome => 'Continue to home';
+
+  @override
   String get chatPresetJoin15Min => 'Je rejoins dans 15 min';
 
   @override

@@ -143,6 +143,9 @@ abstract class _IdentityHomeBase extends State<IdentityHomeScreen>
 
   bool _loadingGroups = true;
   bool _busy = false;
+  /// Group ids where this user has already sent an invite and is still waiting
+  /// for someone to join (local UX cache — see [PendingGroupInvitesStore]).
+  Set<String> _pendingInviteGroupIds = {};
 
   /// Sync lock so concurrent auto-connect paths (FCM accept + native pending
   /// action) cannot both run [goOnline] and flash live→connecting→live.
@@ -247,6 +250,7 @@ abstract class _IdentityHomeBase extends State<IdentityHomeScreen>
   void _setMessage(String message);
   void _setStateAndMessage(String state, String message);
   void _openNudges();
+  Future<void> _markGroupInvitePending(String groupId);
 }
 
 class _IdentityHomeScreenState extends _IdentityHomeBase
@@ -360,6 +364,7 @@ class _IdentityHomeScreenState extends _IdentityHomeBase
     // 3. Connectivity + leftover session from a previous process.
     unawaited(_clearAbandonedOnlineSession());
     unawaited(_startConnectivityMonitoring());
+    unawaited(_loadPendingInviteGroupIds());
     // 4. Groups: apply startup bootstrap, or load from the network.
     final bootstrap = widget.initialBootstrap;
     if (bootstrap != null) {
@@ -423,6 +428,7 @@ class _IdentityHomeScreenState extends _IdentityHomeBase
       _listenToChatMessages(selected.groupId);
       _listenToEmojiBursts(selected.groupId);
       _listenToMemberProfiles(_members);
+      unawaited(_syncPendingInviteForMembers(selected.groupId, _members));
     }
     unawaited(_reportMediaVolume());
     _syncWidgetAvailabilityListeners();
@@ -794,6 +800,12 @@ class _IdentityHomeScreenState extends _IdentityHomeBase
                             nudgeRepliesByUserId: _nudgeRepliesForGroup(
                               focusedGroup?.groupId,
                             ),
+                            showPendingInvite:
+                                focusedGroup != null &&
+                                _pendingInviteGroupIds.contains(
+                                  focusedGroup.groupId,
+                                ) &&
+                                !_serviceReady,
                             onInvite: inviteAction,
                           ),
                         ],
@@ -973,14 +985,28 @@ class _IdentityHomeScreenState extends _IdentityHomeBase
                       ),
                       if (focusedGroup != null) ...[
                         SizedBox(height: 4.h),
-                        // 9. Composer.
+                        // 9. Composer — grayed out until another member joins.
                         ChatBubbleBar(
                           key: const ValueKey('home-chat-bubble-bar'),
                           accent: accent,
                           anyMemberOnline: anyMemberOnline,
+                          enabled: _serviceReady,
                           onSend: _sendChatMessage,
                           onEmojiSelected: _triggerEmojiBurst,
                         ),
+                        if (!_serviceReady)
+                          Padding(
+                            padding: EdgeInsets.fromLTRB(24.w, 6.h, 24.w, 0),
+                            child: Text(
+                              context.l10n.homeChatWaitingForFriend,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Colors.white38,
+                                fontSize: 11.sp,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
                       ],
                       // Live system inset + a short base gap so the main
                       // button row sits near the bottom without crowding

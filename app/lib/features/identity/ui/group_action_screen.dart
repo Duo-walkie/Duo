@@ -84,13 +84,16 @@ class _GroupActionScreenState extends State<GroupActionScreen>
         ),
       );
       if (_isCreateMode) {
-        await _groupRepository.createGroup(value);
+        final group = await _groupRepository.createGroup(value);
+        final invite = await _groupRepository.createInvite(group.groupId);
 
         if (!mounted) return;
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute<void>(
-            builder: (_) => IdentityHomeScreen(
-              initialSession: widget.session,
+            builder: (_) => WaitingForGroupMembersScreen(
+              group: group,
+              invite: invite,
+              session: widget.session,
               identityRepository: widget.identityRepository,
             ),
           ),

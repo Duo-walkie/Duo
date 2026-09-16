@@ -48,7 +48,6 @@ export 'package:livekit_client/livekit_client.dart'
     hide ConnectionState, Priority, TimeoutException, EncryptionType;
 export 'package:livekit_noise_filter/livekit_noise_filter.dart';
 export 'package:lottie/lottie.dart';
-export 'package:flutter_contacts/flutter_contacts.dart';
 export 'package:lucide_flutter/lucide_flutter.dart';
 export 'package:package_info_plus/package_info_plus.dart';
 export 'package:path_provider/path_provider.dart';
@@ -133,13 +132,13 @@ export 'features/chat/ui/chat_bubble_feed.dart';
 // Features — groups
 export 'features/groups/data/group_repository.dart';
 export 'features/groups/data/invite_link_bridge.dart';
+export 'features/groups/data/pending_group_invites_store.dart';
 export 'features/groups/group_service_readiness.dart';
 export 'features/groups/models/group_invite_result.dart';
 export 'features/groups/models/group_member_summary.dart';
 export 'features/groups/models/group_summary.dart';
 export 'features/groups/ui/group_home_screen.dart';
 export 'features/groups/ui/group_management_screen.dart';
-export 'features/groups/ui/invite_contacts_sheet.dart';
 export 'features/groups/ui/waiting_for_group_members_screen.dart';
 
 // Features — identity

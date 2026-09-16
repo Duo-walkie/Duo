@@ -1043,7 +1043,7 @@ abstract class AppLocalizations {
   /// No description provided for @noGroupsCreate.
   ///
   /// In en, this message translates to:
-  /// **'Create Group'**
+  /// **'Create New Group'**
   String get noGroupsCreate;
 
   /// No description provided for @noGroupsShareInvite.
@@ -1345,6 +1345,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'send a nudge to go online together'**
   String get homeSendNudgeTogether;
+
+  /// Friends-strip label while an outbound invite is still waiting to be accepted
+  ///
+  /// In en, this message translates to:
+  /// **'Invited'**
+  String get homeFriendInvited;
+
+  /// Hint under grayed chat while waiting for an invitee to join
+  ///
+  /// In en, this message translates to:
+  /// **'chat unlocks when your friend joins'**
+  String get homeChatWaitingForFriend;
+
+  /// Lets the sender leave the waiting screen after creating an invite
+  ///
+  /// In en, this message translates to:
+  /// **'Continue to home'**
+  String get waitingContinueToHome;
 
   /// No description provided for @chatPresetJoin15Min.
   ///

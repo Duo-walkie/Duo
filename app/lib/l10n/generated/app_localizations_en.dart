@@ -517,7 +517,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'add your besties, the ones you talk to everyday 🫶';
 
   @override
-  String get noGroupsCreate => 'Create Group';
+  String get noGroupsCreate => 'Create New Group';
 
   @override
   String get noGroupsShareInvite => 'Share an invite';
@@ -680,6 +680,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get homeSendNudgeTogether => 'send a nudge to go online together';
+
+  @override
+  String get homeFriendInvited => 'Invited';
+
+  @override
+  String get homeChatWaitingForFriend => 'chat unlocks when your friend joins';
+
+  @override
+  String get waitingContinueToHome => 'Continue to home';
 
   @override
   String get chatPresetJoin15Min => 'I\'ll join in 15 min';

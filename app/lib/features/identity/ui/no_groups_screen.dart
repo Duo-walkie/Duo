@@ -51,32 +51,12 @@ class _NoGroupsScreenState extends State<NoGroupsScreen> {
     );
   }
 
-  void _openJoinGroup(BuildContext context) {
-    Navigator.of(context).push(_slideUpRoute(GroupActionMode.joinByPin));
+  void _openCreateGroup(BuildContext context) {
+    Navigator.of(context).push(_slideUpRoute(GroupActionMode.createGroup));
   }
 
-  void _openInviteContactsSheet(BuildContext context) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => InviteContactsSheet(
-        session: widget.session,
-        identityRepository: widget.identityRepository,
-        onGroupCreated: () {
-          // Navigate to home — group was just created inside the sheet.
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute<void>(
-              builder: (_) => IdentityHomeScreen(
-                initialSession: widget.session,
-                identityRepository: widget.identityRepository,
-              ),
-            ),
-            (route) => false,
-          );
-        },
-      ),
-    );
+  void _openJoinGroup(BuildContext context) {
+    Navigator.of(context).push(_slideUpRoute(GroupActionMode.joinByPin));
   }
 
   @override
@@ -138,9 +118,9 @@ class _NoGroupsScreenState extends State<NoGroupsScreen> {
                       SizedBox(
                         width: double.infinity,
                         child: FilledButton.icon(
-                          onPressed: () => _openInviteContactsSheet(context),
-                          icon: const Icon(Icons.people_alt_rounded),
-                          label: Text(context.l10n.noGroupsInviteClosedOnes),
+                          onPressed: () => _openCreateGroup(context),
+                          icon: const Icon(Icons.group_add_rounded),
+                          label: Text(context.l10n.noGroupsCreate),
                           style: FilledButton.styleFrom(
                             backgroundColor: const Color(0xffF8BE03),
                             foregroundColor: Colors.black,
