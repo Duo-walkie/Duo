@@ -53,7 +53,7 @@ final List<_StickerSpec> _stickers = [
   _StickerSpec(
     asset: 'assets/duo_stickers/message.png',
     restX: 0.22,
-    restY: 0.07,
+    restY: 0.12,
     size: 66,
     restRotation: -0.14,
     opacity: 0.76,
@@ -66,7 +66,7 @@ final List<_StickerSpec> _stickers = [
   _StickerSpec(
     asset: 'assets/duo_stickers/mic.png',
     restX: 0.50,
-    restY: 0.05,
+    restY: 0.10,
     size: 60,
     restRotation: 0.08,
     opacity: 0.70,
@@ -78,7 +78,7 @@ final List<_StickerSpec> _stickers = [
   _StickerSpec(
     asset: 'assets/duo_stickers/bell.png',
     restX: 0.78,
-    restY: 0.07,
+    restY: 0.12,
     size: 62,
     restRotation: 0.12,
     opacity: 0.70,
@@ -89,7 +89,7 @@ final List<_StickerSpec> _stickers = [
   ),
   _StickerSpec(
     asset: 'assets/duo_stickers/headset.png',
-    restX: 0.06,
+    restX: 0.22,
     restY: 0.28,
     size: 74,
     restRotation: -0.06,
@@ -101,7 +101,7 @@ final List<_StickerSpec> _stickers = [
   ),
   _StickerSpec(
     asset: 'assets/duo_stickers/boysNgirls.png',
-    restX: 0.94,
+    restX: 0.78,
     restY: 0.26,
     size: 74,
     restRotation: 0.07,
