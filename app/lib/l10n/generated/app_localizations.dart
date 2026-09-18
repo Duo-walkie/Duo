@@ -968,6 +968,24 @@ abstract class AppLocalizations {
   /// **'Invite link copied'**
   String get homeInviteLinkCopied;
 
+  /// Loading copy shown with the Duo logo while an invite link join is in progress
+  ///
+  /// In en, this message translates to:
+  /// **'Joining your friends…'**
+  String get inviteJoining;
+
+  /// Title on the success snackbar after joining via invite link
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re in 🎉'**
+  String get inviteJoinedTitle;
+
+  /// Body on the success snackbar after joining via invite link
+  ///
+  /// In en, this message translates to:
+  /// **'Say hi — they\'re right beside you.'**
+  String get inviteJoinedBody;
+
   /// No description provided for @homeFallbackPinCopied.
   ///
   /// In en, this message translates to:
@@ -1297,6 +1315,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Couldn\'t send the report. Check your connection and try again.'**
   String get crashSendFailed;
+
+  /// No description provided for @crashSkip.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip'**
+  String get crashSkip;
 
   /// No description provided for @startupSetupFailed.
   ///

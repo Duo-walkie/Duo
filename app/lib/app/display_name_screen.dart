@@ -64,11 +64,16 @@ class _DisplayNameScreenState extends State<DisplayNameScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
+    final bottomInset = keyboardInset + bottomSystemInsetOf(context);
+
     return Scaffold(
       backgroundColor: const Color(0xff000000),
-      // Keep layout stable while the keyboard animates closed on submit.
+      // Keep the name field layout stable while the keyboard animates closed
+      // on submit; the submit button is positioned above the keyboard inset.
       resizeToAvoidBottomInset: false,
       body: SafeArea(
+        bottom: false,
         child: Stack(
           children: [
             Padding(
@@ -130,7 +135,7 @@ class _DisplayNameScreenState extends State<DisplayNameScreen> {
             ),
             Positioned(
               right: 24.w,
-              bottom: 12.h,
+              bottom: bottomInset + 12.h,
               child: GestureDetector(
                 onTap: _canSubmit ? _saveName : null,
                 child: Container(

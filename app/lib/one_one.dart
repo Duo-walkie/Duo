@@ -63,6 +63,7 @@ export 'package:uuid/uuid.dart';
 export 'app/accent_theme.dart';
 export 'app/app_config.dart';
 export 'app/brand_splash_screen.dart';
+export 'app/duo_logo_loading.dart';
 export 'app/display_name_screen.dart';
 export 'app/firebase_setup_blocked_screen.dart';
 export 'app/google_auth_screen.dart';
@@ -139,6 +140,7 @@ export 'features/groups/models/group_member_summary.dart';
 export 'features/groups/models/group_summary.dart';
 export 'features/groups/ui/group_home_screen.dart';
 export 'features/groups/ui/group_management_screen.dart';
+export 'features/groups/ui/invite_joined_snackbar.dart';
 export 'features/groups/ui/waiting_for_group_members_screen.dart';
 
 // Features — identity

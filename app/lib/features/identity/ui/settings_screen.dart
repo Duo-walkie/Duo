@@ -392,8 +392,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
     try {
       await widget.identityRepository.signOut();
-      if (!mounted) return;
-      Navigator.of(context).pushNamedAndRemoveUntil('/auth', (_) => false);
+      _goToWelcomeScreen();
     } catch (error) {
       if (!mounted) return;
       setState(() => _message = error.toString());
@@ -418,8 +417,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
     try {
       await widget.identityRepository.deleteAccount();
-      if (!mounted) return;
-      Navigator.of(context).pushNamedAndRemoveUntil('/auth', (_) => false);
+      // Use the root navigator — account purge can empty userGroups and race
+      // Home into popping this Settings route before delete finishes, so
+      // [mounted] may already be false here.
+      _goToWelcomeScreen();
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -428,6 +429,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } finally {
       if (mounted) setState(() => _accountActionInProgress = false);
     }
+  }
+
+  void _goToWelcomeScreen() {
+    final navigator = appNavigatorKey.currentState;
+    if (navigator != null) {
+      navigator.pushNamedAndRemoveUntil('/auth', (_) => false);
+      return;
+    }
+    if (!mounted) return;
+    Navigator.of(context).pushNamedAndRemoveUntil('/auth', (_) => false);
   }
 
   Future<bool> _confirmAccountAction({
@@ -579,8 +590,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return l10n.settingsFreePlanSubtitle;
   }
 
+  bool _openingPaywall = false;
+
   /// Opens the in-app Duo Pro paywall (branded UI + RevenueCat packages).
   Future<void> _showPaywall() async {
+    if (_openingPaywall) return;
+    setState(() => _openingPaywall = true);
     unawaited(
       AnalyticsService.logButtonClick(
         buttonName: 'duo_pro',
@@ -594,7 +609,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
     try {
-      final purchased = await ElevenProPaywallScreen.open(context);
+      final openFuture = ElevenProPaywallScreen.open(context);
+      // Brief settings-side spinner until the Duo Pro route covers us.
+      await Future<void>.delayed(const Duration(milliseconds: 160));
+      if (mounted) setState(() => _openingPaywall = false);
+      final purchased = await openFuture;
       if (!mounted) return;
       await _loadDuoAccess();
       if (purchased) {
@@ -602,7 +621,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
     } catch (error) {
       if (!mounted) return;
-      setState(() => _message = context.l10n.settingsPaywallFailed);
+      setState(() {
+        _openingPaywall = false;
+        _message = context.l10n.settingsPaywallFailed;
+      });
       debugPrint('Paywall error: $error');
     }
   }
@@ -673,31 +695,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  /// Re-triggers the missing permissions required for closed-app receive
-  /// (notifications + battery optimization), then refreshes the checklist.
-  Future<void> _requestClosedAppPermissions() async {
-    if (_permissionRequestInFlight) return;
-    _permissionRequestInFlight = true;
-    try {
-      final session = _session.device;
-      if (!session.notificationPermissionGranted) {
-        await Permission.notification.request();
-      }
-      if (!session.batteryOptimizationIgnored) {
-        try {
-          await FlutterForegroundTask.requestIgnoreBatteryOptimization();
-        } catch (_) {
-          // Best effort.
-        }
-      }
-      if (!mounted) return;
-      await _refreshPermissions();
-      setState(() => _message = context.l10n.settingsClosedAppChecked);
-    } finally {
-      _permissionRequestInFlight = false;
-    }
-  }
-
   /// Re-reads the live permission state and publishes the updated session so
   /// the checklist checkboxes reflect what was just granted.
   Future<void> _refreshPermissions() async {
@@ -713,9 +710,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final l10n = context.l10n;
     final accent = accentColorForKey(_accentColorKey);
     final showSaveButton = _hasUnsavedSettings || _saving;
-    final closedAppReceiveReady =
-        _session.device.notificationPermissionGranted &&
-        _session.device.batteryOptimizationIgnored;
 
     return Scaffold(
       backgroundColor: const Color(0xff101010),
@@ -933,16 +927,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     detail: _session.device.batteryOptimizationIgnored
                         ? l10n.settingsBatteryUnrestricted
                         : l10n.settingsBatteryMayInterrupt,
-                    onTap: _requestBatteryOptimization,
-                  ),
-                  _ChecklistItem(
-                    ok: closedAppReceiveReady,
-                    label: l10n.settingsClosedAppReceive,
-                    detail: closedAppReceiveReady
-                        ? l10n.settingsClosedAppReady
-                        : l10n.settingsClosedAppRequired,
                     showDivider: false,
-                    onTap: _requestClosedAppPermissions,
+                    onTap: _requestBatteryOptimization,
                   ),
                 ],
               ),
@@ -972,8 +958,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 padding: EdgeInsets.zero,
                 children: [
                   _ElevenProSettingsCard(
-                    onTap: _showPaywall,
+                    onTap: _openingPaywall ? null : _showPaywall,
                     subtitle: _duoProSubtitle(l10n),
+                    loading: _openingPaywall,
                   ),
                   const _SurfaceDivider(indent: 52),
                   _NavigationRow(
@@ -994,17 +981,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     label: l10n.settingsSendFeedback,
                     onTap: () =>
                         showSendFeedbackSheet(context, userId: _session.userId),
-                  ),
-                  const _SurfaceDivider(indent: 52),
-                  _NavigationRow(
-                    icon: Icons.history_outlined,
-                    label: 'Legacy welcome (deprecated)',
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        // ignore: deprecated_member_use_from_same_package
-                        builder: (_) => const DeprecatedGoogleAuthScreen(),
-                      ),
-                    ),
                   ),
                   ValueListenableBuilder<bool>(
                     valueListenable: HomeVisualVariantController.unlocked,
@@ -1878,10 +1854,12 @@ class _ElevenProSettingsCard extends StatelessWidget {
   const _ElevenProSettingsCard({
     required this.onTap,
     required this.subtitle,
+    this.loading = false,
   });
 
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final String subtitle;
+  final bool loading;
 
   @override
   Widget build(BuildContext context) {
@@ -1914,7 +1892,16 @@ class _ElevenProSettingsCard extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded, color: Colors.white38),
+            if (loading)
+              const SizedBox.square(
+                dimension: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white54,
+                ),
+              )
+            else
+              const Icon(Icons.chevron_right_rounded, color: Colors.white38),
           ],
         ),
       ),

@@ -20,8 +20,12 @@ mixin _IdentityHomeGroups on _IdentityHomeBase {
           .listen((event) => unawaited(_handleUserGroupsChanged(event)));
 
       if (groups.isEmpty && (ModalRoute.of(context)?.isCurrent ?? true)) {
+        if (widget.identityRepository.isSessionTeardownInProgress) return;
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
+          if (!mounted ||
+              widget.identityRepository.isSessionTeardownInProgress) {
+            return;
+          }
           unawaited(_replaceWithNoGroups());
         });
         return;
@@ -90,11 +94,13 @@ mixin _IdentityHomeGroups on _IdentityHomeBase {
         setState(() => _loadingGroups = false);
         logStartupMilestone('Home data interactive', stopwatch);
         unawaited(_clearOpenedChatPiles());
+        // Invite join should not wait on trial/voice access sync — start it
+        // immediately so deep-linked users land in the group faster.
+        unawaited(_takePendingInviteLink());
         unawaited(
           _syncLiveVoiceAccess().then((_) async {
             if (!mounted) return;
             await _takePendingNudgeAction();
-            await _takePendingInviteLink();
           }),
         );
         final pendingGroupIds = _pendingUserGroupIds;
@@ -121,6 +127,10 @@ mixin _IdentityHomeGroups on _IdentityHomeBase {
 
   Future<void> _handleIndexedGroupsChanged(Set<String> indexedGroupIds) async {
     if (!mounted) return;
+    // Account deletion purges userGroups while Settings is still open. Do not
+    // pop that route or replace the auth gate with NoGroups — that strands
+    // the user on a stale profile screen after auth is wiped.
+    if (widget.identityRepository.isSessionTeardownInProgress) return;
     final loadedGroupIds = _groups.map((group) => group.groupId).toSet();
     if (indexedGroupIds.length == loadedGroupIds.length &&
         indexedGroupIds.containsAll(loadedGroupIds)) {
@@ -131,9 +141,13 @@ mixin _IdentityHomeGroups on _IdentityHomeBase {
     if (activeGroupId != null && !indexedGroupIds.contains(activeGroupId)) {
       await _endRevokedVoiceSession(activeGroupId);
     }
-    if (!mounted) return;
+    if (!mounted || widget.identityRepository.isSessionTeardownInProgress) {
+      return;
+    }
     Navigator.of(context).popUntil((route) => route.isFirst);
-    if (!mounted) return;
+    if (!mounted || widget.identityRepository.isSessionTeardownInProgress) {
+      return;
+    }
     await _loadGroups();
     if (mounted && indexedGroupIds.isNotEmpty) {
       setState(() => _message = 'Your group membership changed.');
@@ -172,7 +186,10 @@ mixin _IdentityHomeGroups on _IdentityHomeBase {
     if (_inviteJoinInFlight || _loadingGroups) return;
     final inviteCode = await _inviteLinkBridge.peekPendingInviteCode();
     if (inviteCode == null || !mounted) return;
-    _inviteJoinInFlight = true;
+    setState(() => _inviteJoinInFlight = true);
+    await SchedulerBinding.instance.endOfFrame;
+    await SchedulerBinding.instance.endOfFrame;
+    if (!mounted) return;
     try {
       final groupId = await _groupRepository.joinInvite(inviteCode);
       await _inviteLinkBridge.clearPendingInviteCode(inviteCode);
@@ -185,9 +202,7 @@ mixin _IdentityHomeGroups on _IdentityHomeBase {
         '${groupId.length <= 6 ? groupId : groupId.substring(groupId.length - 6)}',
       );
       await _loadGroups();
-      if (mounted) {
-        setState(() => _message = 'Group joined from invite link.');
-      }
+      if (mounted) showInviteJoinedSnackBar(context);
     } catch (error, stack) {
       debugPrint(
         '[OneOneInvite] Active invite failed ${error.runtimeType}: $error',
@@ -209,18 +224,23 @@ mixin _IdentityHomeGroups on _IdentityHomeBase {
         await _inviteLinkBridge.clearPendingInviteCode(inviteCode);
       }
       if (mounted) {
-        setState(() {
-          _message = error is ApiException
-              ? error.message
-              : 'Couldn’t open this invite. Check your connection.';
-        });
+        final message = error is ApiException
+            ? error.message
+            : 'Couldn’t open this invite. Check your connection.';
+        setState(() => _message = message);
+        showInviteJoinErrorSnackBar(context, message);
       }
     } finally {
-      _inviteJoinInFlight = false;
+      if (mounted) {
+        setState(() => _inviteJoinInFlight = false);
+      } else {
+        _inviteJoinInFlight = false;
+      }
     }
   }
 
   Future<void> _replaceWithNoGroups() async {
+    if (widget.identityRepository.isSessionTeardownInProgress) return;
     await Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(
         builder: (_) => NoGroupsScreen(

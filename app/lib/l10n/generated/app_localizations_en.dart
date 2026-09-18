@@ -472,6 +472,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get homeInviteLinkCopied => 'Invite link copied';
 
   @override
+  String get inviteJoining => 'Joining your friends…';
+
+  @override
+  String get inviteJoinedTitle => 'You\'re in 🎉';
+
+  @override
+  String get inviteJoinedBody => 'Say hi — they\'re right beside you.';
+
+  @override
   String get homeFallbackPinCopied => 'Fallback PIN copied';
 
   @override
@@ -652,6 +661,9 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get crashSendFailed =>
       'Couldn\'t send the report. Check your connection and try again.';
+
+  @override
+  String get crashSkip => 'Skip';
 
   @override
   String get startupSetupFailed =>

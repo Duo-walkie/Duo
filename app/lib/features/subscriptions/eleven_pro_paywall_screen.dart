@@ -353,9 +353,7 @@ class _ElevenProPaywallScreenState extends State<ElevenProPaywallScreen> {
       ),
       body: SafeArea(
         child: _loading
-            ? const Center(
-                child: CircularProgressIndicator(color: Colors.white70),
-              )
+            ? const Center(child: DuoLogoLoading(logoHeight: 56))
             : _planState == _UserPlanState.activePro
                 ? _AlreadyProBody(
                     accent: accent,

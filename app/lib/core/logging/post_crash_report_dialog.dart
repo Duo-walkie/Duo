@@ -76,6 +76,12 @@ class _PostCrashReportDialogState extends State<_PostCrashReportDialog> {
   bool _sending = false;
   String? _error;
 
+  Future<void> _skip() async {
+    await CrashReportPending.clear();
+    if (!mounted) return;
+    Navigator.of(context, rootNavigator: true).pop();
+  }
+
   Future<void> _send() async {
     if (_sending) return;
     setState(() {
@@ -129,6 +135,10 @@ class _PostCrashReportDialogState extends State<_PostCrashReportDialog> {
           ],
         ),
         actions: [
+          TextButton(
+            onPressed: _sending ? null : _skip,
+            child: Text(context.l10n.crashSkip),
+          ),
           FilledButton(
             onPressed: _sending ? null : _send,
             child: _sending

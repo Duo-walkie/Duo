@@ -86,6 +86,7 @@ class ActiveNudgeSync {
       senderId: senderId,
       sentAt: sentAt,
       senderName: _readSenderName(data),
+      kind: parseNudgeKind(type),
     );
     if (!nudge.isActiveAt(now)) return null;
     return nudge;

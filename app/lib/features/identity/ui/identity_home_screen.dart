@@ -373,12 +373,13 @@ class _IdentityHomeScreenState extends _IdentityHomeBase
         logStartupMilestone('Home visible');
         logStartupMilestone('Home data interactive');
         unawaited(_clearOpenedChatPiles());
-        // Lock Home status for free users; full paywall only on live-voice try.
+        // Invite join should not wait on trial/voice access sync — start it
+        // immediately so deep-linked users land in the group faster.
+        unawaited(_takePendingInviteLink());
         unawaited(
           _syncLiveVoiceAccess().then((_) async {
             if (!mounted) return;
             await _takePendingNudgeAction();
-            await _takePendingInviteLink();
           }),
         );
       });
@@ -1057,6 +1058,8 @@ class _IdentityHomeScreenState extends _IdentityHomeBase
               onDecline: () =>
                   unawaited(_declineIncomingNudge(_incomingPromptNudge!)),
             ),
+          if (_inviteJoinInFlight)
+            const Positioned.fill(child: InviteJoinOverlay()),
         ],
       ),
     );

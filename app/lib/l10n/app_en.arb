@@ -156,6 +156,18 @@
   "homeInviteFriendsSubtitle": "Share this link. Your friend will open Duo and join this group automatically.",
   "homeShareInviteLink": "Share invite link",
   "homeInviteLinkCopied": "Invite link copied",
+  "inviteJoining": "Joining your friends…",
+  "@inviteJoining": {
+    "description": "Loading copy shown with the Duo logo while an invite link join is in progress"
+  },
+  "inviteJoinedTitle": "You're in 🎉",
+  "@inviteJoinedTitle": {
+    "description": "Title on the success snackbar after joining via invite link"
+  },
+  "inviteJoinedBody": "Say hi — they're right beside you.",
+  "@inviteJoinedBody": {
+    "description": "Body on the success snackbar after joining via invite link"
+  },
   "homeFallbackPinCopied": "Fallback PIN copied",
   "homeCopyPin": "Copy PIN {code}",
   "@homeCopyPin": {
@@ -220,6 +232,7 @@
   "crashSendReport": "Send Report",
   "crashTryAgain": "Try Again",
   "crashSendFailed": "Couldn't send the report. Check your connection and try again.",
+  "crashSkip": "Skip",
   "startupSetupFailed": "We couldn't finish setting up your account.",
   "startupTryAgain": "Try again",
   "homeMicOnMute": "Mic on — tap to mute",

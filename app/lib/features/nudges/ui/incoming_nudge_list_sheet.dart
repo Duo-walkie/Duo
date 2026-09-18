@@ -104,24 +104,57 @@ class _IncomingNudgeListRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final sender = item.nudge.senderName?.trim();
+    final meta = [
+      item.typeLabel,
+      if (sender != null && sender.isNotEmpty) sender,
+      item.receivedLabel(),
+    ].join(' · ');
+
     return Container(
-      padding: EdgeInsets.fromLTRB(14.w, 12.h, 10.w, 12.h),
+      padding: EdgeInsets.fromLTRB(12.w, 12.h, 10.w, 12.h),
       decoration: BoxDecoration(
         color: const Color(0xff1e1e1e),
         borderRadius: BorderRadius.circular(16.r),
       ),
       child: Row(
         children: [
+          Container(
+            width: 40.w,
+            height: 40.w,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.14),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(item.typeIcon, color: accent, size: 18.sp),
+          ),
+          SizedBox(width: 10.w),
           Expanded(
-            child: Text(
-              item.groupName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 15.sp,
-                fontWeight: FontWeight.w600,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.groupName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 15.sp,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                SizedBox(height: 2.h),
+                Text(
+                  meta,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white54,
+                    fontSize: 12.sp,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
             ),
           ),
           TextButton(

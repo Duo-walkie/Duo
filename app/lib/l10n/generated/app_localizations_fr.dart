@@ -482,6 +482,15 @@ class AppLocalizationsFr extends AppLocalizations {
   String get homeInviteLinkCopied => 'Lien d\'invitation copié';
 
   @override
+  String get inviteJoining => 'Connexion à tes amis…';
+
+  @override
+  String get inviteJoinedTitle => 'Tu es dedans 🎉';
+
+  @override
+  String get inviteJoinedBody => 'Dis bonjour — ils sont juste à côté.';
+
+  @override
   String get homeFallbackPinCopied => 'PIN de secours copié';
 
   @override
@@ -666,6 +675,9 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get crashSendFailed =>
       'Impossible d\'envoyer le rapport. Vérifiez votre connexion et réessayez.';
+
+  @override
+  String get crashSkip => 'Ignorer';
 
   @override
   String get startupSetupFailed =>

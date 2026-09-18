@@ -25,12 +25,23 @@ class IdentityRepository {
   Future<void>? _identityRefresh;
   final ValueNotifier<IdentitySession?> _sessionNotifier = ValueNotifier(null);
   bool _disposed = false;
+  /// True while sign-out / account deletion is tearing the session down.
+  /// Home must not react to emptied `userGroups` (e.g. account purge) by
+  /// replacing the auth gate with NoGroups — that races Settings off-stack
+  /// and strands the user signed-out UI with a stale profile.
+  bool _sessionTeardownInProgress = false;
+  /// Bumped on teardown so in-flight `_refreshIdentity` upserts are dropped
+  /// and cannot recreate `users/{uid}` after the wipe.
+  int _identityGeneration = 0;
 
   ValueListenable<IdentitySession?> get sessionListenable => _sessionNotifier;
   IdentitySession? get currentSession {
     if (_disposed) return _cachedSession;
     return _sessionNotifier.value;
   }
+
+  /// Whether sign-out or account deletion is in progress.
+  bool get isSessionTeardownInProgress => _sessionTeardownInProgress;
 
   static Future<void>? _googleSignInInitialization;
 
@@ -118,6 +129,7 @@ class IdentityRepository {
     required LocalDeviceIdentity localDevice,
     required int now,
   }) async {
+    final generation = _identityGeneration;
     final stopwatch = Stopwatch()..start();
     final appVersionFuture = _optionalStartupStep(
       _readAppVersion(),
@@ -131,6 +143,9 @@ class IdentityRepository {
     final appVersion = await appVersionFuture;
     final permissions = await permissionsFuture;
     final fcmToken = await fcmTokenFuture;
+    if (_sessionTeardownInProgress || generation != _identityGeneration) {
+      return;
+    }
     logStartupMilestone('identity diagnostics ready', stopwatch);
     debugPrint(
       '[OneOneFCM][DART-03] Identity registration available='
@@ -144,6 +159,7 @@ class IdentityRepository {
       permissions: permissions,
       fcmToken: fcmToken,
       now: now,
+      generation: generation,
     );
     logStartupMilestone('remote identity sync finished', stopwatch);
     debugPrint(
@@ -471,6 +487,7 @@ class IdentityRepository {
   }
 
   Future<User> signInWithGoogle() async {
+    _sessionTeardownInProgress = false;
     _googleSignInInitialization ??= GoogleSignIn.instance.initialize();
     await _googleSignInInitialization;
 
@@ -517,13 +534,18 @@ class IdentityRepository {
   }
 
   Future<void> signOut() async {
+    _beginSessionTeardown();
     // Drop this phone from the outgoing account before clearing auth so
     // friends stop targeting a device that is about to sign into someone else.
+    final userId = _auth.currentUser?.uid;
     await _unregisterCurrentDeviceBestEffort();
     try {
       await GoogleSignIn.instance.signOut();
     } finally {
       await _auth.signOut();
+      if (userId != null) {
+        await _clearLocalUserData(userId);
+      }
       _clearSession();
       unawaited(AppTelemetry.clearUser());
       unawaited(AnalyticsService.logLogout());
@@ -562,43 +584,97 @@ class IdentityRepository {
       throw StateError('No Google account is signed in.');
     }
 
-    final credential = await _googleCredential();
-    await user.reauthenticateWithCredential(credential);
+    // Suppress home's userGroups → NoGroups replacement before the backend
+    // purge empties the index (that race pops Settings and strips the auth
+    // gate, so the post-delete welcome navigation never runs).
+    _beginSessionTeardown();
+    final userId = user.uid;
 
-    // Purge every per-group row (membership, presence, usage, unread piles,
-    // sessions) via the backend — client security rules forbid deleting
-    // groupMembers/userGroups directly. Without this, deleted users linger as
-    // ghost members in groups they belonged to.
     try {
-      await _apiClient.deleteJson('/v1/account');
-    } catch (error, stack) {
-      unawaited(
-        CrashlyticsService.recordError(
-          error,
-          stack,
-          reason: 'account_purge_backend_failed',
-          feature: 'account',
-        ),
-      );
-      // Fall through: still remove the local records and auth user so the
-      // deletion isn't blocked by a transient backend failure.
+      final credential = await _googleCredential();
+      await user.reauthenticateWithCredential(credential);
+
+      // Purge every per-group row (membership, presence, usage, unread piles,
+      // sessions) via the backend — client security rules forbid deleting
+      // groupMembers/userGroups/userGroupIndexVersion directly. Without this,
+      // deleted users linger as ghost members in groups they belonged to.
+      try {
+        await _apiClient.deleteJson('/v1/account');
+      } catch (error, stack) {
+        unawaited(
+          CrashlyticsService.recordError(
+            error,
+            stack,
+            reason: 'account_purge_backend_failed',
+            feature: 'account',
+          ),
+        );
+        // Fall through: still remove the local records and auth user so the
+        // deletion isn't blocked by a transient backend failure.
+      }
+
+      // Only wipe paths clients may write. Including userGroups /
+      // userGroupIndexVersion here fails the whole atomic update (rules are
+      // .write: false) and aborts before user.delete() — leaving Settings stuck
+      // after Google reauth even though DELETE /v1/account already succeeded.
+      try {
+        await _database.ref().update({
+          'users/$userId': null,
+          'userDevices/$userId': null,
+          'userSettings/$userId': null,
+        });
+      } catch (error, stack) {
+        unawaited(
+          CrashlyticsService.recordError(
+            error,
+            stack,
+            reason: 'account_purge_client_rtdb_failed',
+            feature: 'account',
+          ),
+        );
+        // Backend purge is authoritative; still delete the Auth user.
+      }
+      await _clearLocalUserData(userId);
+      await user.delete();
+      try {
+        await GoogleSignIn.instance.disconnect();
+      } catch (_) {
+        await GoogleSignIn.instance.signOut();
+      }
+      _clearSession();
+      unawaited(AppTelemetry.clearUser());
+      unawaited(AnalyticsService.logAccountDeleted());
+      unawaited(CrashlyticsService.log('user_account_deleted'));
+    } catch (error) {
+      // Reauth / auth delete failed — allow home to keep working.
+      _sessionTeardownInProgress = false;
+      rethrow;
     }
+  }
 
-    await _database.ref().update({
-      'users/${user.uid}': null,
-      'userDevices/${user.uid}': null,
-      'userSettings/${user.uid}': null,
-    });
-    await user.delete();
+  void _beginSessionTeardown() {
+    _sessionTeardownInProgress = true;
+    _identityGeneration++;
+    _identityRefresh = null;
+  }
+
+  /// Drops on-device caches keyed by [userId] so a later sign-in cannot
+  /// inherit setup/trial/group focus from the deleted account.
+  Future<void> _clearLocalUserData(String userId) async {
     try {
-      await GoogleSignIn.instance.disconnect();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_setupCompleteKey(userId));
+      await prefs.remove('one_one_last_active_group_$userId');
+      await prefs.remove('one_one_pending_group_invites_$userId');
+      await prefs.remove('one_one_user_groups_index_ready_$userId');
+      await prefs.remove('one_one_incoming_nudge_status_$userId');
+      await prefs.remove('one_one_active_online_session');
     } catch (_) {
-      await GoogleSignIn.instance.signOut();
+      // Best-effort; RTDB + auth deletion remain authoritative.
     }
-    _clearSession();
-    unawaited(AppTelemetry.clearUser());
-    unawaited(AnalyticsService.logAccountDeleted());
-    unawaited(CrashlyticsService.log('user_account_deleted'));
+    try {
+      await SubscriberAccessStore.clearLocalCache(userId: userId);
+    } catch (_) {}
   }
 
   void dispose() {
@@ -639,6 +715,7 @@ class IdentityRepository {
   void _clearSession() {
     _cachedSession = null;
     if (!_disposed) _sessionNotifier.value = null;
+    LogManager.setIdentity(userId: '-', groupId: '-');
   }
 
   Future<AppUserProfile> _upsertUserProfile(User firebaseUser, int now) async {
@@ -756,8 +833,12 @@ class IdentityRepository {
     required _PermissionDiagnostics permissions,
     required String? fcmToken,
     required int now,
+    required int generation,
   }) async {
     try {
+      if (_sessionTeardownInProgress || generation != _identityGeneration) {
+        return null;
+      }
       final firebaseUser = _auth.currentUser;
       if (firebaseUser == null || firebaseUser.uid != userId) return null;
 
@@ -778,6 +859,9 @@ class IdentityRepository {
       final user = await userFuture;
       final settings = await settingsFuture;
       final device = await deviceFuture;
+      if (_sessionTeardownInProgress || generation != _identityGeneration) {
+        return null;
+      }
 
       final session = IdentitySession(
         user: user,

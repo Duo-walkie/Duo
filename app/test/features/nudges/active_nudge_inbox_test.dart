@@ -214,6 +214,7 @@ void main() {
       expect(parsed, isNotNull);
       expect(parsed!.senderName, 'Alice');
       expect(parsed.senderId, 'alice');
+      expect(parsed.kind, NudgeKind.push);
 
       expect(
         ActiveNudgeSync.parseEvent(
@@ -267,6 +268,75 @@ void main() {
           },
         ),
         isNull,
+      );
+    });
+
+    test('maps ring and voice event types onto NudgeKind', () {
+      final ring = ActiveNudgeSync.parseEvent(
+        eventId: 'ring1',
+        groupId: 'g1',
+        currentUserId: 'me',
+        now: now,
+        raw: {
+          'senderUserId': 'alice',
+          'eventType': 'ring_nudge',
+          'targetUserIds': ['me'],
+          'createdAt': now.millisecondsSinceEpoch ~/ 1000,
+        },
+      );
+      expect(ring?.kind, NudgeKind.ring);
+
+      final voice = ActiveNudgeSync.parseEvent(
+        eventId: 'voice1',
+        groupId: 'g1',
+        currentUserId: 'me',
+        now: now,
+        raw: {
+          'senderUserId': 'alice',
+          'eventType': 'voice_nudge',
+          'targetUserIds': ['me'],
+          'createdAt': now.millisecondsSinceEpoch ~/ 1000,
+        },
+      );
+      expect(voice?.kind, NudgeKind.voice);
+    });
+  });
+
+  group('parseIncomingNudge', () {
+    test('reads kind and arrivedAtMs from the native payload', () {
+      final nudge = parseIncomingNudge({
+        'eventId': 'e1',
+        'groupId': 'g1',
+        'senderUserId': 'alice',
+        'senderName': 'Alice',
+        'kind': 'voice_nudge',
+        'arrivedAtMs': DateTime(2026, 8, 18, 11, 58).millisecondsSinceEpoch,
+      });
+      expect(nudge, isNotNull);
+      expect(nudge!.kind, NudgeKind.voice);
+      expect(nudge.senderName, 'Alice');
+      expect(nudge.sentAt, DateTime(2026, 8, 18, 11, 58));
+    });
+  });
+
+  group('IncomingNudgePromptItem', () {
+    test('formats type and received labels for the dialogue', () {
+      final item = IncomingNudgePromptItem(
+        nudge: ActiveNudge(
+          nudgeId: 'n1',
+          groupId: 'g1',
+          senderId: 'alice',
+          senderName: 'Alice',
+          sentAt: DateTime(2026, 8, 18, 11, 57),
+          kind: NudgeKind.ring,
+        ),
+        groupName: 'Weekend Crew',
+        remainingOtherCount: 0,
+      );
+      expect(item.typeLabel, 'Ring');
+      expect(
+        item.receivedLabel(now: DateTime(2026, 8, 18, 12, 0)),
+        '3 min ago',
       );
     });
   });
