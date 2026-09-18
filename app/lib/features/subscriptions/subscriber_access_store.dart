@@ -155,6 +155,7 @@ class SubscriberAccessStore {
           'googleId': googleId,
           'updatedAtMs': nowMs,
         },
+        SetOptions(merge: true),
       );
       await batch.commit();
     } catch (error, stack) {

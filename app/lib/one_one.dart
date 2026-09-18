@@ -57,6 +57,7 @@ export 'package:purchases_ui_flutter/purchases_ui_flutter.dart';
 export 'package:record/record.dart';
 export 'package:share_plus/share_plus.dart';
 export 'package:shared_preferences/shared_preferences.dart';
+export 'package:url_launcher/url_launcher.dart';
 export 'package:uuid/uuid.dart';
 
 // App shell
@@ -122,6 +123,7 @@ export 'core/storage/profile_photo_storage.dart';
 
 // Core — ui
 export 'core/ui/bottom_system_inset.dart';
+export 'core/ui/duo_sheet.dart';
 export 'core/ui/faded_horizontal_row.dart';
 
 // Features — chat

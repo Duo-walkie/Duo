@@ -631,7 +631,8 @@ export async function purgeUserAccount(userId: string) {
     [`userDevices/${userId}`]: null,
     [`userSettings/${userId}`]: null,
     [`userGroups/${userId}`]: null,
-    [`userGroupIndexVersion/${userId}`]: null
+    [`userGroupIndexVersion/${userId}`]: null,
+    [`userEngagement/${userId}`]: null
   };
 
   // Purge any notification deliveries involving this user (best effort, so a

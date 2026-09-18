@@ -257,7 +257,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsLanguageTitle.
   ///
   /// In en, this message translates to:
-  /// **'App language'**
+  /// **'Language'**
   String get settingsLanguageTitle;
 
   /// No description provided for @settingsLanguageSubtitle.
@@ -275,7 +275,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsManageGroup.
   ///
   /// In en, this message translates to:
-  /// **'Manage Group'**
+  /// **'Manage group'**
   String get settingsManageGroup;
 
   /// No description provided for @settingsManageGroupSubtitle.
@@ -293,7 +293,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsAccentColorTitle.
   ///
   /// In en, this message translates to:
-  /// **'Accent color'**
+  /// **'Color'**
   String get settingsAccentColorTitle;
 
   /// No description provided for @settingsAccentColorSubtitle.
@@ -305,7 +305,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsHapticsTitle.
   ///
   /// In en, this message translates to:
-  /// **'Haptics for incoming voice messages'**
+  /// **'Haptics for Nudges'**
   String get settingsHapticsTitle;
 
   /// No description provided for @settingsHapticsSubtitle.
@@ -353,7 +353,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsHomeBackgroundTitle.
   ///
   /// In en, this message translates to:
-  /// **'Home background'**
+  /// **'Home look'**
   String get settingsHomeBackgroundTitle;
 
   /// No description provided for @settingsHomeBackgroundSubtitle.
@@ -395,61 +395,61 @@ abstract class AppLocalizations {
   /// No description provided for @settingsSectionBackground.
   ///
   /// In en, this message translates to:
-  /// **'Background reliability'**
+  /// **'Reliability'**
   String get settingsSectionBackground;
 
   /// No description provided for @settingsMicPermission.
   ///
   /// In en, this message translates to:
-  /// **'Microphone permission'**
+  /// **'Microphone'**
   String get settingsMicPermission;
 
   /// No description provided for @settingsMicReady.
   ///
   /// In en, this message translates to:
-  /// **'Ready'**
+  /// **'On'**
   String get settingsMicReady;
 
   /// No description provided for @settingsMicRequired.
   ///
   /// In en, this message translates to:
-  /// **'Required before you can talk.'**
+  /// **'Needed to talk'**
   String get settingsMicRequired;
 
   /// No description provided for @settingsNotificationPermission.
   ///
   /// In en, this message translates to:
-  /// **'Notification permission'**
+  /// **'Notifications'**
   String get settingsNotificationPermission;
 
   /// No description provided for @settingsNotificationReady.
   ///
   /// In en, this message translates to:
-  /// **'Ready for background activity'**
+  /// **'On'**
   String get settingsNotificationReady;
 
   /// No description provided for @settingsNotificationRequired.
   ///
   /// In en, this message translates to:
-  /// **'Required for reliable background activity.'**
+  /// **'Needed for nudges'**
   String get settingsNotificationRequired;
 
   /// No description provided for @settingsBatteryOptimization.
   ///
   /// In en, this message translates to:
-  /// **'Battery optimization'**
+  /// **'Battery'**
   String get settingsBatteryOptimization;
 
   /// No description provided for @settingsBatteryUnrestricted.
   ///
   /// In en, this message translates to:
-  /// **'Unrestricted'**
+  /// **'On'**
   String get settingsBatteryUnrestricted;
 
   /// No description provided for @settingsBatteryMayInterrupt.
   ///
   /// In en, this message translates to:
-  /// **'Your device may interrupt long sessions.'**
+  /// **'May cut off long sessions'**
   String get settingsBatteryMayInterrupt;
 
   /// No description provided for @settingsClosedAppReceive.
@@ -479,13 +479,13 @@ abstract class AppLocalizations {
   /// No description provided for @settingsTerms.
   ///
   /// In en, this message translates to:
-  /// **'Terms & Conditions'**
+  /// **'Terms'**
   String get settingsTerms;
 
   /// No description provided for @settingsPrivacy.
   ///
   /// In en, this message translates to:
-  /// **'Privacy Policy'**
+  /// **'Privacy'**
   String get settingsPrivacy;
 
   /// No description provided for @settingsSectionSubscription.
@@ -527,19 +527,19 @@ abstract class AppLocalizations {
   /// No description provided for @settingsFreePlanSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Free plan — live voice requires Duo Pro'**
+  /// **'Live voice needs Duo Pro'**
   String get settingsFreePlanSubtitle;
 
   /// No description provided for @settingsDuoProActiveSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'You\'re on Duo Pro'**
+  /// **'Active'**
   String get settingsDuoProActiveSubtitle;
 
   /// No description provided for @settingsManageSubscription.
   ///
   /// In en, this message translates to:
-  /// **'Manage Subscription'**
+  /// **'Manage'**
   String get settingsManageSubscription;
 
   /// No description provided for @settingsSectionSupport.
@@ -551,13 +551,13 @@ abstract class AppLocalizations {
   /// No description provided for @settingsSendFeedback.
   ///
   /// In en, this message translates to:
-  /// **'Send Feedback'**
+  /// **'Feedback'**
   String get settingsSendFeedback;
 
   /// No description provided for @settingsDebugLogs.
   ///
   /// In en, this message translates to:
-  /// **'Debug Logs'**
+  /// **'Debug logs'**
   String get settingsDebugLogs;
 
   /// No description provided for @settingsSectionAccount.
@@ -569,7 +569,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsSignedInWithGoogle.
   ///
   /// In en, this message translates to:
-  /// **'Signed in with Google'**
+  /// **'Google'**
   String get settingsSignedInWithGoogle;
 
   /// No description provided for @settingsGoogleAccount.

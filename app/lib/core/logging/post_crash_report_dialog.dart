@@ -24,6 +24,13 @@ Future<void> _show(
   String? groupId,
   required DeviceLogReport report,
 }) async {
+  // Debug `flutter run` / hot-restart / stop often look like crashes to
+  // Crashlytics, which otherwise resurfaces this dialog on every relaunch.
+  if (kDebugMode) {
+    await CrashReportPending.clear();
+    return;
+  }
+
   final crashed = await CrashlyticsService.didCrashOnPreviousExecution();
   if (crashed) {
     await CrashReportPending.markPending();

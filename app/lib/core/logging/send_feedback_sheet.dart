@@ -6,11 +6,9 @@ Future<void> showSendFeedbackSheet(
   String? groupId,
   DeviceLogReport? report,
 }) {
-  return showModalBottomSheet<void>(
+  return DuoSheet.show<void>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: const Color(0xff1b1b1b),
-    showDragHandle: true,
     builder: (sheetContext) => _SendFeedbackSheet(
       userId: userId,
       groupId: groupId,
@@ -91,65 +89,82 @@ class _SendFeedbackSheetState extends State<_SendFeedbackSheet> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final accent = accentColorForKey(AccentThemeController.accentKey.value);
     return BottomSystemSafeArea(
       child: Padding(
-        padding: EdgeInsets.fromLTRB(18, 4, 18, 16 + bottomInset),
+        padding: EdgeInsets.fromLTRB(8, 0, 8, 12 + bottomInset),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              l10n.settingsSendFeedback,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              l10n.feedbackSubtitle,
-              style: const TextStyle(color: Colors.white54, fontSize: 12.5),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: _controller,
-              enabled: !_sending,
-              maxLines: 5,
-              maxLength: 2000,
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                hintText: l10n.feedbackHint,
-                hintStyle: const TextStyle(color: Colors.white38),
-                filled: true,
-                fillColor: const Color(0xff101010),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Colors.white24),
+            DuoSheetTitle(l10n.settingsSendFeedback),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: TextField(
+                controller: _controller,
+                enabled: !_sending,
+                maxLines: 5,
+                maxLength: 2000,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  hintText: l10n.feedbackHint,
+                  hintStyle: const TextStyle(color: Colors.white38),
+                  filled: true,
+                  fillColor: const Color(0xff101010),
+                  counterStyle: const TextStyle(color: Colors.white24),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.1),
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.1),
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(color: accent),
+                  ),
                 ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Colors.white24),
-                ),
               ),
             ),
-            if (_error != null) ...[
-              const SizedBox(height: 4),
-              Text(
-                _error!,
-                style: const TextStyle(color: Color(0xffff8a80), fontSize: 13),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: Text(
+                  _error!,
+                  style: const TextStyle(
+                    color: Color(0xffff8a80),
+                    fontSize: 13,
+                  ),
+                ),
               ),
-            ],
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: _sending ? null : _submit,
-              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
-              child: _sending
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Text(l10n.crashSendReport),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+              child: FilledButton(
+                onPressed: _sending ? null : _submit,
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(50),
+                  backgroundColor: accent,
+                  foregroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: _sending
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.black,
+                        ),
+                      )
+                    : Text(l10n.crashSendReport),
+              ),
             ),
           ],
         ),

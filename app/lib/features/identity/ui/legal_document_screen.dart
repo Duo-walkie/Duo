@@ -24,26 +24,33 @@ class LegalDocumentScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text(title),
         centerTitle: true,
-        backgroundColor: Colors.transparent,
+        backgroundColor: const Color(0xff101010),
         foregroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
       ),
       body: SafeArea(
         top: false,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(22, 12, 22, 36),
+          padding: const EdgeInsets.fromLTRB(22, 8, 22, 36),
           children: [
             Text(
               l10n.legalLastUpdated,
-              style: const TextStyle(color: Colors.white54, fontSize: 13),
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.42),
+                fontSize: 12,
+                letterSpacing: 0.2,
+              ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 22),
             for (final section in content) ...[
               Text(
                 section.heading,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   color: Colors.white,
                   fontWeight: FontWeight.w700,
+                  letterSpacing: -0.2,
                 ),
               ),
               const SizedBox(height: 8),
@@ -55,7 +62,7 @@ class LegalDocumentScreen extends StatelessWidget {
                   fontSize: 14,
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 22),
             ],
           ],
         ),

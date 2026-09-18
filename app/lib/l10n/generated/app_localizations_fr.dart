@@ -95,7 +95,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get settingsLanguageSection => 'Langue';
 
   @override
-  String get settingsLanguageTitle => 'Langue de l\'application';
+  String get settingsLanguageTitle => 'Langue';
 
   @override
   String get settingsLanguageSubtitle =>
@@ -114,15 +114,14 @@ class AppLocalizationsFr extends AppLocalizations {
   String get settingsSectionPreferences => 'Préférences';
 
   @override
-  String get settingsAccentColorTitle => 'Couleur d\'accent';
+  String get settingsAccentColorTitle => 'Couleur';
 
   @override
   String get settingsAccentColorSubtitle =>
       'Choisissez la couleur utilisée dans Duo.';
 
   @override
-  String get settingsHapticsTitle =>
-      'Retours haptiques des messages vocaux entrants';
+  String get settingsHapticsTitle => 'Haptique des nudges';
 
   @override
   String settingsHapticsSubtitle(String detail) {
@@ -149,7 +148,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get hapticsWildDetail => 'Vibration continue pendant tout le nudge.';
 
   @override
-  String get settingsHomeBackgroundTitle => 'Fond d\'écran d\'accueil';
+  String get settingsHomeBackgroundTitle => 'Accueil';
 
   @override
   String get settingsHomeBackgroundSubtitle =>
@@ -173,37 +172,34 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
-  String get settingsSectionBackground => 'Fiabilité en arrière-plan';
+  String get settingsSectionBackground => 'Fiabilité';
 
   @override
-  String get settingsMicPermission => 'Permission du microphone';
+  String get settingsMicPermission => 'Micro';
 
   @override
-  String get settingsMicReady => 'Prêt';
+  String get settingsMicReady => 'Activé';
 
   @override
-  String get settingsMicRequired => 'Requis avant de pouvoir parler.';
+  String get settingsMicRequired => 'Nécessaire pour parler';
 
   @override
-  String get settingsNotificationPermission => 'Permission des notifications';
+  String get settingsNotificationPermission => 'Notifications';
 
   @override
-  String get settingsNotificationReady =>
-      'Prêt pour l\'activité en arrière-plan';
+  String get settingsNotificationReady => 'Activé';
 
   @override
-  String get settingsNotificationRequired =>
-      'Requis pour une activité en arrière-plan fiable.';
+  String get settingsNotificationRequired => 'Nécessaire pour les nudges';
 
   @override
-  String get settingsBatteryOptimization => 'Optimisation de la batterie';
+  String get settingsBatteryOptimization => 'Batterie';
 
   @override
-  String get settingsBatteryUnrestricted => 'Sans restriction';
+  String get settingsBatteryUnrestricted => 'Activé';
 
   @override
-  String get settingsBatteryMayInterrupt =>
-      'Votre appareil peut interrompre les longues sessions.';
+  String get settingsBatteryMayInterrupt => 'Peut couper les longues sessions';
 
   @override
   String get settingsClosedAppReceive => 'Réception appli fermée';
@@ -220,10 +216,10 @@ class AppLocalizationsFr extends AppLocalizations {
   String get settingsSectionLegal => 'Mentions légales';
 
   @override
-  String get settingsTerms => 'Conditions d\'utilisation';
+  String get settingsTerms => 'Conditions';
 
   @override
-  String get settingsPrivacy => 'Politique de confidentialité';
+  String get settingsPrivacy => 'Confidentialité';
 
   @override
   String get settingsSectionSubscription => 'Abonnement';
@@ -246,20 +242,19 @@ class AppLocalizationsFr extends AppLocalizations {
   String get settingsTrialLessThanADay => '⌛ Moins d\'un jour';
 
   @override
-  String get settingsFreePlanSubtitle =>
-      'Offre gratuite — la voix en direct nécessite Duo Pro';
+  String get settingsFreePlanSubtitle => 'La voix live nécessite Duo Pro';
 
   @override
-  String get settingsDuoProActiveSubtitle => 'Vous avez Duo Pro';
+  String get settingsDuoProActiveSubtitle => 'Actif';
 
   @override
-  String get settingsManageSubscription => 'Gérer l\'abonnement';
+  String get settingsManageSubscription => 'Gérer';
 
   @override
   String get settingsSectionSupport => 'Assistance';
 
   @override
-  String get settingsSendFeedback => 'Envoyer un avis';
+  String get settingsSendFeedback => 'Avis';
 
   @override
   String get settingsDebugLogs => 'Journaux de débogage';
@@ -268,7 +263,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get settingsSectionAccount => 'Compte';
 
   @override
-  String get settingsSignedInWithGoogle => 'Connecté avec Google';
+  String get settingsSignedInWithGoogle => 'Google';
 
   @override
   String get settingsGoogleAccount => 'Compte Google';

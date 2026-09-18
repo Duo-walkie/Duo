@@ -35,7 +35,13 @@ const envSchema = z.object({
   NUDGE_SPAM_WINDOW_SECONDS: z.coerce.number().int().min(10).max(3600).default(300),
   NUDGE_SPAM_MAX_PER_WINDOW: z.coerce.number().int().min(1).max(300).default(10),
   SUBSCRIPTION_REDEEM_CODE_HASHES: z.string().optional(),
-  CORS_ORIGINS: z.string().optional()
+  CORS_ORIGINS: z.string().optional(),
+  // Shared secret for Cloud Scheduler / cron hitting /v1/internal/jobs/*.
+  // Leave unset in local/dev unless you need to exercise the job endpoint.
+  INTERNAL_JOB_SECRET: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    z.string().min(16).optional()
+  )
 });
 
 const parsed = envSchema.safeParse(process.env);

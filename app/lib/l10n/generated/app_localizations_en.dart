@@ -93,7 +93,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsLanguageSection => 'Language';
 
   @override
-  String get settingsLanguageTitle => 'App language';
+  String get settingsLanguageTitle => 'Language';
 
   @override
   String get settingsLanguageSubtitle =>
@@ -103,7 +103,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsSectionGroup => 'Group';
 
   @override
-  String get settingsManageGroup => 'Manage Group';
+  String get settingsManageGroup => 'Manage group';
 
   @override
   String get settingsManageGroupSubtitle => 'Groups you created';
@@ -112,13 +112,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsSectionPreferences => 'Preferences';
 
   @override
-  String get settingsAccentColorTitle => 'Accent color';
+  String get settingsAccentColorTitle => 'Color';
 
   @override
   String get settingsAccentColorSubtitle => 'Choose the color used across Duo.';
 
   @override
-  String get settingsHapticsTitle => 'Haptics for incoming voice messages';
+  String get settingsHapticsTitle => 'Haptics for Nudges';
 
   @override
   String settingsHapticsSubtitle(String detail) {
@@ -144,7 +144,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get hapticsWildDetail => 'Continuous vibration for the whole nudge.';
 
   @override
-  String get settingsHomeBackgroundTitle => 'Home background';
+  String get settingsHomeBackgroundTitle => 'Home look';
 
   @override
   String get settingsHomeBackgroundSubtitle =>
@@ -168,36 +168,34 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get settingsSectionBackground => 'Background reliability';
+  String get settingsSectionBackground => 'Reliability';
 
   @override
-  String get settingsMicPermission => 'Microphone permission';
+  String get settingsMicPermission => 'Microphone';
 
   @override
-  String get settingsMicReady => 'Ready';
+  String get settingsMicReady => 'On';
 
   @override
-  String get settingsMicRequired => 'Required before you can talk.';
+  String get settingsMicRequired => 'Needed to talk';
 
   @override
-  String get settingsNotificationPermission => 'Notification permission';
+  String get settingsNotificationPermission => 'Notifications';
 
   @override
-  String get settingsNotificationReady => 'Ready for background activity';
+  String get settingsNotificationReady => 'On';
 
   @override
-  String get settingsNotificationRequired =>
-      'Required for reliable background activity.';
+  String get settingsNotificationRequired => 'Needed for nudges';
 
   @override
-  String get settingsBatteryOptimization => 'Battery optimization';
+  String get settingsBatteryOptimization => 'Battery';
 
   @override
-  String get settingsBatteryUnrestricted => 'Unrestricted';
+  String get settingsBatteryUnrestricted => 'On';
 
   @override
-  String get settingsBatteryMayInterrupt =>
-      'Your device may interrupt long sessions.';
+  String get settingsBatteryMayInterrupt => 'May cut off long sessions';
 
   @override
   String get settingsClosedAppReceive => 'Closed-app receive';
@@ -214,10 +212,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsSectionLegal => 'Legal';
 
   @override
-  String get settingsTerms => 'Terms & Conditions';
+  String get settingsTerms => 'Terms';
 
   @override
-  String get settingsPrivacy => 'Privacy Policy';
+  String get settingsPrivacy => 'Privacy';
 
   @override
   String get settingsSectionSubscription => 'Subscription';
@@ -240,29 +238,28 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsTrialLessThanADay => '⌛ Less than a day left';
 
   @override
-  String get settingsFreePlanSubtitle =>
-      'Free plan — live voice requires Duo Pro';
+  String get settingsFreePlanSubtitle => 'Live voice needs Duo Pro';
 
   @override
-  String get settingsDuoProActiveSubtitle => 'You\'re on Duo Pro';
+  String get settingsDuoProActiveSubtitle => 'Active';
 
   @override
-  String get settingsManageSubscription => 'Manage Subscription';
+  String get settingsManageSubscription => 'Manage';
 
   @override
   String get settingsSectionSupport => 'Support';
 
   @override
-  String get settingsSendFeedback => 'Send Feedback';
+  String get settingsSendFeedback => 'Feedback';
 
   @override
-  String get settingsDebugLogs => 'Debug Logs';
+  String get settingsDebugLogs => 'Debug logs';
 
   @override
   String get settingsSectionAccount => 'Account';
 
   @override
-  String get settingsSignedInWithGoogle => 'Signed in with Google';
+  String get settingsSignedInWithGoogle => 'Google';
 
   @override
   String get settingsGoogleAccount => 'Google account';

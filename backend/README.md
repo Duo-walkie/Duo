@@ -37,11 +37,13 @@ curl http://localhost:8080/readyz
 
 ## Current API Surface
 
-All `/v1/*` endpoints require:
+Authenticated app endpoints under `/v1/*` require:
 
 ```txt
 Authorization: Bearer <Firebase ID token>
 ```
+
+The internal job endpoint below uses `INTERNAL_JOB_SECRET` instead of a Firebase ID token.
 
 Endpoints:
 
@@ -66,7 +68,17 @@ POST /v1/groups/:groupId/voice-nudges
 GET  /v1/voice-nudges/:eventId/audio
 POST /v1/voice-nudges/:eventId/ack
 POST /v1/subscriptions/redeem
+POST /v1/internal/jobs/no-group-reminders
 ```
+
+`POST /v1/internal/jobs/no-group-reminders` is authenticated with
+`INTERNAL_JOB_SECRET` (`Authorization: Bearer …` or `X-Internal-Job-Secret`).
+It sends create-group reminder pushes to logged-in new users (≤14 days old)
+who still have no groups and have not opened the app for ≥1 day, up to 3
+daily reminders. Tap opens the app via the standard FCM notification click.
+You can also run `npm run no-group-reminders` on a host with Firebase Admin
+credentials.
+
 
 Voice nudges use signed URLs end to end:
 

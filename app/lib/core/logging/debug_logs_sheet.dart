@@ -1,10 +1,8 @@
 import 'package:one_one_app/one_one.dart';
 
 Future<void> showDebugLogsSheet(BuildContext context) {
-  return showModalBottomSheet<void>(
+  return DuoSheet.show<void>(
     context: context,
-    backgroundColor: const Color(0xff1b1b1b),
-    showDragHandle: true,
     builder: (sheetContext) => const _DebugLogsSheet(),
   );
 }
@@ -65,68 +63,75 @@ class _DebugLogsSheetState extends State<_DebugLogsSheet> {
     final info = _info;
     return BottomSystemSafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(8, 4, 8, 16),
+        padding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            DuoSheetTitle(
+              l10n.settingsDebugLogs,
+              subtitle: _loading
+                  ? l10n.debugLogsReading
+                  : info == null
+                  ? l10n.debugLogsEmpty
+                  : l10n.debugLogsTodayFile(
+                      info.sizeLabel,
+                      _formatTime(info.lastModified),
+                    ),
+            ),
+            const SizedBox(height: 16),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              child: Text(
-                l10n.settingsDebugLogs,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                ),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: DuoSheetCard(
+                children: [
+                  ListTile(
+                    leading: const Icon(
+                      LucideIcons.share,
+                      color: Colors.white70,
+                      size: 20,
+                    ),
+                    title: Text(
+                      l10n.debugLogsShareTitle,
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                    trailing: const Icon(
+                      LucideIcons.chevronRight,
+                      color: Colors.white38,
+                      size: 18,
+                    ),
+                    onTap: _share,
+                  ),
+                  Divider(
+                    height: 1,
+                    indent: 56,
+                    color: Colors.white.withValues(alpha: 0.08),
+                  ),
+                  ListTile(
+                    leading: const Icon(
+                      LucideIcons.copy,
+                      color: Colors.white70,
+                      size: 20,
+                    ),
+                    title: Text(
+                      l10n.debugLogsCopyTitle,
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                    trailing: const Icon(
+                      LucideIcons.chevronRight,
+                      color: Colors.white38,
+                      size: 18,
+                    ),
+                    onTap: _copy,
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 6),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              child: Text(
-                _loading
-                    ? l10n.debugLogsReading
-                    : info == null
-                    ? l10n.debugLogsEmpty
-                    : l10n.debugLogsTodayFile(
-                        info.sizeLabel,
-                        _formatTime(info.lastModified),
-                      ),
-                style: const TextStyle(color: Colors.white54, fontSize: 12.5),
-              ),
-            ),
-            const SizedBox(height: 8),
-            ListTile(
-              leading: const Icon(Icons.ios_share, color: Colors.white70),
-              title: Text(
-                l10n.debugLogsShareTitle,
-                style: const TextStyle(color: Colors.white),
-              ),
-              subtitle: Text(
-                l10n.debugLogsShareSubtitle,
-                style: const TextStyle(color: Colors.white54, fontSize: 12.5),
-              ),
-              onTap: _share,
-            ),
-            ListTile(
-              leading: const Icon(Icons.copy_outlined, color: Colors.white70),
-              title: Text(
-                l10n.debugLogsCopyTitle,
-                style: const TextStyle(color: Colors.white),
-              ),
-              subtitle: Text(
-                l10n.debugLogsCopySubtitle,
-                style: const TextStyle(color: Colors.white54, fontSize: 12.5),
-              ),
-              onTap: _copy,
             ),
             if (_message != null)
               Padding(
-                padding: const EdgeInsets.fromLTRB(14, 4, 14, 8),
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
                 child: Text(
                   _message!,
-                  style: const TextStyle(color: Colors.white70),
+                  style: const TextStyle(color: Colors.white70, fontSize: 13),
                 ),
               ),
           ],

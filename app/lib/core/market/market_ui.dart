@@ -43,11 +43,7 @@ class WelcomeLanguageToggle extends StatelessWidget {
                           ),
                           const SizedBox(width: 10),
                           if (language == current)
-                            Icon(
-                              Icons.check_rounded,
-                              size: 18,
-                              color: color,
-                            )
+                            Icon(Icons.check_rounded, size: 18, color: color)
                           else
                             const SizedBox(width: 18),
                           const SizedBox(width: 8),
@@ -121,74 +117,50 @@ class SettingsLanguageSection extends StatelessWidget {
           valueListenable: LocaleController.locale,
           builder: (context, locale, _) {
             final current = AppLanguage.fromLocale(locale);
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const SizedBox(height: 28),
-                Text(
-                  l10n.settingsLanguageSection.toUpperCase(),
-                  style: const TextStyle(
-                    color: Colors.white54,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Material(
-                  color: const Color(0xff1b1b1b),
-                  borderRadius: BorderRadius.circular(16),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.language_rounded,
-                              color: Colors.white70,
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    l10n.settingsLanguageTitle,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    l10n.settingsLanguageSubtitle,
-                                    style: const TextStyle(
-                                      color: Colors.white54,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        for (final language in config.supportedLanguages)
-                          _ChoiceRow(
-                            label: language.nativeName,
-                            leading: language.flagEmoji,
-                            selected: language == current,
-                            accent: accent,
-                            onTap: () =>
-                                unawaited(onLanguageSelected(language)),
-                          ),
-                      ],
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    l10n.settingsLanguageSection.toUpperCase(),
+                    style: const TextStyle(
+                      color: Colors.white54,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.8,
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: const Color(0xff171717),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.08),
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final language in config.supportedLanguages)
+                            _LanguageChip(
+                              flag: language.flagEmoji,
+                              label: language.nativeName,
+                              selected: language == current,
+                              accent: accent,
+                              onTap: () =>
+                                  unawaited(onLanguageSelected(language)),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             );
           },
         );
@@ -339,17 +311,70 @@ class WelcomeOnboardingHost extends StatelessWidget {
   }
 }
 
+class _LanguageChip extends StatelessWidget {
+  const _LanguageChip({
+    required this.flag,
+    required this.label,
+    required this.selected,
+    required this.accent,
+    required this.onTap,
+  });
+
+  final String flag;
+  final String label;
+  final bool selected;
+  final Color accent;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected
+          ? accent.withValues(alpha: 0.18)
+          : Colors.white.withValues(alpha: 0.05),
+      borderRadius: BorderRadius.circular(99),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(99),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.fromLTRB(10, 7, 12, 7),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(99),
+            border: Border.all(
+              color: selected ? accent : Colors.white.withValues(alpha: 0.08),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(flag, style: const TextStyle(fontSize: 16)),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: selected ? accent : Colors.white,
+                  fontSize: 13,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ChoiceRow extends StatelessWidget {
   const _ChoiceRow({
     required this.label,
     required this.selected,
     required this.accent,
     required this.onTap,
-    this.leading,
   });
 
   final String label;
-  final String? leading;
   final bool selected;
   final Color accent;
   final VoidCallback onTap;
@@ -371,10 +396,6 @@ class _ChoiceRow extends StatelessWidget {
               size: 22,
             ),
             const SizedBox(width: 12),
-            if (leading != null) ...[
-              Text(leading!, style: const TextStyle(fontSize: 20)),
-              const SizedBox(width: 10),
-            ],
             Expanded(
               child: Text(
                 label,

@@ -30,6 +30,18 @@ service cloud.firestore {
         return isSignedIn() && request.auth.uid == resource.data.userId;
       }
 
+      // Allow get of missing docs for the caller's own subscriber id so the
+      // client can detect "not created yet" without PERMISSION_DENIED.
+      function canGetSubscriberDoc() {
+        return isSignedIn() && (
+          subscriberId == request.auth.uid
+          || (hasGoogleIdentity()
+            && subscriberId
+              in request.auth.token.firebase.identities['google.com'])
+          || (resource != null && ownsSubscriberDoc())
+        );
+      }
+
       function createsOwnSubscriberDoc() {
         return isSignedIn()
           && request.auth.uid == request.resource.data.userId
@@ -58,7 +70,8 @@ service cloud.firestore {
           && request.resource.data.createdAtMs == resource.data.createdAtMs;
       }
 
-      allow read: if ownsSubscriberDoc();
+      allow get: if canGetSubscriberDoc();
+      allow list: if false;
       allow create: if createsOwnSubscriberDoc();
       allow update: if ownsSubscriberDoc() && preservesTrialClock();
       allow delete: if false;
@@ -67,20 +80,15 @@ service cloud.firestore {
     // Secondary index: Firebase Auth uid → subscriber doc id (Google id).
     match /subscriberByUserId/{userId} {
       allow read: if isSignedIn() && request.auth.uid == userId;
-      allow create: if isSignedIn()
+      // Create or repair the index for the signed-in user. subscriberId may
+      // change if the user re-links Google; subscribers/{id} remains the
+      // immutable trial source of truth.
+      allow create, update: if isSignedIn()
         && request.auth.uid == userId
         && request.resource.data.userId == userId
-        && request.resource.data.keys().hasAll([
-          'userId',
-          'subscriberId',
-          'googleId',
-          'updatedAtMs',
-        ]);
-      allow update: if isSignedIn()
-        && request.auth.uid == userId
-        && request.resource.data.userId == resource.data.userId
-        && request.resource.data.subscriberId == resource.data.subscriberId
-        && request.resource.data.googleId == resource.data.googleId;
+        && request.resource.data.subscriberId is string
+        && request.resource.data.googleId is string
+        && request.resource.data.updatedAtMs is int;
       allow delete: if false;
     }
   }

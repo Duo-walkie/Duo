@@ -8,6 +8,7 @@
     "build": "tsc -p tsconfig.json",
     "check": "tsc --noEmit -p tsconfig.json",
     "purge-ghosts": "tsx src/scripts/purgeGhostMembers.ts",
+    "no-group-reminders": "tsx src/scripts/runNoGroupReminders.ts",
     "test": "node --import tsx --test test/*.test.ts",
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js"

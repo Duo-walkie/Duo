@@ -137,6 +137,9 @@ mixin _IdentityHomeGroups on _IdentityHomeBase {
       return;
     }
 
+    final addedOnly = indexedGroupIds.length > loadedGroupIds.length &&
+        indexedGroupIds.containsAll(loadedGroupIds);
+
     final activeGroupId = _onlineSession?.groupId;
     if (activeGroupId != null && !indexedGroupIds.contains(activeGroupId)) {
       await _endRevokedVoiceSession(activeGroupId);
@@ -144,6 +147,15 @@ mixin _IdentityHomeGroups on _IdentityHomeBase {
     if (!mounted || widget.identityRepository.isSessionTeardownInProgress) {
       return;
     }
+
+    // Create/join only adds to the index. Do not dismiss the in-progress
+    // group-action flow or flash a generic "membership changed" toast —
+    // the user already initiated that change.
+    if (addedOnly) {
+      await _loadGroups();
+      return;
+    }
+
     Navigator.of(context).popUntil((route) => route.isFirst);
     if (!mounted || widget.identityRepository.isSessionTeardownInProgress) {
       return;
