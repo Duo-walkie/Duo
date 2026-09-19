@@ -395,7 +395,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsSectionBackground.
   ///
   /// In en, this message translates to:
-  /// **'Reliability'**
+  /// **'Reliability / Permissions'**
   String get settingsSectionBackground;
 
   /// No description provided for @settingsMicPermission.

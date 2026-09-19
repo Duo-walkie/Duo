@@ -847,22 +847,22 @@ class _IdentityHomeScreenState extends _IdentityHomeBase
                   ),
                 ],
                 // 5. Chat bubble feed (grows upward). The rolling window is
-                // only 5 bubbles, so this band is sized to hold them without
-                // becoming a scroll view — extra height clips at the top.
+                // only 5 bubbles; ChatBubbleFeed bottom-aligns and clips
+                // older ones if the keyboard briefly leaves less room.
                 Expanded(
                   child: Padding(
-                    padding: EdgeInsets.fromLTRB(16.w, 2.h, 16.w, 6.h),
-                    child: ClipRect(
-                      child: Align(
-                        alignment: Alignment.bottomCenter,
-                        child: ChatBubbleFeed(
-                          messages: _chatMessages,
-                          currentUserId: _session.userId,
-                          displayNameForUserId: _chatDisplayNameForUser,
-                          accent: accent,
-                          onExpire: _dismissExpiredChatMessage,
-                        ),
-                      ),
+                    padding: EdgeInsets.fromLTRB(
+                      16.w,
+                      2.h,
+                      16.w,
+                      keyboardOpen ? 2.h : 6.h,
+                    ),
+                    child: ChatBubbleFeed(
+                      messages: _chatMessages,
+                      currentUserId: _session.userId,
+                      displayNameForUserId: _chatDisplayNameForUser,
+                      accent: accent,
+                      onExpire: _dismissExpiredChatMessage,
                     ),
                   ),
                 ),
@@ -923,8 +923,10 @@ class _IdentityHomeScreenState extends _IdentityHomeBase
                             ),
                           ),
                         ),
-                      // 7. Edge nudge while mixed/live.
-                      if ((live && groupMixed) || showGoLive)
+                      // 7. Edge nudge while mixed/live (collapsed with keyboard
+                      // so the 5-bubble feed keeps its band above the composer).
+                      if (((live && groupMixed) || showGoLive) &&
+                          !keyboardOpen)
                         Align(
                           alignment: Alignment.centerRight,
                           child: Padding(
@@ -985,7 +987,7 @@ class _IdentityHomeScreenState extends _IdentityHomeBase
                         ),
                       ),
                       if (focusedGroup != null) ...[
-                        SizedBox(height: 4.h),
+                        SizedBox(height: keyboardOpen ? 0 : 4.h),
                         // 9. Composer — grayed out until another member joins.
                         ChatBubbleBar(
                           key: const ValueKey('home-chat-bubble-bar'),
@@ -995,7 +997,7 @@ class _IdentityHomeScreenState extends _IdentityHomeBase
                           onSend: _sendChatMessage,
                           onEmojiSelected: _triggerEmojiBurst,
                         ),
-                        if (!_serviceReady)
+                        if (!_serviceReady && !keyboardOpen)
                           Padding(
                             padding: EdgeInsets.fromLTRB(24.w, 6.h, 24.w, 0),
                             child: Text(
@@ -1011,8 +1013,11 @@ class _IdentityHomeScreenState extends _IdentityHomeBase
                       ],
                       // Live system inset + a short base gap so the main
                       // button row sits near the bottom without crowding
-                      // the nav area.
-                      SizedBox(height: 8.h + bottomSystemInset),
+                      // the nav area. While the keyboard is up, Scaffold
+                      // already pads for viewInsets — keep only a thin gap.
+                      SizedBox(
+                        height: keyboardOpen ? 4.h : (8.h + bottomSystemInset),
+                      ),
                     ],
                   ),
                 ),

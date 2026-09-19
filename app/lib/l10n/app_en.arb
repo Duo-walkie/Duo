@@ -57,7 +57,7 @@
   "@settingsAppVersion": {
     "placeholders": { "version": { "type": "String" } }
   },
-  "settingsSectionBackground": "Reliability",
+  "settingsSectionBackground": "Reliability / Permissions",
   "settingsMicPermission": "Microphone",
   "settingsMicReady": "On",
   "settingsMicRequired": "Needed to talk",

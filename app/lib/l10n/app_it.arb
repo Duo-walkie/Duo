@@ -48,7 +48,7 @@
   "settingsSaveColor": "Salva colore",
   "settingsSaved": "Impostazioni salvate",
   "settingsAppVersion": "Versione {version}",
-  "settingsSectionBackground": "Affidabilità",
+  "settingsSectionBackground": "Affidabilità / Autorizzazioni",
   "settingsMicPermission": "Microfono",
   "settingsMicReady": "Attivo",
   "settingsMicRequired": "Serve per parlare",

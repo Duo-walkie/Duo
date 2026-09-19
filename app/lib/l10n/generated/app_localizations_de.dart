@@ -171,7 +171,7 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
-  String get settingsSectionBackground => 'Zuverlässigkeit';
+  String get settingsSectionBackground => 'Zuverlässigkeit / Berechtigungen';
 
   @override
   String get settingsMicPermission => 'Mikrofon';

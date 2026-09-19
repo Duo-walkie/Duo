@@ -168,7 +168,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get settingsSectionBackground => 'Reliability';
+  String get settingsSectionBackground => 'Reliability / Permissions';
 
   @override
   String get settingsMicPermission => 'Microphone';

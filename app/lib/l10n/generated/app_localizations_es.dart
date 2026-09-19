@@ -169,7 +169,7 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get settingsSectionBackground => 'Fiabilidad';
+  String get settingsSectionBackground => 'Fiabilidad / Permisos';
 
   @override
   String get settingsMicPermission => 'Micrófono';

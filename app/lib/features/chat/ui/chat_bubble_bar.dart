@@ -99,8 +99,23 @@ class ChatBubbleBar extends StatefulWidget {
 class _ChatBubbleBarState extends State<ChatBubbleBar> {
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
+  final ScrollController _chipScrollController = ScrollController();
+  final ScrollController _emojiScrollController = ScrollController();
   bool _composing = false;
   bool _sending = false;
+  bool _showTrailingChipFade = false;
+  bool _showTrailingEmojiFade = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _chipScrollController.addListener(_updateChipScrollFade);
+    _emojiScrollController.addListener(_updateEmojiScrollFade);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateChipScrollFade();
+      _updateEmojiScrollFade();
+    });
+  }
 
   @override
   void didUpdateWidget(covariant ChatBubbleBar oldWidget) {
@@ -111,11 +126,47 @@ class _ChatBubbleBarState extends State<ChatBubbleBar> {
       if (widget.anyMemberOnline && _composing) {
         _closeComposer();
       }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_chipScrollController.hasClients) {
+          _chipScrollController.jumpTo(0);
+          _updateChipScrollFade();
+        }
+        if (_emojiScrollController.hasClients) {
+          _emojiScrollController.jumpTo(0);
+          _updateEmojiScrollFade();
+        }
+      });
+    }
+  }
+
+  void _updateChipScrollFade() {
+    if (!_chipScrollController.hasClients) return;
+    final position = _chipScrollController.position;
+    final canScroll = position.maxScrollExtent > 0;
+    final atEnd = position.pixels >= position.maxScrollExtent - 2;
+    final show = canScroll && !atEnd;
+    if (show != _showTrailingChipFade && mounted) {
+      setState(() => _showTrailingChipFade = show);
+    }
+  }
+
+  void _updateEmojiScrollFade() {
+    if (!_emojiScrollController.hasClients) return;
+    final position = _emojiScrollController.position;
+    final canScroll = position.maxScrollExtent > 0;
+    final atEnd = position.pixels >= position.maxScrollExtent - 2;
+    final show = canScroll && !atEnd;
+    if (show != _showTrailingEmojiFade && mounted) {
+      setState(() => _showTrailingEmojiFade = show);
     }
   }
 
   @override
   void dispose() {
+    _chipScrollController.removeListener(_updateChipScrollFade);
+    _emojiScrollController.removeListener(_updateEmojiScrollFade);
+    _chipScrollController.dispose();
+    _emojiScrollController.dispose();
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -281,63 +332,55 @@ class _ChatBubbleBarState extends State<ChatBubbleBar> {
     final l10n = context.l10n;
     final online = widget.anyMemberOnline;
     final presets = chatPresetsFor(l10n);
-    // Keep this compact so 5 chat bubbles still fit above it when live.
-    return Padding(
+    // Online emoji chips are a touch taller than offline text presets —
+    // keep this compact so 5 chat bubbles still fit above it when live.
+    return SizedBox(
       key: key,
-      padding: EdgeInsets.symmetric(horizontal: 16.w),
-      child: FadedHorizontalRow(
-        height: 44.h,
-        gap: 8.w,
-        veilWidth: 28.w,
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
+      height: online ? 44.h : 40.h,
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16.w),
+        child: Row(
           children: [
+            Expanded(
+              child: online
+                  ? _FadedHorizontalChipList(
+                      controller: _emojiScrollController,
+                      showTrailingFade: _showTrailingEmojiFade,
+                      onScroll: _updateEmojiScrollFade,
+                      children: [
+                        for (final emoji in ChatBubbleBar.quickEmojis) ...[
+                          _EmojiChip(
+                            emoji: emoji,
+                            onTap: () => widget.onEmojiSelected(emoji),
+                          ),
+                          SizedBox(width: 8.w),
+                        ],
+                      ],
+                    )
+                  : _FadedHorizontalChipList(
+                      controller: _chipScrollController,
+                      showTrailingFade: _showTrailingChipFade,
+                      onScroll: _updateChipScrollFade,
+                      children: [
+                        for (final preset in presets) ...[
+                          _PresetChip(
+                            label: preset,
+                            enabled: !_sending,
+                            onTap: () => unawaited(_sendPreset(preset)),
+                          ),
+                          SizedBox(width: 8.w),
+                        ],
+                      ],
+                    ),
+            ),
+            SizedBox(width: 8.w),
             if (online) ...[
-              _CircleAction(
-                tooltip: l10n.chatMoreEmojis,
-                onTap: _openMoreEmojis,
-                child: Icon(
-                  LucideIcons.smilePlus,
-                  color: Colors.white,
-                  size: 18.sp,
-                ),
-              ),
+              _MoreEmojisButton(accent: widget.accent, onTap: _openMoreEmojis),
               SizedBox(width: 8.w),
             ],
-            _CircleAction(
-              tooltip: l10n.chatWriteCustomMessage,
-              emphasized: true,
-              onTap: _openComposer,
-              child: Icon(
-                LucideIcons.keyboard,
-                color: const Color(0xff161616),
-                size: 18.sp,
-              ),
-            ),
+            _KeyboardButton(onTap: _openComposer),
           ],
         ),
-        children: online
-            ? [
-                for (var i = 0; i < ChatBubbleBar.quickEmojis.length; i++) ...[
-                  if (i > 0) SizedBox(width: 6.w),
-                  _EmojiChip(
-                    emoji: ChatBubbleBar.quickEmojis[i],
-                    onTap: () => widget.onEmojiSelected(
-                      ChatBubbleBar.quickEmojis[i],
-                    ),
-                  ),
-                ],
-              ]
-            : [
-                for (var i = 0; i < presets.length; i++) ...[
-                  if (i > 0) SizedBox(width: 6.w),
-                  _PresetChip(
-                    label: presets[i],
-                    enabled: !_sending,
-                    onTap: () => unawaited(_sendPreset(presets[i])),
-                  ),
-                ],
-              ],
       ),
     );
   }
@@ -350,6 +393,8 @@ class _ChatBubbleBarState extends State<ChatBubbleBar> {
     final canSend =
         !_sending && ChatMessageRepository.sanitize(_controller.text) != null;
 
+    // Keep the composer the same height as the emoji/preset row so the
+    // rolling 5-bubble feed still fits above the keyboard without clipping.
     return Padding(
       key: const ValueKey('composer'),
       padding: EdgeInsets.symmetric(horizontal: 16.w),
@@ -357,79 +402,70 @@ class _ChatBubbleBarState extends State<ChatBubbleBar> {
         height: 44.h,
         child: Row(
           children: [
-            _CircleAction(
-              tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-              onTap: _closeComposer,
-              child: Icon(LucideIcons.x, color: Colors.white, size: 16.sp),
+            IconButton(
+              onPressed: _closeComposer,
+              icon: const Icon(Icons.close_rounded, color: Colors.white70),
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints: BoxConstraints.tightFor(width: 40.w, height: 40.h),
             ),
-            SizedBox(width: 8.w),
             Expanded(
-              child: DecoratedBox(
-                decoration: _glassFill(radius: 22.r),
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 14.w),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _controller,
-                          focusNode: _focusNode,
-                          maxLines: 1,
-                          textInputAction: TextInputAction.send,
-                          inputFormatters: [
-                            _WordLimitFormatter(ChatMessageRepository.maxWords),
-                          ],
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.94),
-                            fontSize: 15.sp,
-                            fontWeight: FontWeight.w500,
-                            height: 1.2,
-                          ),
-                          decoration: InputDecoration(
-                            hintText: l10n.chatMessageHint,
-                            hintStyle: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.38),
-                              fontSize: 15.sp,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            border: InputBorder.none,
-                            isDense: true,
-                          ),
-                          onChanged: (_) => setState(() {}),
-                          onSubmitted: (_) => unawaited(_sendCustom()),
+              child: Container(
+                height: 44.h,
+                padding: EdgeInsets.symmetric(horizontal: 14.w),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: const Color(0xff2a2a2a),
+                  borderRadius: BorderRadius.circular(22.r),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _controller,
+                        focusNode: _focusNode,
+                        maxLines: 1,
+                        textInputAction: TextInputAction.send,
+                        inputFormatters: [
+                          _WordLimitFormatter(ChatMessageRepository.maxWords),
+                        ],
+                        style: TextStyle(color: Colors.white, fontSize: 15.sp),
+                        decoration: InputDecoration(
+                          hintText: l10n.chatMessageHint,
+                          hintStyle: const TextStyle(color: Colors.white38),
+                          border: InputBorder.none,
+                          isDense: true,
+                          contentPadding: EdgeInsets.zero,
                         ),
+                        onChanged: (_) => setState(() {}),
+                        onSubmitted: (_) => unawaited(_sendCustom()),
                       ),
-                      SizedBox(width: 8.w),
-                      Text(
-                        '$wordCount/${ChatMessageRepository.maxWords}',
-                        style: TextStyle(
-                          color: wordCount > ChatMessageRepository.maxWords
-                              ? const Color(0xffff5a5f)
-                              : Colors.white38,
-                          fontSize: 10.sp,
-                          fontWeight: FontWeight.w600,
-                        ),
+                    ),
+                    SizedBox(width: 8.w),
+                    Text(
+                      '$wordCount/${ChatMessageRepository.maxWords}',
+                      style: TextStyle(
+                        color: wordCount > ChatMessageRepository.maxWords
+                            ? const Color(0xffff5a5f)
+                            : Colors.white38,
+                        fontSize: 10.sp,
+                        fontWeight: FontWeight.w600,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
-            SizedBox(width: 8.w),
-            _CircleAction(
-              tooltip: l10n.chatWriteCustomMessage,
-              emphasized: canSend,
-              fill: canSend ? widget.accent : null,
-              onTap: canSend ? () => unawaited(_sendCustom()) : null,
-              child: Icon(
-                LucideIcons.send,
-                color: canSend
-                    ? (widget.accent.computeLuminance() > 0.55
-                          ? const Color(0xff161616)
-                          : Colors.white)
-                    : Colors.white.withValues(alpha: 0.38),
-                size: 16.sp,
+            SizedBox(width: 4.w),
+            IconButton(
+              onPressed: canSend ? () => unawaited(_sendCustom()) : null,
+              icon: Icon(
+                Icons.send_rounded,
+                color: canSend ? widget.accent : Colors.white24,
               ),
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints: BoxConstraints.tightFor(width: 40.w, height: 40.h),
             ),
           ],
         ),
@@ -438,52 +474,50 @@ class _ChatBubbleBarState extends State<ChatBubbleBar> {
   }
 }
 
-BoxDecoration _glassFill({required double radius}) {
-  return BoxDecoration(
-    borderRadius: BorderRadius.circular(radius),
-    border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
-    gradient: LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      colors: [
-        Colors.white.withValues(alpha: 0.16),
-        Colors.white.withValues(alpha: 0.06),
-      ],
-    ),
-  );
-}
-
-class _GlassChip extends StatelessWidget {
-  const _GlassChip({
-    required this.onTap,
-    required this.child,
-    this.enabled = true,
-    this.padding,
+/// Horizontal chip row with a trailing fade when content continues off-screen.
+class _FadedHorizontalChipList extends StatelessWidget {
+  const _FadedHorizontalChipList({
+    required this.controller,
+    required this.showTrailingFade,
+    required this.onScroll,
+    required this.children,
   });
 
-  final VoidCallback? onTap;
-  final Widget child;
-  final bool enabled;
-  final EdgeInsetsGeometry? padding;
+  final ScrollController controller;
+  final bool showTrailingFade;
+  final VoidCallback onScroll;
+  final List<Widget> children;
 
   @override
   Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(999);
-    return Opacity(
-      opacity: enabled ? 1 : 0.5,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: radius,
-          splashColor: Colors.white.withValues(alpha: 0.14),
-          highlightColor: Colors.white.withValues(alpha: 0.06),
-          onTap: enabled ? onTap : null,
-          child: Ink(
-            decoration: _glassFill(radius: 999),
-            padding:
-                padding ?? EdgeInsets.symmetric(horizontal: 14.w, vertical: 0),
-            child: Center(child: child),
-          ),
+    return NotificationListener<ScrollNotification>(
+      onNotification: (notification) {
+        if (notification is ScrollUpdateNotification ||
+            notification is ScrollMetricsNotification) {
+          onScroll();
+        }
+        return false;
+      },
+      child: ShaderMask(
+        blendMode: BlendMode.dstIn,
+        shaderCallback: (bounds) {
+          if (!showTrailingFade) {
+            return const LinearGradient(
+              colors: [Colors.white, Colors.white],
+            ).createShader(bounds);
+          }
+          return const LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [Colors.white, Colors.white, Colors.transparent],
+            stops: [0.0, 0.62, 0.88],
+          ).createShader(bounds);
+        },
+        child: ListView(
+          controller: controller,
+          scrollDirection: Axis.horizontal,
+          padding: EdgeInsets.only(right: 16.w),
+          children: children,
         ),
       ),
     );
@@ -503,18 +537,25 @@ class _PresetChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _GlassChip(
-      enabled: enabled,
-      onTap: onTap,
-      padding: EdgeInsets.symmetric(horizontal: 16.w),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: Colors.white.withValues(alpha: 0.94),
-          fontSize: 13.sp,
-          fontWeight: FontWeight.w600,
-          letterSpacing: -0.2,
-          height: 1.1,
+    return Opacity(
+      opacity: enabled ? 1 : 0.5,
+      child: Material(
+        color: const Color(0xff1f1f1f),
+        borderRadius: BorderRadius.circular(20.r),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20.r),
+          onTap: enabled ? onTap : null,
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 9.h),
+            child: Text(
+              label,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 12.sp,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -529,65 +570,74 @@ class _EmojiChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _GlassChip(
-      onTap: onTap,
-      padding: EdgeInsets.symmetric(horizontal: 12.w),
-      child: Text(emoji, style: TextStyle(fontSize: 20.sp, height: 1)),
+    return Material(
+      color: const Color(0xff1f1f1f),
+      borderRadius: BorderRadius.circular(20.r),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20.r),
+        onTap: onTap,
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+          child: Text(emoji, style: TextStyle(fontSize: 20.sp)),
+        ),
+      ),
     );
   }
 }
 
-class _CircleAction extends StatelessWidget {
-  const _CircleAction({
-    required this.tooltip,
-    required this.child,
-    this.onTap,
-    this.emphasized = false,
-  });
+class _MoreEmojisButton extends StatelessWidget {
+  const _MoreEmojisButton({required this.accent, required this.onTap});
 
-  final String tooltip;
-  final Widget child;
-  final VoidCallback? onTap;
-  final bool emphasized;
+  final Color accent;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      enabled: onTap != null,
-      label: tooltip,
-      child: Tooltip(
-        message: tooltip,
-        child: Material(
-          color: emphasized
-              ? Colors.white.withValues(alpha: 0.94)
-              : Colors.transparent,
-          shape: const CircleBorder(),
-          child: InkWell(
-            customBorder: const CircleBorder(),
-            splashColor: Colors.white.withValues(alpha: 0.16),
-            highlightColor: Colors.white.withValues(alpha: 0.08),
-            onTap: onTap,
-            child: Ink(
-              width: 40.w,
-              height: 40.w,
-              decoration: emphasized
-                  ? const BoxDecoration(shape: BoxShape.circle)
-                  : BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.18),
-                      ),
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Colors.white.withValues(alpha: 0.16),
-                          Colors.white.withValues(alpha: 0.06),
-                        ],
-                      ),
-                    ),
-              child: Center(child: child),
+      label: context.l10n.chatMoreEmojis,
+      child: Material(
+        color: accent.withValues(alpha: 0.16),
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onTap,
+          child: Padding(
+            padding: EdgeInsets.all(9.r),
+            child: Icon(
+              Icons.add_reaction_outlined,
+              color: accent,
+              size: 18.sp,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _KeyboardButton extends StatelessWidget {
+  const _KeyboardButton({required this.onTap});
+
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: context.l10n.chatWriteCustomMessage,
+      child: Material(
+        color: const Color(0xff1f1f1f),
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onTap,
+          child: Padding(
+            padding: EdgeInsets.all(9.r),
+            child: Icon(
+              Icons.keyboard_rounded,
+              color: Colors.white,
+              size: 18.sp,
             ),
           ),
         ),

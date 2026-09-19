@@ -172,7 +172,7 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
-  String get settingsSectionBackground => 'Fiabilité';
+  String get settingsSectionBackground => 'Fiabilité / Permissions';
 
   @override
   String get settingsMicPermission => 'Micro';
