@@ -157,6 +157,13 @@ class MainActivity : FlutterFragmentActivity() {
             InviteLinkContract.flutterChannel,
         )
         captureInviteLink(intent)
+        // Recover an invite code from a Play Store referrer on fresh installs.
+        // Must run after captureInviteLink so a direct App Link tap wins.
+        InstallReferrerReader.readOnce(this) {
+            if (::inviteLinkChannel.isInitialized) {
+                inviteLinkChannel.invokeMethod("onInviteLinkAvailable", null)
+            }
+        }
         voicePipChannel = MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             VoicePipContract.flutterChannel,
@@ -309,6 +316,10 @@ class MainActivity : FlutterFragmentActivity() {
                         // 10-min expiry so it cannot fire after a successful
                         // session (or decline) once the room later goes offline.
                         val batch = RingNudgeBatchStore.batchForEvent(this, eventId)
+                        val ids = if (batch != null) batch.eventIds else listOf(eventId)
+                        for (id in ids) {
+                            IncomingNudgeStore.dismissPending(this, id)
+                        }
                         if (batch != null) {
                             for (memberId in batch.eventIds) {
                                 NudgeExpiryTracker.cancelExpiry(this, memberId)
@@ -680,6 +691,11 @@ class MainActivity : FlutterFragmentActivity() {
             NudgeExpiryTracker.cancelExpiry(this, eventId)
             IncomingNudgeStore.markStatus(this, eventId, "accepted")
             IncomingNudgeDispatcher.signalStatus(eventId, "accepted")
+            DuoWidgetActionFeedback.show(
+                this,
+                groupId,
+                DuoWidgetActionFeedback.Kind.JOINING,
+            )
             if (batch != null) {
                 // Cancel the shared ring-batch window; leave sibling members
                 // pending so Flutter `_acceptSiblingNudges` can still POST accept.

@@ -22,6 +22,19 @@ class NudgeCooldowns {
 /// wire type so the UI layer doesn't need to depend on server DTOs.
 enum NudgeKind { ring, voice, push }
 
+/// Maps FCM / RTDB wire values (`ring_nudge`, `voice_nudge`, `nudge`, …)
+/// onto [NudgeKind]. Returns null when the string is missing or unknown.
+NudgeKind? parseNudgeKind(String? raw) {
+  final value = raw?.trim().toLowerCase() ?? '';
+  if (value.isEmpty) return null;
+  return switch (value) {
+    'ring' || 'ring_nudge' => NudgeKind.ring,
+    'voice' || 'voice_nudge' => NudgeKind.voice,
+    'push' || 'nudge' => NudgeKind.push,
+    _ => null,
+  };
+}
+
 /// Tracks the most recent send time per [NudgeKind] for the lifetime of the
 /// app process. Intentionally in-memory only (not persisted): it exists to
 /// give the sender immediate, local feedback that mirrors the backend

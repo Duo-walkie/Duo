@@ -49,6 +49,6 @@ class AppConfig {
   /// when ready, then update this string to match.
   static const String proEntitlementId = 'Eleven Pro';
 
-  /// Support inbox for Duo Pro beta feedback and billing questions.
-  static const String teamDuoContactEmail = 'hello@oneone.app';
+  /// Support inbox for Duo Pro billing questions and product feedback.
+  static const String teamDuoContactEmail = 'duowalkie@gmail.com';
 }

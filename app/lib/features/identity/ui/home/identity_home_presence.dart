@@ -285,6 +285,7 @@ mixin _IdentityHomePresence on _IdentityHomeBase {
       () {
         if (!mounted) return;
         setState(() {});
+        _syncDuoWidget();
         if (_onlineSession != null) {
           _evaluatePeerPresenceForAutoOffline(_availability);
         }
@@ -300,6 +301,12 @@ mixin _IdentityHomePresence on _IdentityHomeBase {
       return;
     }
     if (_isViewingActiveGroup) {
+      unawaited(
+        AnalyticsService.logButtonClick(
+          buttonName: 'go_away',
+          screenName: 'home',
+        ),
+      );
       _showPresenceSnackbar(
         'You\'re going offline. Tap again when someone is live to rejoin without a nudge.',
       );
@@ -315,13 +322,97 @@ mixin _IdentityHomePresence on _IdentityHomeBase {
     // If someone else is already online in this group, let the user join
     // directly — no nudge required since the room is already active.
     if (_anyPeerOnline) {
-      unawaited(_goOnline(userIntent: true));
+      if (_hasLiveVoiceAccess != true) {
+        _showPresenceSnackbar(
+          'Live voice requires Duo Pro. Nudges and chat stay free.',
+        );
+        return;
+      }
+      unawaited(
+        AnalyticsService.logButtonClick(
+          buttonName: 'go_live',
+          screenName: 'home',
+        ),
+      );
+      unawaited(
+        AnalyticsService.logFeatureSelected(
+          feature: 'go_live',
+          screenName: 'home',
+        ),
+      );
+      unawaited(_goOnlineOrShowPaywall());
       return;
     }
     // Nobody is online yet — the room doesn't exist. Prompt the user to
     // send a nudge so at least two people go online together.
     _showPresenceSnackbar(
       'Send a nudge to go online together — or tap when someone else is already live.',
+    );
+  }
+
+  /// Wraps a manual [_goOnline] call: swallows [VoicePaywallRequiredException]
+  /// (message already set by [_goOnline]) and surfaces the Duo Pro paywall.
+  Future<void> _goOnlineOrShowPaywall({bool userIntent = true}) async {
+    try {
+      await _goOnline(userIntent: userIntent);
+    } on VoicePaywallRequiredException {
+      await _presentVoicePaywall();
+    }
+  }
+
+  /// Opens the illustrated gate paywall (nudges/chat remain free).
+  /// Single-flight — concurrent callers share one route.
+  @override
+  Future<bool> _presentVoicePaywall() async {
+    if (!mounted || _voicePaywallOpen) return false;
+    _voicePaywallOpen = true;
+    try {
+      final purchased = await DuoGatePaywallScreen.open(
+        context,
+        mode: DuoGatePaywallMode.voiceBlocked,
+      );
+      await FreeTrialAccess.markPostTrialPaywallShown(_session.userId);
+      await _refreshLiveVoiceAccess();
+      return purchased;
+    } finally {
+      if (mounted) _voicePaywallOpen = false;
+    }
+  }
+
+  Future<void> _refreshLiveVoiceAccess() async {
+    final snapshot = await FreeTrialAccess.snapshot(userId: _session.userId);
+    if (!mounted) return;
+    if (_hasLiveVoiceAccess == snapshot.canUseLiveVoice) return;
+    setState(() => _hasLiveVoiceAccess = snapshot.canUseLiveVoice);
+  }
+
+  /// Keeps Home's locked status line in sync. Does **not** auto-open the
+  /// full paywall — that only appears when the user tries live voice
+  /// (nudge Accept / join).
+  @override
+  Future<void> _syncLiveVoiceAccess() async {
+    await _refreshLiveVoiceAccess();
+    if (!mounted) return;
+    try {
+      final remaining = await FreeTrialAccess.remaining(_session.userId);
+      _scheduleTrialExpiryHomeLock(remaining);
+    } catch (_) {
+      // Access refresh already ran; expiry timer is best-effort.
+    }
+  }
+
+  void _scheduleTrialExpiryHomeLock(Duration remaining) {
+    _trialExpiryTimer?.cancel();
+    _trialExpiryTimer = null;
+    if (remaining <= Duration.zero) return;
+    // When the trial hits zero while Home is open, flip the status hint
+    // without pushing a paywall.
+    _trialExpiryTimer = Timer(
+      remaining + const Duration(milliseconds: 400),
+      () {
+        if (!mounted) return;
+        unawaited(_syncLiveVoiceAccess());
+      },
     );
   }
 
@@ -344,6 +435,15 @@ mixin _IdentityHomePresence on _IdentityHomeBase {
         groupId: _selectedGroup?.groupId,
       );
       return;
+    }
+
+    // 1b. Nudges and chat stay free forever — only live voice needs Duo Pro.
+    // Checked here so every entry point (manual toggle, nudge accept, sender
+    // auto-connect, group switch) is gated in exactly one place.
+    final access = await FreeTrialAccess.resolve(userId: _session.userId);
+    if (access == FreeTrialAccessResult.requirePro) {
+      _explicitJoinIntent = false;
+      throw const VoicePaywallRequiredException();
     }
     // Must be sync (not just `_busy` from a later setState) — accept FCM and
     // native pending-connect can both enter here within the same event loop
@@ -532,7 +632,12 @@ mixin _IdentityHomePresence on _IdentityHomeBase {
         .firstOrNull;
     await _goAway();
     if (!mounted || _onlineSession != null) return;
-    await _goOnline(userIntent: true);
+    try {
+      await _goOnline(userIntent: true);
+    } on VoicePaywallRequiredException {
+      await _presentVoicePaywall();
+      return;
+    }
     if (!mounted || _onlineSession?.groupId != nextGroup.groupId) return;
     _showPresenceSnackbar(
       'You joined ${nextGroup.name}. '
@@ -577,6 +682,7 @@ mixin _IdentityHomePresence on _IdentityHomeBase {
       }
       _peerWasLiveWithMe = false;
       _enteredViaNudge = false;
+      _completeLiveKitSession(groupId: session.groupId, reason: reason);
       await _disconnectLiveKit();
       // 2. Clear RTDB presence and local session.
       await _onlineRepository.goAway(session, reason: reason);
@@ -618,6 +724,9 @@ mixin _IdentityHomePresence on _IdentityHomeBase {
   /// voices overlap; there is no exclusive talk lock.
   Future<void> _startTalking() async {
     if (_isCallMode) return;
+    unawaited(
+      AnalyticsService.logButtonClick(buttonName: 'talk', screenName: 'home'),
+    );
     await _toggleConnectionMode();
   }
 
@@ -844,7 +953,7 @@ mixin _IdentityHomePresence on _IdentityHomeBase {
               ],
             ),
             action: SnackBarAction(
-              label: 'Talk',
+              label: context.l10n.homeTalk,
               textColor: const Color(0xfffff1a8),
               onPressed: () {
                 if (!_isCallMode) unawaited(_toggleConnectionMode());

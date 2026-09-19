@@ -163,7 +163,7 @@ mixin _IdentityHomeChat on _IdentityHomeBase {
 
   Future<void> _sendChatMessage(String text) async {
     final group = _selectedGroup;
-    if (group == null) return;
+    if (group == null || !_serviceReady) return;
     if (_session.settings.hapticsEnabled) {
       unawaited(HapticFeedback.selectionClick());
     }
@@ -182,6 +182,7 @@ mixin _IdentityHomeChat on _IdentityHomeBase {
   }
 
   void _triggerEmojiBurst(String emoji) {
+    if (!_serviceReady) return;
     final trimmed = emoji.trim();
     if (trimmed.isEmpty || !mounted) return;
     if (_session.settings.hapticsEnabled) {

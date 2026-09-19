@@ -44,7 +44,10 @@ class _DisplayNameScreenState extends State<DisplayNameScreen> {
     final name = _nameController.text.trim();
     if (name.isEmpty || _saving) return;
 
-    setState(() => _saving = true);
+    _saving = true;
+    // Dismiss keyboard before navigation so inset animation doesn't overflow.
+    _focusNode.unfocus();
+    FocusManager.instance.primaryFocus?.unfocus();
 
     try {
       await widget.identityRepository.updateDisplayName(name);
@@ -61,10 +64,16 @@ class _DisplayNameScreenState extends State<DisplayNameScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
+    final bottomInset = keyboardInset + bottomSystemInsetOf(context);
+
     return Scaffold(
       backgroundColor: const Color(0xff000000),
-      resizeToAvoidBottomInset: true,
+      // Keep the name field layout stable while the keyboard animates closed
+      // on submit; the submit button is positioned above the keyboard inset.
+      resizeToAvoidBottomInset: false,
       body: SafeArea(
+        bottom: false,
         child: Stack(
           children: [
             Padding(
@@ -84,6 +93,7 @@ class _DisplayNameScreenState extends State<DisplayNameScreen> {
                     textInputAction: TextInputAction.done,
                     textCapitalization: TextCapitalization.words,
                     autocorrect: false,
+                    maxLength: AppUserProfile.maxDisplayNameLength,
                     maxLines: 1,
                     style: TextStyle(
                       color: Colors.white,
@@ -94,7 +104,7 @@ class _DisplayNameScreenState extends State<DisplayNameScreen> {
                     textAlign: TextAlign.center,
                     cursorColor: Colors.white,
                     decoration: InputDecoration(
-                      hintText: 'your name',
+                      hintText: context.l10n.displayNameHint,
                       hintStyle: TextStyle(
                         color: Colors.white,
                         fontSize: 34.sp,
@@ -106,11 +116,12 @@ class _DisplayNameScreenState extends State<DisplayNameScreen> {
                       focusedBorder: InputBorder.none,
                       contentPadding: EdgeInsets.zero,
                       isDense: true,
+                      counterText: '',
                     ),
                   ),
                   SizedBox(height: 14.h),
                   Text(
-                    'this is how your friends will see you',
+                    context.l10n.displayNameSubtitle,
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Colors.white,
@@ -124,7 +135,7 @@ class _DisplayNameScreenState extends State<DisplayNameScreen> {
             ),
             Positioned(
               right: 24.w,
-              bottom: 12.h,
+              bottom: bottomInset + 12.h,
               child: GestureDetector(
                 onTap: _canSubmit ? _saveName : null,
                 child: Container(
@@ -134,24 +145,13 @@ class _DisplayNameScreenState extends State<DisplayNameScreen> {
                     shape: BoxShape.circle,
                     color: Color(0xff242424),
                   ),
-                  child: _saving
-                      ? Center(
-                          child: SizedBox(
-                            width: 20.w,
-                            height: 20.w,
-                            child: const CircularProgressIndicator(
-                              strokeWidth: 2.4,
-                              color: Colors.white,
-                            ),
-                          ),
-                        )
-                      : Icon(
-                          Icons.arrow_forward_rounded,
-                          color: _canSubmit
-                              ? Colors.white
-                              : const Color.fromRGBO(255, 255, 255, 0.35),
-                          size: 24.sp,
-                        ),
+                  child: Icon(
+                    Icons.arrow_forward_rounded,
+                    color: _canSubmit
+                        ? Colors.white
+                        : const Color.fromRGBO(255, 255, 255, 0.35),
+                    size: 24.sp,
+                  ),
                 ),
               ),
             ),

@@ -34,24 +34,51 @@ class ChatBubbleFeed extends StatelessWidget {
 
     // Stretch so each row is full-width; without that, MainAxisAlignment
     // start/end has no room to pin bubbles left (theirs) vs right (ours).
+    //
+    // Host sizes this band for the rolling window (5). When the keyboard
+    // briefly leaves less room, bottom-align and clip older bubbles at the
+    // top — NeverScrollable so there is no scroll chrome, and no RenderFlex
+    // overflow from an unconstrained Column.
+    final feed = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final message in visible)
+          _ChatBubbleTile(
+            key: ValueKey(message.messageId),
+            message: message,
+            isOwn: message.senderUserId == currentUserId,
+            senderLabel: _senderLabel(message),
+            accent: accent,
+            onExpire: () => onExpire(message.messageId),
+          ),
+      ],
+    );
+
     return AnimatedOpacity(
       duration: const Duration(milliseconds: 320),
       curve: Curves.easeOutCubic,
       opacity: opacity.clamp(0.0, 1.0),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (final message in visible)
-            _ChatBubbleTile(
-              key: ValueKey(message.messageId),
-              message: message,
-              isOwn: message.senderUserId == currentUserId,
-              senderLabel: _senderLabel(message),
-              accent: accent,
-              onExpire: () => onExpire(message.messageId),
-            ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final bounded = constraints.hasBoundedHeight;
+          final child = bounded
+              ? Align(
+                  alignment: Alignment.bottomCenter,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: constraints.maxHeight,
+                    ),
+                    child: SingleChildScrollView(
+                      reverse: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      child: feed,
+                    ),
+                  ),
+                )
+              : feed;
+          return child;
+        },
       ),
     );
   }

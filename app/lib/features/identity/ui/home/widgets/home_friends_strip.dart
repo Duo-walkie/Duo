@@ -11,6 +11,7 @@ class _FriendsStrip extends StatelessWidget {
     required this.speakingUserIds,
     required this.connectionQualityByUserId,
     required this.nudgeRepliesByUserId,
+    required this.showPendingInvite,
     required this.onInvite,
   });
 
@@ -20,6 +21,8 @@ class _FriendsStrip extends StatelessWidget {
   final Set<String> speakingUserIds;
   final Map<String, ConnectionQuality> connectionQualityByUserId;
   final Map<String, NudgeRecipientReply> nudgeRepliesByUserId;
+  /// True when an outbound invite exists and no friend has joined yet.
+  final bool showPendingInvite;
   final VoidCallback? onInvite;
 
   @override
@@ -64,14 +67,19 @@ class _FriendsStrip extends StatelessWidget {
                   nudgeReply: nudgeRepliesByUserId[friend.userId],
                 ),
             ];
+            final pendingChip = showPendingInvite && friends.isEmpty
+                ? const _PendingInviteChip()
+                : null;
             final inviteChip = _AddFriendChip(onTap: onInvite);
             // Name column is 72.w; 12.w gap after each profile before invite.
-            final profilesWidth = friends.isEmpty
+            final leadingCount =
+                friends.length + (pendingChip == null ? 0 : 1);
+            final profilesWidth = leadingCount == 0
                 ? 0.0
-                : friends.length * 72.w + max(0, friends.length - 1) * 12.w;
+                : leadingCount * 72.w + max(0, leadingCount - 1) * 12.w;
             final packedWidth = 32.w + profilesWidth + 12.w + 56.w;
             final pinInvite =
-                friends.length > 4 || packedWidth > constraints.maxWidth;
+                leadingCount > 4 || packedWidth > constraints.maxWidth;
 
             if (!pinInvite) {
               return SizedBox(
@@ -83,6 +91,10 @@ class _FriendsStrip extends StatelessWidget {
                   children: [
                     for (final chip in profileChips) ...[
                       chip,
+                      SizedBox(width: 12.w),
+                    ],
+                    if (pendingChip != null) ...[
+                      pendingChip,
                       SizedBox(width: 12.w),
                     ],
                     inviteChip,
@@ -102,6 +114,10 @@ class _FriendsStrip extends StatelessWidget {
                 for (var i = 0; i < profileChips.length; i++) ...[
                   if (i > 0) SizedBox(width: 12.w),
                   profileChips[i],
+                ],
+                if (pendingChip != null) ...[
+                  if (profileChips.isNotEmpty) SizedBox(width: 12.w),
+                  pendingChip,
                 ],
               ],
             );
@@ -377,6 +393,49 @@ class _AddFriendChip extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Placeholder chip while an outbound invite is waiting for a friend to join.
+class _PendingInviteChip extends StatelessWidget {
+  const _PendingInviteChip();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          width: 52.w,
+          height: 52.w,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: const Color(0xff2a2a2a),
+            border: Border.all(color: Colors.white24, width: 2),
+          ),
+          child: Icon(
+            Icons.hourglass_top_rounded,
+            color: Colors.white54,
+            size: 22.sp,
+          ),
+        ),
+        SizedBox(height: 4.h),
+        SizedBox(
+          width: 72.w,
+          child: Text(
+            context.l10n.homeFriendInvited,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white54,
+              fontSize: 10.sp,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

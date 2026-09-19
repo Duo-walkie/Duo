@@ -85,6 +85,17 @@ class ChatMessageRepository {
         'expiresAt': now + lifetime.inSeconds + fadeDuration.inSeconds,
       });
     } on FirebaseException catch (error, stack) {
+      final denied = _isPermissionDenied(error);
+      OperationalLog.record(
+        event: OperationalLog.eventMessageSendFailed,
+        eventType: OperationalLog.eventTypeChat,
+        status: denied ? 'permission_error' : 'database_error',
+        error: error.code,
+        userId: senderUserId,
+        groupId: groupId,
+        level: LogLevel.error,
+        debugMetadata: {'message_id': messageId},
+      );
       unawaited(
         CrashlyticsService.recordError(
           error,
@@ -93,7 +104,6 @@ class ChatMessageRepository {
           feature: 'chat',
         ),
       );
-      final denied = _isPermissionDenied(error);
       throw Exception(
         'Could not send message. '
         '${denied ? 'You may need to re-authenticate.' : 'Please try again.'}',
@@ -130,8 +140,17 @@ class ChatMessageRepository {
         '/v1/groups/$groupId/chat-messages/notify',
         {'messageId': messageId, 'text': text},
       );
-    } catch (_) {
-      // Non-fatal — see doc comment above.
+    } catch (error) {
+      final timeout = error is TimeoutException;
+      OperationalLog.record(
+        event: OperationalLog.eventMessageDeliveryFailed,
+        eventType: OperationalLog.eventTypeChat,
+        status: timeout ? 'timeout' : 'notify_failed',
+        error: error.toString(),
+        groupId: groupId,
+        level: LogLevel.warn,
+        debugMetadata: {'message_id': messageId},
+      );
     }
   }
 

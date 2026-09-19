@@ -1,3 +1,5 @@
+import '../nudge_cooldowns.dart';
+
 enum ActiveNudgeStatus { pending, accepted, declined, snoozed }
 
 // Incoming nudge this user still needs to answer. [nudgeId] = notificationEventId.
@@ -10,6 +12,7 @@ class ActiveNudge {
     this.status = ActiveNudgeStatus.pending,
     this.senderName,
     this.snoozedUntil,
+    this.kind,
   });
 
   final String nudgeId;
@@ -19,6 +22,7 @@ class ActiveNudge {
   final ActiveNudgeStatus status;
   final String? senderName;
   final DateTime? snoozedUntil;
+  final NudgeKind? kind;
 
   static const Duration expiry = Duration(minutes: 10);
 
@@ -44,6 +48,7 @@ class ActiveNudge {
     String? senderName,
     String? senderId,
     DateTime? sentAt,
+    NudgeKind? kind,
   }) {
     return ActiveNudge(
       nudgeId: nudgeId,
@@ -53,6 +58,7 @@ class ActiveNudge {
       status: status ?? this.status,
       senderName: senderName ?? this.senderName,
       snoozedUntil: snoozedUntil ?? this.snoozedUntil,
+      kind: kind ?? this.kind,
     );
   }
 }
@@ -113,6 +119,9 @@ ActiveNudge? parseIncomingNudge(Map<String, dynamic> raw) {
       .firstOrNull;
   final snoozedUntilMs = int.tryParse(raw['snoozedUntilMs']?.toString() ?? '');
   final senderName = raw['senderName']?.toString().trim();
+  final kind = parseNudgeKind(
+    raw['kind']?.toString() ?? raw['type']?.toString(),
+  );
   return ActiveNudge(
     nudgeId: nudgeId,
     groupId: groupId,
@@ -123,5 +132,6 @@ ActiveNudge? parseIncomingNudge(Map<String, dynamic> raw) {
     snoozedUntil: snoozedUntilMs == null
         ? null
         : DateTime.fromMillisecondsSinceEpoch(snoozedUntilMs),
+    kind: kind,
   );
 }

@@ -10,12 +10,6 @@ mixin _IdentityHomeNudges on _IdentityHomeBase {
     // 1. Pull Accept/Connect from native (or a deferred action).
     if (_nudgeActionInFlight) return;
     NudgeNotificationAction? action;
-    // [DEBUG] Go-live latency tracing added Aug 12. Remove before production
-    // release.
-    final step1StartedAt = _goLiveStepStart(
-      1,
-      'Nudge accepted by receiver (user action) — taking pending action from native bridge',
-    );
     try {
       action =
           _deferredNudgeAction ??
@@ -29,12 +23,6 @@ mixin _IdentityHomeNudges on _IdentityHomeBase {
         _deferredNudgeAction = action;
         return;
       }
-      _goLiveStepEnd(
-        1,
-        'Nudge accepted by receiver (user action) — action=${action.action} '
-        'eventId=${action.eventId} groupId=${action.groupId}',
-        step1StartedAt,
-      );
       _deferredNudgeAction = null;
       if (action.isOpenOnly) {
         _nudgeInbox.upsert(
@@ -120,12 +108,6 @@ mixin _IdentityHomeNudges on _IdentityHomeBase {
     // Mark before awaiting goOnline so a parallel FCM/native path with the
     // same eventId cannot start a second connect mid-handshake.
     _processedNudgeEventIds.add(action.eventId);
-    // [DEBUG] Go-live latency tracing added Aug 12. Remove before production
-    // release.
-    final step2StartedAt = _goLiveStepStart(
-      2,
-      'FCM/notification payload parsed — resolving target group locally',
-    );
     final index = _groups.indexWhere(
       (group) => group.groupId == action.groupId,
     );
@@ -133,21 +115,44 @@ mixin _IdentityHomeNudges on _IdentityHomeBase {
       setState(() => _message = 'That nudge group is no longer available.');
       return;
     }
-    _goLiveStepEnd(
-      2,
-      'FCM/notification payload parsed — resolved groupId=${action.groupId} at carouselIndex=$index',
-      step2StartedAt,
-    );
 
     await _onGroupCarouselChanged(index);
     if (!mounted) return;
     _explicitJoinIntent = true;
-    if (!_isViewingActiveGroup) {
-      if (_isOnline) {
-        await _switchVoiceGroup();
-      } else {
-        await _goOnline(userIntent: true);
+    try {
+      if (!_isViewingActiveGroup) {
+        if (_isOnline) {
+          await _switchVoiceGroup();
+        } else {
+          await _goOnline(userIntent: true);
+        }
       }
+    } on VoicePaywallRequiredException {
+      // Trial ended — nudges/chat stay free, but live voice needs Duo Pro.
+      // Give sender and receiver different copy for the same event.
+      _processedNudgeEventIds.remove(action.eventId);
+      _explicitJoinIntent = false;
+      if (!mounted) return;
+      final isSenderAutoConnect = action.action == 'connect';
+      _liveLockedHandledNudgeIds.add(action.eventId);
+      unawaited(_nudgeActionBridge.dismissIncomingNudge(action.eventId));
+      if (mounted) {
+        setState(() {
+          _incomingPromptNudge = null;
+          _incomingPromptBusy = false;
+        });
+      }
+      if (isSenderAutoConnect) {
+        _showPresenceSnackbar(
+          'They accepted, but live voice requires Duo Pro.',
+        );
+      }
+      final purchased = await _presentVoicePaywall();
+      if (purchased && mounted) {
+        _liveLockedHandledNudgeIds.remove(action.eventId);
+        await _processNudgeAction(action);
+      }
+      return;
     }
     if (!mounted) return;
     if (!_isOnline) {
@@ -421,7 +426,9 @@ mixin _IdentityHomeNudges on _IdentityHomeBase {
           preferNudgeId: preferNudgeId,
         )
         .where(
-          (nudge) => _groups.any((group) => group.groupId == nudge.groupId),
+          (nudge) =>
+              !_liveLockedHandledNudgeIds.contains(nudge.nudgeId) &&
+              _groups.any((group) => group.groupId == nudge.groupId),
         )
         .toList();
     if (queue.isEmpty) {

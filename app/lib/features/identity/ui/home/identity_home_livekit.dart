@@ -22,17 +22,6 @@ mixin _IdentityHomeLiveKit on _IdentityHomeBase {
       );
       throw StateError('LiveKit connect refused without explicit join intent.');
     }
-    // [DEBUG] Go-live latency tracing added Aug 12. Remove before production
-    // release. Reset once per connect attempt so the post-connect subscribe
-    // and first-audio steps below are only logged for THIS go-live.
-    _goLiveConnectResolvedAtMs = null;
-    _goLiveFirstSubscribeLogged = false;
-    _goLiveFirstAudioLogged = false;
-    final step3StartedAt = _goLiveStepStart(
-      3,
-      'LiveKit room initialization started',
-    );
-
     await _disconnectLiveKit();
     // E1: every live session starts in speaker mode (loud/hands-free).
     const speakerOn = true;
@@ -73,9 +62,7 @@ mixin _IdentityHomeLiveKit on _IdentityHomeBase {
       _state = 'connecting';
       _message = LiveKitStatus.connecting;
     });
-    _goLiveStepEnd(3, 'LiveKit room initialization started', step3StartedAt);
 
-    final step4StartedAt = _goLiveStepStart(4, 'LiveKit room.connect() called');
     LogManager.log(
       LogLevel.info,
       'LiveKitManager',
@@ -83,6 +70,15 @@ mixin _IdentityHomeLiveKit on _IdentityHomeBase {
           'room=${session.livekitRoomName}',
       userId: session.userId,
       groupId: session.groupId,
+    );
+    OperationalLog.record(
+      event: OperationalLog.eventConnectionAttempt,
+      eventType: OperationalLog.eventTypeLiveKit,
+      status: 'attempting',
+      userId: session.userId,
+      groupId: session.groupId,
+      sessionId: session.serviceSessionId,
+      debugMetadata: {'room': session.livekitRoomName},
     );
     try {
       await room
@@ -93,6 +89,20 @@ mixin _IdentityHomeLiveKit on _IdentityHomeBase {
           )
           .timeout(const Duration(seconds: 20));
     } catch (error, stack) {
+      OperationalLog.record(
+        event: OperationalLog.eventConnectionFailed,
+        eventType: OperationalLog.eventTypeLiveKit,
+        status: 'failed',
+        error: error.toString(),
+        userId: session.userId,
+        groupId: session.groupId,
+        sessionId: session.serviceSessionId,
+        level: LogLevel.error,
+        debugMetadata: {
+          'room': session.livekitRoomName,
+          'checkpoint': 'room.connect',
+        },
+      );
       unawaited(
         CrashlyticsService.recordNudgeFailure(
           error: error,
@@ -106,24 +116,26 @@ mixin _IdentityHomeLiveKit on _IdentityHomeBase {
       );
       rethrow;
     }
-    _goLiveConnectResolvedAtMs = DateTime.now().millisecondsSinceEpoch;
-    _goLiveStepEnd(
-      4,
-      'LiveKit room.connect() resolved (connected)',
-      step4StartedAt,
+    _liveKitConnectedAt = DateTime.now();
+    unawaited(
+      AnalyticsService.logLiveKitSessionStarted(groupId: session.groupId),
     );
-    // [DEBUG] Go-live latency tracing added Aug 12. Remove before production
-    // release. Steps 6/7 are timed from this same moment (connect resolved)
-    // since that's the natural "waiting for the sender" starting point; their
-    // END markers are logged from the room event listener below once the
-    // corresponding event actually fires for the first time.
-    _goLiveStepStart(
-      6,
-      'Remote participant (sender) detected / subscribed — waiting for autoSubscribe',
+    OperationalLog.record(
+      event: OperationalLog.eventConnectionSuccess,
+      eventType: OperationalLog.eventTypeLiveKit,
+      status: 'connected',
+      userId: session.userId,
+      groupId: session.groupId,
+      sessionId: session.serviceSessionId,
+      debugMetadata: {'room': session.livekitRoomName},
     );
-    _goLiveStepStart(
-      7,
-      'Audio track from sender is playing — waiting for first remote speaker',
+    OperationalLog.record(
+      event: OperationalLog.eventSessionStart,
+      eventType: OperationalLog.eventTypeLiveKit,
+      status: 'started',
+      userId: session.userId,
+      groupId: session.groupId,
+      sessionId: session.serviceSessionId,
     );
 
     try {
@@ -144,36 +156,19 @@ mixin _IdentityHomeLiveKit on _IdentityHomeBase {
       throw StateError('LiveKit connected without a local participant.');
     }
 
-    debugPrint(
-      '[LiveKit] Connected — '
-      'identity=${localParticipant.identity} '
-      'canPublish=${localParticipant.permissions.canPublish} '
-      'canSubscribe=${localParticipant.permissions.canSubscribe}',
-    );
-
     if (!localParticipant.permissions.canPublish) {
-      debugPrint(
-        '[LiveKit] WARNING: Local participant cannot publish after connect. '
-        'This user will only receive audio. Check token grants.',
+      LogManager.log(
+        LogLevel.warn,
+        'LiveKitManager',
+        'Local participant cannot publish after connect',
+        userId: session.userId,
+        groupId: session.groupId,
       );
     }
 
-    debugPrint('[LiveKit] Noise filter applied to local audio track.');
-
-    // [DEBUG] Go-live latency tracing added Aug 12. Remove before production
-    // release.
-    final step5StartedAt = _goLiveStepStart(
-      5,
-      'Local tracks (mic) published — initializing local mic track',
-    );
     await localParticipant
         .setMicrophoneEnabled(false)
         .timeout(const Duration(seconds: 8));
-    _goLiveStepEnd(
-      5,
-      'Local tracks (mic) published — local mic track initialized (walkie mode starts muted)',
-      step5StartedAt,
-    );
   }
 
   /// Applies speaker/earpiece preference to LiveKit. When headphones are
@@ -426,22 +421,6 @@ mixin _IdentityHomeLiveKit on _IdentityHomeBase {
           })
           ..on<TrackSubscribedEvent>((event) {
             // Subscription is an implementation detail — keep UI status clean.
-            // [DEBUG] Go-live latency tracing added Aug 12. Remove before
-            // production release. Only log the FIRST subscribed remote audio
-            // track per go-live, measured from when room.connect() resolved.
-            if (!_goLiveFirstSubscribeLogged &&
-                event.publication.kind == TrackType.AUDIO) {
-              _goLiveFirstSubscribeLogged = true;
-              final startedAt = _goLiveConnectResolvedAtMs;
-              if (startedAt != null) {
-                _goLiveStepEnd(
-                  6,
-                  'Remote participant (sender) detected / subscribed — '
-                  'identity=${event.participant.identity}',
-                  startedAt,
-                );
-              }
-            }
             if (_audioMuted && event.publication.kind == TrackType.AUDIO) {
               unawaited(AudioOutputBridge.applyRemotePlaybackMute(_room, true));
             }
@@ -458,20 +437,6 @@ mixin _IdentityHomeLiveKit on _IdentityHomeBase {
             final hasRemoteSpeaker = speaking.any(
               (id) => id != _session.userId,
             );
-            // [DEBUG] Go-live latency tracing added Aug 12. Remove before
-            // production release. Only log the FIRST remote-speaking moment per
-            // go-live, measured from when room.connect() resolved.
-            if (!_goLiveFirstAudioLogged && hasRemoteSpeaker) {
-              _goLiveFirstAudioLogged = true;
-              final startedAt = _goLiveConnectResolvedAtMs;
-              if (startedAt != null) {
-                _goLiveStepEnd(
-                  7,
-                  'Audio track from sender is playing — first remote speaker detected',
-                  startedAt,
-                );
-              }
-            }
             if (hasRemoteSpeaker || speaking.contains(_session.userId)) {
               _recordVoiceActivity();
             }
@@ -574,10 +539,14 @@ mixin _IdentityHomeLiveKit on _IdentityHomeBase {
     if (session == null || _connectionCleanupInFlight) return;
     _connectionCleanupInFlight = true;
 
-    debugPrint(
-      '[LiveKit] Connection loss — reason="$message" '
-      'groupId=${session.groupId}',
+    LogManager.log(
+      LogLevel.warn,
+      'LiveKitManager',
+      'Connection loss reason=$message',
+      userId: session.userId,
+      groupId: session.groupId,
     );
+    _completeLiveKitSession(groupId: session.groupId, reason: 'network_loss');
 
     final talkSession = _talkSession;
     _heartbeatTimer?.cancel();
@@ -666,6 +635,34 @@ mixin _IdentityHomeLiveKit on _IdentityHomeBase {
   }
 
   @override
+  void _completeLiveKitSession({required String groupId, String? reason}) {
+    final startedAt = _liveKitConnectedAt;
+    _liveKitConnectedAt = null;
+    if (startedAt == null) return;
+    final durationSeconds = DateTime.now().difference(startedAt).inSeconds;
+    final participantCount = 1 + (_room?.remoteParticipants.length ?? 0);
+    unawaited(
+      AnalyticsService.logLiveKitSessionEnded(
+        groupId: groupId,
+        durationSeconds: durationSeconds,
+        participantCount: participantCount,
+      ),
+    );
+    OperationalLog.record(
+      event: OperationalLog.eventSessionEnd,
+      eventType: OperationalLog.eventTypeLiveKit,
+      status: 'ended',
+      userId: _session.userId,
+      groupId: groupId,
+      debugMetadata: {
+        'duration': durationSeconds,
+        'participant_count': participantCount,
+        if (reason != null) 'reason': reason,
+      },
+    );
+  }
+
+  @override
   Future<void> _disconnectLiveKit({bool urgent = false}) async {
     final room = _room;
     _room = null;
@@ -681,11 +678,17 @@ mixin _IdentityHomeLiveKit on _IdentityHomeBase {
     unawaited(AudioOutputBridge.setProximityMonitoring(false));
 
     if (room != null) {
-      debugPrint(
-        '[LiveKit] Disconnecting room — '
-        'localParticipant=${room.localParticipant?.identity ?? "none"} '
-        'remoteParticipants=${room.remoteParticipants.length} '
-        'urgent=$urgent',
+      OperationalLog.record(
+        event: OperationalLog.eventDisconnect,
+        eventType: OperationalLog.eventTypeLiveKit,
+        status: 'disconnecting',
+        userId: _session.userId,
+        groupId: _onlineSession?.groupId ?? _selectedGroup?.groupId,
+        debugMetadata: {
+          'remote_participants': room.remoteParticipants.length,
+          'urgent': urgent,
+        },
+        level: LogLevel.warn,
       );
     }
 
@@ -746,6 +749,12 @@ mixin _IdentityHomeLiveKit on _IdentityHomeBase {
       userId: _session.userId,
       groupId: session?.groupId ?? _selectedGroup?.groupId,
     );
+    if (session != null) {
+      _completeLiveKitSession(
+        groupId: session.groupId,
+        reason: 'process_killed',
+      );
+    }
     try {
       await _disconnectLiveKit(urgent: true);
     } catch (_) {}

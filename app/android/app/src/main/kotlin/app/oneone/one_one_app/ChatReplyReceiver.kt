@@ -139,7 +139,7 @@ class ChatReplyReceiver : BroadcastReceiver() {
             val data = snapshot.value as? Map<*, *> ?: return null
             val photoUrl = data["profilePhotoUrl"]?.toString()?.trim()?.takeIf { it.isNotEmpty() }
             val avatarAsset = data["avatarAsset"]?.toString()?.trim()?.takeIf { path ->
-                path.startsWith("assets/avatars/") || path.startsWith("assets/avatars2/")
+                NotificationAvatarHelper.isBundledAvatarPath(path)
             }
             ProfileFields(photoUrl = photoUrl, avatarAsset = avatarAsset)
         } catch (_: Exception) {

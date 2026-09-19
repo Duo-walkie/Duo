@@ -230,6 +230,29 @@ class NudgeRepository {
         'audioBytes=${audio.length} elapsedMs=${flowWatch.elapsedMilliseconds} '
         '${error.runtimeType}: $error',
       );
+      final reachability = NudgeReachability.fromSendError(error);
+      unawaited(
+        AnalyticsService.logNudgeFailed(
+          groupId: groupId,
+          kind: 'voice',
+          failureReason: reachability,
+          deliveryMethod: 'fcm',
+        ),
+      );
+      OperationalLog.record(
+        event: OperationalLog.eventNudgeFailed,
+        eventType: OperationalLog.eventTypeNudge,
+        status: reachability,
+        error: error.toString(),
+        groupId: groupId,
+        level: LogLevel.error,
+        debugMetadata: {
+          'nudge_type': 'voice',
+          'send_status': 'failed',
+          'checkpoint': 'voice_nudge_upload',
+          'audio_bytes': audio.length,
+        },
+      );
       LogManager.log(
         LogLevel.error,
         'NudgeService',
@@ -281,20 +304,97 @@ class NudgeRepository {
     String? groupId,
     String? kind,
   }) {
+    final nudgeType = switch (kind) {
+      'ring_nudge' => 'ring',
+      'voice_nudge' => 'voice',
+      'nudge' => 'push',
+      _ => kind,
+    };
     final recipientUsers = _readCount(response['recipientUsers']);
     final targetDevices = _readCount(response['targetDevices']);
     final sent = _readCount(response['sent']);
     if (recipientUsers == 0) {
+      unawaited(
+        AnalyticsService.logNudgeFailed(
+          groupId: groupId ?? '',
+          kind: nudgeType,
+          failureReason: NudgeReachability.deviceUnreachable,
+          deliveryMethod: 'fcm',
+        ),
+      );
+      OperationalLog.record(
+        event: OperationalLog.eventNudgeFailed,
+        eventType: OperationalLog.eventTypeNudge,
+        status: NudgeReachability.deviceUnreachable,
+        error: 'no_recipients',
+        groupId: groupId,
+        level: LogLevel.warn,
+        debugMetadata: {
+          'nudge_type': kind,
+          'send_status': 'failed',
+          'unreachable_reason': 'no_active_friends',
+        },
+      );
       throw const NudgeDeliveryException(
         'No active friends were found for this nudge.',
+        code: NudgeDeliveryFailureCode.noRecipients,
       );
     }
     if (targetDevices == 0) {
+      unawaited(
+        AnalyticsService.logNudgeFailed(
+          groupId: groupId ?? '',
+          kind: nudgeType,
+          failureReason: NudgeReachability.deviceUnreachable,
+          deliveryMethod: 'fcm',
+        ),
+      );
+      OperationalLog.record(
+        event: OperationalLog.eventNudgeFailed,
+        eventType: OperationalLog.eventTypeNudge,
+        status: NudgeReachability.deviceUnreachable,
+        error: 'no_registered_device',
+        groupId: groupId,
+        level: LogLevel.warn,
+        debugMetadata: {
+          'nudge_type': kind,
+          'send_status': 'failed',
+          'unreachable_reason': 'no_registered_device',
+          'likely_cause': 'wrong_account_or_missing_fcm',
+        },
+      );
       throw const NudgeDeliveryException(
-        'The recipient has no registered Android device. Ask them to open Duo once.',
+        UserFacingCopy.recipientDeviceUnavailable,
+        code: NudgeDeliveryFailureCode.noRegisteredDevice,
       );
     }
     if (sent == 0) {
+      unawaited(
+        AnalyticsService.logNudgeFailed(
+          groupId: groupId ?? '',
+          kind: nudgeType,
+          failureReason: NudgeReachability.deviceUnreachable,
+          deliveryMethod: 'fcm',
+        ),
+      );
+      OperationalLog.record(
+        event: OperationalLog.eventNudgeFailed,
+        eventType: OperationalLog.eventTypeNudge,
+        status: NudgeReachability.deviceUnreachable,
+        error: 'fcm_not_delivered',
+        groupId: groupId,
+        nudgeId: response['notificationEventId']?.toString(),
+        level: LogLevel.error,
+        debugMetadata: {
+          'nudge_type': kind,
+          'send_status': 'failed',
+          'delivery_status': 'fcm_rejected',
+          'recipient_users': recipientUsers,
+          'target_devices': targetDevices,
+          'unreachable_reason': 'fcm_rejected',
+          'likely_cause': 'wrong_account_or_stale_fcm',
+        },
+      );
       unawaited(
         CrashlyticsService.recordFcmNotificationHandlingFailure(
           error: StateError(
@@ -304,21 +404,29 @@ class NudgeRepository {
           worker: 'FCM-BE-W1',
           groupId: groupId,
           eventId: response['notificationEventId']?.toString(),
-          kind: kind,
+          kind: nudgeType,
         ),
       );
       throw const NudgeDeliveryException(
         UserFacingCopy.notificationDeliveryFailure,
+        code: NudgeDeliveryFailureCode.fcmNotDelivered,
       );
     }
     return response;
   }
 }
 
+abstract final class NudgeDeliveryFailureCode {
+  static const noRecipients = 'no_recipients';
+  static const noRegisteredDevice = 'no_registered_device';
+  static const fcmNotDelivered = 'fcm_not_delivered';
+}
+
 class NudgeDeliveryException implements Exception {
-  const NudgeDeliveryException(this.message);
+  const NudgeDeliveryException(this.message, {this.code});
 
   final String message;
+  final String? code;
 
   @override
   String toString() => message;

@@ -26,6 +26,11 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>googlegmail</string>
+		<string>mailto</string>
+	</array>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Choose and crop a profile picture to share with your groups.</string>
 	<key>UIApplicationSceneManifest</key>

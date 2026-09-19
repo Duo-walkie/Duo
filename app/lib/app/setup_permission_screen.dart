@@ -45,53 +45,84 @@ class _StepVisual {
 /// Icon colors are picked to match the dominant tone of each onboarding
 /// background image so the CTA card feels native to the artwork behind it.
 ///
-/// Screen 1 (green) and screen 3 (mustard) wrap their artwork in a box
-/// painted with the illustration's own backdrop so the contained image
-/// blends into the letterbox. Screen 2 (purple) stays contained at full
-/// size with a matching purple letterbox.
-const Map<_SetupStep, _StepVisual> _stepVisuals = {
-  _SetupStep.mic: _StepVisual(
-    iconColor: Color(0xff8fa83e),
-    icon: Icons.mic_rounded,
-    backgroundAsset: 'assets/Onboarding1.png',
-    imageWidth: 848,
-    imageHeight: 1264,
-    // Screen 1 — uniform lime green (rgb 139,161,80).
-    boxTopColor: Color(0xff8BA150),
-    boxBottomColor: Color(0xff8BA150),
-  ),
-  _SetupStep.notification: _StepVisual(
-    iconColor: Color(0xff7a4fc9),
-    icon: Icons.notifications_rounded,
-    backgroundAsset: 'assets/Onboarding3.png',
-    imageWidth: 712,
-    imageHeight: 1264,
-    // Screen 2 — uniform purple (rgb 95,40,121). Full contain, no extra inset.
-    boxTopColor: Color(0xff5F2879),
-    boxBottomColor: Color(0xff5F2879),
-  ),
-  _SetupStep.background: _StepVisual(
-    iconColor: Color(0xffdb8a1e),
-    icon: Icons.battery_saver_rounded,
-    backgroundAsset: 'assets/Onboarding2.png',
-    imageWidth: 816,
-    imageHeight: 1287,
-    // Screen 3 — mustard yellow (rgb 209,139,9). Scale below 1 so the
-    // illustration sits with a matching yellow border around it.
-    boxTopColor: Color(0xffD18B09),
-    boxBottomColor: Color(0xffD18B09),
-    containScale: 0.78,
-  ),
-};
+/// Screen 1 (green) and screen 3 wrap their artwork in a box painted with
+/// the illustration's own backdrop so the contained image blends into the
+/// letterbox. Screen 2 (purple) stays contained at full size with a matching
+/// purple letterbox.
+///
+/// Screen 3 swaps to [MarketSnapshot.permissionSetupScreen3Asset] for
+/// Play markets outside India (`abroad_onboarding3.png`, forest green).
+Map<_SetupStep, _StepVisual> _stepVisualsFor(MarketSnapshot snapshot) {
+  final screen3Abroad = snapshot.usesAbroadOnboardingArt;
+  return {
+    _SetupStep.mic: _micStepVisual,
+    _SetupStep.notification: const _StepVisual(
+      iconColor: Color(0xff7a4fc9),
+      icon: Icons.notifications_rounded,
+      backgroundAsset: 'assets/Onboarding3.png',
+      imageWidth: 712,
+      imageHeight: 1264,
+      // Screen 2 — uniform purple (rgb 95,40,121). Full contain, no extra inset.
+      boxTopColor: Color(0xff5F2879),
+      boxBottomColor: Color(0xff5F2879),
+    ),
+    _SetupStep.background: _StepVisual(
+      // Abroad forest-green art; India mustard yellow.
+      iconColor: Color(screen3Abroad ? 0xff1C5336 : 0xffE9A51C),
+      icon: Icons.battery_saver_rounded,
+      backgroundAsset: snapshot.permissionSetupScreen3Asset,
+      // Abroad art is 572×1024; India art is 816×1287.
+      imageWidth: screen3Abroad ? 572 : 816,
+      imageHeight: screen3Abroad ? 1024 : 1287,
+      // Screen 3 — letterbox matches each illustration's backdrop.
+      // Abroad: forest green (#1C5336). India: mustard (#E9A51C).
+      boxTopColor: Color(screen3Abroad ? 0xff1C5336 : 0xffE9A51C),
+      boxBottomColor: Color(screen3Abroad ? 0xff1C5336 : 0xffE9A51C),
+      containScale: 0.78,
+    ),
+  };
+}
 
 class SetupPermissionScreen extends StatefulWidget {
   const SetupPermissionScreen({super.key, required this.onComplete});
+
+  /// Letterbox / scaffold color for the mic step (`Onboarding1.png`).
+  /// Used by [StartupGateScreen] as a post-auth loading underlay so the
+  /// handoff from Google sign-in does not flash brand yellow.
+  static const firstStepBackgroundColor = Color(0xff8BA150);
+
+  /// Mic-step chrome (art + CTA + footnote) shown while identity resolves
+  /// after Google sign-in. Matches the first interactive permissions frame
+  /// so the mic button is already on-screen when setup finishes loading.
+  static Widget firstStepUnderlay(BuildContext context) {
+    return _SetupPermissionStepChrome(
+      visual: _micStepVisual,
+      title: context.l10n.permissionMicTitle,
+      subtitle: context.l10n.permissionMicSubtitle,
+      footnote: context.l10n.permissionFootnote,
+      checked: false,
+      // Non-interactive: identity may still be resolving.
+      onTap: null,
+    );
+  }
 
   final Future<void> Function() onComplete;
 
   @override
   State<SetupPermissionScreen> createState() => _SetupPermissionScreenState();
 }
+
+/// Fixed mic-step art — independent of [MarketSnapshot] so the post-auth
+/// underlay can paint before market sync completes.
+const _micStepVisual = _StepVisual(
+  iconColor: Color(0xff8fa83e),
+  icon: Icons.mic_rounded,
+  backgroundAsset: 'assets/Onboarding1.png',
+  imageWidth: 848,
+  imageHeight: 1264,
+  boxTopColor: Color(0xff8BA150),
+  boxBottomColor: Color(0xff8BA150),
+);
 
 class _SetupPermissionScreenState extends State<SetupPermissionScreen>
     with WidgetsBindingObserver {
@@ -216,7 +247,7 @@ class _SetupPermissionScreenState extends State<SetupPermissionScreen>
       if (!mounted) return;
       _completed = false;
       setState(() => _busy = false);
-      _showDeniedSnackBar('Setup could not be completed. Please try again.');
+      _showDeniedSnackBar(context.l10n.permissionSetupFailed);
     }
   }
 
@@ -235,131 +266,122 @@ class _SetupPermissionScreenState extends State<SetupPermissionScreen>
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  /// Backdrop used to fill the screen around a contained illustration.
-  /// Falls back to black for full-bleed `cover` steps.
-  Color _backdropColor(_StepVisual visual) =>
-      visual.boxTopColor ?? const Color(0xff000000);
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<MarketSnapshot>(
+      valueListenable: MarketController.snapshot,
+      builder: (context, snapshot, _) {
+        final visual = _stepVisualsFor(snapshot)[_step]!;
+        final (title, subtitle, checked, onTap, cardKey) = switch (_step) {
+          _SetupStep.mic => (
+            context.l10n.permissionMicTitle,
+            context.l10n.permissionMicSubtitle,
+            _micGranted,
+            _requestMicPermission,
+            const ValueKey('mic-card'),
+          ),
+          _SetupStep.notification => (
+            context.l10n.permissionNotificationsTitle,
+            context.l10n.permissionNotificationsSubtitle,
+            _notificationGranted,
+            _requestNotificationPermission,
+            const ValueKey('notification-card'),
+          ),
+          _SetupStep.background => (
+            context.l10n.permissionBackgroundTitle,
+            context.l10n.permissionBackgroundSubtitle,
+            _backgroundGranted,
+            _requestBackgroundPermission,
+            const ValueKey('background-card'),
+          ),
+        };
 
-  /// Renders the step's artwork.
-  ///
-  /// Screens with a [boxTopColor]/[boxBottomColor] pair wrap their artwork in
-  /// a box painted with the illustration's own backdrop color, fitted with
-  /// `BoxFit.contain` (and optional [containScale] inset).
-  /// When top and bottom colors differ, a vertical gradient is aligned to
-  /// the contained image's edges. Screens without a box keep the full-bleed
-  /// `BoxFit.cover` and only apply a horizontal [shiftX] offset.
-  Widget _buildStepBackground(_StepVisual visual) {
-    final hasBox =
-        visual.boxTopColor != null && visual.boxBottomColor != null;
-    if (!hasBox) {
-      Widget image = Image.asset(
-        visual.backgroundAsset,
-        key: ValueKey(visual.backgroundAsset),
-        fit: BoxFit.cover,
-        width: double.infinity,
-        height: double.infinity,
-        alignment: Alignment.center,
-      );
-      if (visual.shiftX != 0) {
-        image = Transform.translate(
-          offset: Offset(visual.shiftX, 0),
-          child: image,
+        return _SetupPermissionStepChrome(
+          visual: visual,
+          title: title,
+          subtitle: subtitle,
+          footnote: context.l10n.permissionFootnote,
+          checked: checked,
+          onTap: onTap,
+          cardKey: cardKey,
+          animateBackground: true,
+          animateCard: true,
+          transitionDuration: _stageTransitionDuration,
         );
-      }
-      return KeyedSubtree(
-        key: ValueKey(visual.backgroundAsset),
-        child: image,
-      );
-    }
-
-    return KeyedSubtree(
-      key: ValueKey(visual.backgroundAsset),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final maxWidth = constraints.maxWidth.isFinite
-              ? constraints.maxWidth
-              : MediaQuery.sizeOf(context).width;
-          final maxHeight = constraints.maxHeight.isFinite
-              ? constraints.maxHeight
-              : MediaQuery.sizeOf(context).height;
-          final scale = min(
-                maxWidth / visual.imageWidth,
-                maxHeight / visual.imageHeight,
-              ) *
-              visual.containScale;
-          final displayedWidth = visual.imageWidth * scale;
-          final displayedHeight = visual.imageHeight * scale;
-          final topBand = (maxHeight - displayedHeight) / 2;
-          final usesGradient = visual.boxTopColor != visual.boxBottomColor;
-          return ColoredBox(
-            color: visual.boxTopColor!,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: usesGradient
-                    ? LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          visual.boxTopColor!,
-                          visual.boxBottomColor!,
-                        ],
-                        stops: [
-                          topBand / maxHeight,
-                          (topBand + displayedHeight) / maxHeight,
-                        ],
-                      )
-                    : null,
-              ),
-              child: Center(
-                child: SizedBox(
-                  width: displayedWidth,
-                  height: displayedHeight,
-                  child: Image.asset(
-                    visual.backgroundAsset,
-                    fit: BoxFit.fill,
-                    width: displayedWidth,
-                    height: displayedHeight,
-                    gaplessPlayback: true,
-                  ),
-                ),
-              ),
-            ),
-          );
-        },
-      ),
+      },
     );
   }
+}
+
+/// Shared layout for a single permissions step (and the post-auth underlay).
+class _SetupPermissionStepChrome extends StatelessWidget {
+  const _SetupPermissionStepChrome({
+    required this.visual,
+    required this.title,
+    required this.subtitle,
+    required this.footnote,
+    required this.checked,
+    required this.onTap,
+    this.cardKey,
+    this.animateBackground = false,
+    this.animateCard = false,
+    this.transitionDuration = Duration.zero,
+  });
+
+  final _StepVisual visual;
+  final String title;
+  final String subtitle;
+  final String footnote;
+  final bool checked;
+  final VoidCallback? onTap;
+  final Key? cardKey;
+  final bool animateBackground;
+  final bool animateCard;
+  final Duration transitionDuration;
+
+  Color get _backdrop => visual.boxTopColor ?? const Color(0xff000000);
 
   @override
   Widget build(BuildContext context) {
-    final visual = _stepVisuals[_step]!;
-    final backdrop = _backdropColor(visual);
+    final background = _buildStepBackground(visual);
+    final card = _PermissionCard(
+      key: cardKey,
+      iconColor: visual.iconColor,
+      icon: visual.icon,
+      title: title,
+      subtitle: subtitle,
+      checked: checked,
+      onTap: onTap,
+    );
 
     return Scaffold(
-      backgroundColor: backdrop,
+      backgroundColor: _backdrop,
       body: Stack(
         fit: StackFit.expand,
         children: [
-          Positioned.fill(child: ColoredBox(color: backdrop)),
-          AnimatedSwitcher(
-            duration: _stageTransitionDuration,
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeInCubic,
-            layoutBuilder: (currentChild, previousChildren) {
-              return Stack(
-                fit: StackFit.expand,
-                alignment: Alignment.center,
-                children: [
-                  ...previousChildren,
-                  if (currentChild != null) currentChild,
-                ],
-              );
-            },
-            transitionBuilder: (child, animation) {
-              return FadeTransition(opacity: animation, child: child);
-            },
-            child: _buildStepBackground(visual),
-          ),
+          Positioned.fill(child: ColoredBox(color: _backdrop)),
+          if (animateBackground)
+            AnimatedSwitcher(
+              duration: transitionDuration,
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              layoutBuilder: (currentChild, previousChildren) {
+                return Stack(
+                  fit: StackFit.expand,
+                  alignment: Alignment.center,
+                  children: [
+                    ...previousChildren,
+                    ?currentChild,
+                  ],
+                );
+              },
+              transitionBuilder: (child, animation) {
+                return FadeTransition(opacity: animation, child: child);
+              },
+              child: background,
+            )
+          else
+            background,
           // Bottom scrim so the CTA card and footnote stay legible over
           // whatever part of the artwork ends up behind them.
           Positioned(
@@ -388,57 +410,31 @@ class _SetupPermissionScreenState extends State<SetupPermissionScreen>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  AnimatedSwitcher(
-                    duration: _stageTransitionDuration,
-                    switchInCurve: Curves.easeOutCubic,
-                    switchOutCurve: Curves.easeInCubic,
-                    transitionBuilder: (child, animation) {
-                      final offsetAnimation = Tween<Offset>(
-                        begin: const Offset(0.12, 0),
-                        end: Offset.zero,
-                      ).animate(animation);
-                      return FadeTransition(
-                        opacity: animation,
-                        child: SlideTransition(
-                          position: offsetAnimation,
-                          child: child,
-                        ),
-                      );
-                    },
-                    child: switch (_step) {
-                      _SetupStep.mic => _PermissionCard(
-                        key: const ValueKey('mic-card'),
-                        iconColor: visual.iconColor,
-                        icon: visual.icon,
-                        title: 'mic',
-                        subtitle:
-                            'so your friends can hear you\nwhen you talk...',
-                        checked: _micGranted,
-                        onTap: _requestMicPermission,
-                      ),
-                      _SetupStep.notification => _PermissionCard(
-                        key: const ValueKey('notification-card'),
-                        iconColor: visual.iconColor,
-                        icon: visual.icon,
-                        title: 'notifications',
-                        subtitle: 'know when your friends are\ntalking to you',
-                        checked: _notificationGranted,
-                        onTap: _requestNotificationPermission,
-                      ),
-                      _SetupStep.background => _PermissionCard(
-                        key: const ValueKey('background-card'),
-                        iconColor: visual.iconColor,
-                        icon: visual.icon,
-                        title: 'background activity',
-                        subtitle: 'receive nudges when duo\nisn\'t open',
-                        checked: _backgroundGranted,
-                        onTap: _requestBackgroundPermission,
-                      ),
-                    },
-                  ),
+                  if (animateCard)
+                    AnimatedSwitcher(
+                      duration: transitionDuration,
+                      switchInCurve: Curves.easeOutCubic,
+                      switchOutCurve: Curves.easeInCubic,
+                      transitionBuilder: (child, animation) {
+                        final offsetAnimation = Tween<Offset>(
+                          begin: const Offset(0.12, 0),
+                          end: Offset.zero,
+                        ).animate(animation);
+                        return FadeTransition(
+                          opacity: animation,
+                          child: SlideTransition(
+                            position: offsetAnimation,
+                            child: child,
+                          ),
+                        );
+                      },
+                      child: card,
+                    )
+                  else
+                    card,
                   SizedBox(height: 16.h),
                   Text(
-                    '*we need those for duo to work',
+                    footnote,
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: const Color.fromRGBO(255, 255, 255, 0.72),
@@ -457,6 +453,90 @@ class _SetupPermissionScreenState extends State<SetupPermissionScreen>
   }
 }
 
+/// Renders the step's artwork.
+///
+/// Screens with a [boxTopColor]/[boxBottomColor] pair wrap their artwork in
+/// a box painted with the illustration's own backdrop color, fitted with
+/// `BoxFit.contain` (and optional [containScale] inset).
+/// When top and bottom colors differ, a vertical gradient is aligned to
+/// the contained image's edges. Screens without a box keep the full-bleed
+/// `BoxFit.cover` and only apply a horizontal [shiftX] offset.
+Widget _buildStepBackground(_StepVisual visual) {
+  final hasBox = visual.boxTopColor != null && visual.boxBottomColor != null;
+  if (!hasBox) {
+    Widget image = Image.asset(
+      visual.backgroundAsset,
+      key: ValueKey(visual.backgroundAsset),
+      fit: BoxFit.cover,
+      width: double.infinity,
+      height: double.infinity,
+      alignment: Alignment.center,
+    );
+    if (visual.shiftX != 0) {
+      image = Transform.translate(
+        offset: Offset(visual.shiftX, 0),
+        child: image,
+      );
+    }
+    return KeyedSubtree(key: ValueKey(visual.backgroundAsset), child: image);
+  }
+
+  return KeyedSubtree(
+    key: ValueKey(visual.backgroundAsset),
+    child: LayoutBuilder(
+      builder: (context, constraints) {
+        final maxWidth = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : MediaQuery.sizeOf(context).width;
+        final maxHeight = constraints.maxHeight.isFinite
+            ? constraints.maxHeight
+            : MediaQuery.sizeOf(context).height;
+        final scale =
+            min(
+              maxWidth / visual.imageWidth,
+              maxHeight / visual.imageHeight,
+            ) *
+            visual.containScale;
+        final displayedWidth = visual.imageWidth * scale;
+        final displayedHeight = visual.imageHeight * scale;
+        final topBand = (maxHeight - displayedHeight) / 2;
+        final usesGradient = visual.boxTopColor != visual.boxBottomColor;
+        return ColoredBox(
+          color: visual.boxTopColor!,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: usesGradient
+                  ? LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [visual.boxTopColor!, visual.boxBottomColor!],
+                      stops: [
+                        topBand / maxHeight,
+                        (topBand + displayedHeight) / maxHeight,
+                      ],
+                    )
+                  : null,
+            ),
+            child: Center(
+              child: SizedBox(
+                width: displayedWidth,
+                height: displayedHeight,
+                child: Image.asset(
+                  visual.backgroundAsset,
+                  fit: BoxFit.fill,
+                  width: displayedWidth,
+                  height: displayedHeight,
+                  gaplessPlayback: true,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    ),
+  );
+}
+
 class _PermissionCard extends StatelessWidget {
   const _PermissionCard({
     super.key,
@@ -473,7 +553,7 @@ class _PermissionCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final bool checked;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {

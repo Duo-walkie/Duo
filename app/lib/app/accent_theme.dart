@@ -10,6 +10,22 @@ class AccentOption {
   final String key;
   final String label;
   final Color color;
+
+  String localizedLabel(AppLocalizations l10n) => switch (key) {
+    'coral' => l10n.accentCoral,
+    'lime' => l10n.accentLime,
+    'sky' => l10n.accentSky,
+    'violet' => l10n.accentViolet,
+    'amber' => l10n.accentAmber,
+    'pink' => l10n.accentPink,
+    'teal' => l10n.accentTeal,
+    'indigo' => l10n.accentIndigo,
+    'orange' => l10n.accentOrange,
+    'mint' => l10n.accentMint,
+    'yellow' => l10n.accentYellow,
+    'cyan' => l10n.accentCyan,
+    _ => label,
+  };
 }
 
 const List<AccentOption> accentOptions = [

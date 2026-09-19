@@ -365,6 +365,34 @@ mixin _NudgeSheetDelivery on _NudgeSheetStateBase {
       // Active wait: still check whether everyone is done (e.g. RTDB replay).
     } else {
       _resultsByUserId[matchedId] = result;
+      if (!result.played) {
+        final reachability = NudgeReachability.fromReportedReason(result.reason);
+        unawaited(
+          AnalyticsService.logNudgeFailed(
+            groupId: widget.group.groupId,
+            kind: _lastSentNudgeKind?.name,
+            failureReason: reachability,
+            deliveryMethod: 'fcm',
+          ),
+        );
+        OperationalLog.record(
+          event: OperationalLog.eventNudgeFailed,
+          eventType: OperationalLog.eventTypeNudge,
+          status: reachability,
+          error: result.reason,
+          sender: widget.currentUserId,
+          receiver: matchedId,
+          groupId: widget.group.groupId,
+          nudgeId: result.eventId,
+          level: LogLevel.warn,
+          debugMetadata: {
+            'nudge_type': _lastSentNudgeKind?.name,
+            'send_status': 'sent',
+            'delivery_status': result.status,
+            'source': source,
+          },
+        );
+      }
     }
 
     if (isLateForLast) {
@@ -692,6 +720,31 @@ mixin _NudgeSheetDelivery on _NudgeSheetStateBase {
           reason: timedOut ? 'timeout' : 'unknown',
           recipientUserId: pending.userId,
           recipientName: pending.displayName,
+        );
+        final reachability = NudgeReachability.fromMissingAck(timedOut: timedOut);
+        unawaited(
+          AnalyticsService.logNudgeFailed(
+            groupId: widget.group.groupId,
+            kind: _lastSentNudgeKind?.name,
+            failureReason: reachability,
+            deliveryMethod: 'fcm',
+          ),
+        );
+        OperationalLog.record(
+          event: OperationalLog.eventNudgeFailed,
+          eventType: OperationalLog.eventTypeNudge,
+          status: reachability,
+          error: timedOut ? 'timeout' : 'unknown',
+          sender: widget.currentUserId,
+          receiver: pending.userId,
+          groupId: widget.group.groupId,
+          nudgeId: eventId,
+          level: LogLevel.warn,
+          debugMetadata: {
+            'nudge_type': _lastSentNudgeKind?.name,
+            'send_status': 'sent',
+            'delivery_status': reachability,
+          },
         );
       }
     }

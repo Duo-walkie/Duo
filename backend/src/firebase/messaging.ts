@@ -20,6 +20,7 @@ export async function sendPushToTokens(payload: PushPayload) {
     };
   }
 
+  const analyticsLabel = analyticsLabelFor(payload.data?.type, "notification");
   const messages: Message[] = payload.tokens.map((target) => ({
     ...messageTarget(target),
     notification: {
@@ -27,8 +28,10 @@ export async function sendPushToTokens(payload: PushPayload) {
       body: payload.body
     },
     data: payload.data,
+    fcmOptions: { analyticsLabel },
     android: {
       priority: "high",
+      fcmOptions: { analyticsLabel },
       notification: {
         channelId: "walkie_alerts_v2",
         icon: "ic_notification_app",
@@ -55,16 +58,29 @@ export async function sendAndroidDataPushes(pushes: AndroidDataPush[], ttlMs: nu
     };
   }
 
-  const messages: Message[] = pushes.map((push) => ({
-    ...messageTarget(push.token),
-    data: push.data,
-    android: {
-      priority: "high",
-      ttl: ttlMs
-    }
-  }));
+  const messages: Message[] = pushes.map((push) => {
+    const analyticsLabel = analyticsLabelFor(push.data.type, "android-data");
+    return {
+      ...messageTarget(push.token),
+      data: push.data,
+      fcmOptions: { analyticsLabel },
+      android: {
+        priority: "high" as const,
+        ttl: ttlMs,
+        fcmOptions: { analyticsLabel }
+      }
+    };
+  });
 
   return sendMessagesWithDiagnostics(messages, "android-data");
+}
+
+/** FCM Messaging Reports only count data messages that carry an analytics label.
+ * Labels must match ^[a-zA-Z0-9-_.~%]{1,50}$; keep under 100 unique/day. */
+function analyticsLabelFor(type: string | undefined, fallback: string): string {
+  const raw = (type?.trim() || fallback).slice(0, 50);
+  const sanitized = raw.replace(/[^a-zA-Z0-9-_.~%]/g, "_");
+  return sanitized.length > 0 ? sanitized : fallback;
 }
 
 function logEmptyBatch(operation: string) {

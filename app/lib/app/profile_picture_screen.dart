@@ -6,11 +6,16 @@ class ProfilePictureScreen extends StatefulWidget {
     required this.session,
     required this.identityRepository,
     required this.onComplete,
+    this.refreshRetiredAvatar = false,
   });
 
   final IdentitySession session;
   final IdentityRepository identityRepository;
   final Future<void> Function(IdentitySession session) onComplete;
+
+  /// Returning users whose stored avatar was retired. Same picker, different
+  /// copy — they must pick a current avatar before continuing.
+  final bool refreshRetiredAvatar;
 
   @override
   State<ProfilePictureScreen> createState() => _ProfilePictureScreenState();
@@ -57,7 +62,9 @@ class _ProfilePictureScreenState extends State<ProfilePictureScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'choose an avatar',
+                widget.refreshRetiredAvatar
+                    ? context.l10n.chooseAvatarRefreshTitle
+                    : context.l10n.chooseAvatarTitle,
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Colors.white,
@@ -67,7 +74,9 @@ class _ProfilePictureScreenState extends State<ProfilePictureScreen> {
               ),
               SizedBox(height: 8.h),
               Text(
-                'You can add a custom photo later in Settings.',
+                widget.refreshRetiredAvatar
+                    ? context.l10n.chooseAvatarRefreshSubtitle
+                    : context.l10n.chooseAvatarSubtitle,
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.white60, fontSize: 13.sp),
               ),
@@ -93,7 +102,30 @@ class _ProfilePictureScreenState extends State<ProfilePictureScreen> {
                   },
                 ),
               ),
-              SizedBox(height: 16.h),
+              SizedBox(height: 10.h),
+              Transform.rotate(
+                angle: -0.04,
+                child: Text(
+                  context.l10n.chooseAvatarComingSoon,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: _accent,
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.4,
+                    height: 1.15,
+                    fontStyle: FontStyle.italic,
+                    shadows: [
+                      Shadow(
+                        color: _accent.withValues(alpha: 0.45),
+                        blurRadius: 14,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              SizedBox(height: 14.h),
               FilledButton(
                 onPressed: _selected == null || _saving ? null : _continue,
                 style: FilledButton.styleFrom(

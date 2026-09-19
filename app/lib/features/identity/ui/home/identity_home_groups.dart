@@ -20,8 +20,12 @@ mixin _IdentityHomeGroups on _IdentityHomeBase {
           .listen((event) => unawaited(_handleUserGroupsChanged(event)));
 
       if (groups.isEmpty && (ModalRoute.of(context)?.isCurrent ?? true)) {
+        if (widget.identityRepository.isSessionTeardownInProgress) return;
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
+          if (!mounted ||
+              widget.identityRepository.isSessionTeardownInProgress) {
+            return;
+          }
           unawaited(_replaceWithNoGroups());
         });
         return;
@@ -59,6 +63,7 @@ mixin _IdentityHomeGroups on _IdentityHomeBase {
         }
       });
       _syncDuoWidget();
+      _syncWidgetAvailabilityListeners();
       LogManager.setIdentity(groupId: selected?.groupId ?? '');
       if (selected != null) {
         unawaited(AppTelemetry.setActiveGroup(selected.groupId));
@@ -88,9 +93,16 @@ mixin _IdentityHomeGroups on _IdentityHomeBase {
       if (mounted && _loadingGroups) {
         setState(() => _loadingGroups = false);
         logStartupMilestone('Home data interactive', stopwatch);
-        unawaited(_takePendingNudgeAction());
-        unawaited(_takePendingInviteLink());
         unawaited(_clearOpenedChatPiles());
+        // Invite join should not wait on trial/voice access sync — start it
+        // immediately so deep-linked users land in the group faster.
+        unawaited(_takePendingInviteLink());
+        unawaited(
+          _syncLiveVoiceAccess().then((_) async {
+            if (!mounted) return;
+            await _takePendingNudgeAction();
+          }),
+        );
         final pendingGroupIds = _pendingUserGroupIds;
         _pendingUserGroupIds = null;
         if (pendingGroupIds != null) {
@@ -115,19 +127,39 @@ mixin _IdentityHomeGroups on _IdentityHomeBase {
 
   Future<void> _handleIndexedGroupsChanged(Set<String> indexedGroupIds) async {
     if (!mounted) return;
+    // Account deletion purges userGroups while Settings is still open. Do not
+    // pop that route or replace the auth gate with NoGroups — that strands
+    // the user on a stale profile screen after auth is wiped.
+    if (widget.identityRepository.isSessionTeardownInProgress) return;
     final loadedGroupIds = _groups.map((group) => group.groupId).toSet();
     if (indexedGroupIds.length == loadedGroupIds.length &&
         indexedGroupIds.containsAll(loadedGroupIds)) {
       return;
     }
 
+    final addedOnly = indexedGroupIds.length > loadedGroupIds.length &&
+        indexedGroupIds.containsAll(loadedGroupIds);
+
     final activeGroupId = _onlineSession?.groupId;
     if (activeGroupId != null && !indexedGroupIds.contains(activeGroupId)) {
       await _endRevokedVoiceSession(activeGroupId);
     }
-    if (!mounted) return;
+    if (!mounted || widget.identityRepository.isSessionTeardownInProgress) {
+      return;
+    }
+
+    // Create/join only adds to the index. Do not dismiss the in-progress
+    // group-action flow or flash a generic "membership changed" toast —
+    // the user already initiated that change.
+    if (addedOnly) {
+      await _loadGroups();
+      return;
+    }
+
     Navigator.of(context).popUntil((route) => route.isFirst);
-    if (!mounted) return;
+    if (!mounted || widget.identityRepository.isSessionTeardownInProgress) {
+      return;
+    }
     await _loadGroups();
     if (mounted && indexedGroupIds.isNotEmpty) {
       setState(() => _message = 'Your group membership changed.');
@@ -166,7 +198,10 @@ mixin _IdentityHomeGroups on _IdentityHomeBase {
     if (_inviteJoinInFlight || _loadingGroups) return;
     final inviteCode = await _inviteLinkBridge.peekPendingInviteCode();
     if (inviteCode == null || !mounted) return;
-    _inviteJoinInFlight = true;
+    setState(() => _inviteJoinInFlight = true);
+    await SchedulerBinding.instance.endOfFrame;
+    await SchedulerBinding.instance.endOfFrame;
+    if (!mounted) return;
     try {
       final groupId = await _groupRepository.joinInvite(inviteCode);
       await _inviteLinkBridge.clearPendingInviteCode(inviteCode);
@@ -179,9 +214,7 @@ mixin _IdentityHomeGroups on _IdentityHomeBase {
         '${groupId.length <= 6 ? groupId : groupId.substring(groupId.length - 6)}',
       );
       await _loadGroups();
-      if (mounted) {
-        setState(() => _message = 'Group joined from invite link.');
-      }
+      if (mounted) showInviteJoinedSnackBar(context);
     } catch (error, stack) {
       debugPrint(
         '[OneOneInvite] Active invite failed ${error.runtimeType}: $error',
@@ -203,18 +236,23 @@ mixin _IdentityHomeGroups on _IdentityHomeBase {
         await _inviteLinkBridge.clearPendingInviteCode(inviteCode);
       }
       if (mounted) {
-        setState(() {
-          _message = error is ApiException
-              ? error.message
-              : 'Couldn’t open this invite. Check your connection.';
-        });
+        final message = error is ApiException
+            ? error.message
+            : 'Couldn’t open this invite. Check your connection.';
+        setState(() => _message = message);
+        showInviteJoinErrorSnackBar(context, message);
       }
     } finally {
-      _inviteJoinInFlight = false;
+      if (mounted) {
+        setState(() => _inviteJoinInFlight = false);
+      } else {
+        _inviteJoinInFlight = false;
+      }
     }
   }
 
   Future<void> _replaceWithNoGroups() async {
+    if (widget.identityRepository.isSessionTeardownInProgress) return;
     await Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(
         builder: (_) => NoGroupsScreen(
@@ -233,6 +271,42 @@ mixin _IdentityHomeGroups on _IdentityHomeBase {
       _membersByGroupId = {..._membersByGroupId, groupId: members};
     });
     _listenToMemberProfiles(members);
+    unawaited(_syncPendingInviteForMembers(groupId, members));
+  }
+
+  Future<void> _loadPendingInviteGroupIds() async {
+    final pending = await PendingGroupInvitesStore.read(_session.userId);
+    if (!mounted) return;
+    setState(() => _pendingInviteGroupIds = pending);
+    final selectedId = _selectedGroup?.groupId;
+    if (selectedId != null) {
+      unawaited(_syncPendingInviteForMembers(selectedId, _members));
+    }
+  }
+
+  @override
+  Future<void> _markGroupInvitePending(String groupId) async {
+    await PendingGroupInvitesStore.mark(_session.userId, groupId);
+    if (!mounted) return;
+    setState(() {
+      _pendingInviteGroupIds = {..._pendingInviteGroupIds, groupId};
+    });
+  }
+
+  Future<void> _syncPendingInviteForMembers(
+    String groupId,
+    List<GroupMemberSummary> members,
+  ) async {
+    final hasPeer = groupHasServicePeer(
+      members: members,
+      currentUserId: _session.userId,
+    );
+    if (!hasPeer || !_pendingInviteGroupIds.contains(groupId)) return;
+    await PendingGroupInvitesStore.clear(_session.userId, groupId);
+    if (!mounted) return;
+    setState(() {
+      _pendingInviteGroupIds = {..._pendingInviteGroupIds}..remove(groupId);
+    });
   }
 
   /// Profile photos are loaded with members via RTDB. This just clears any
@@ -341,8 +415,10 @@ mixin _IdentityHomeGroups on _IdentityHomeBase {
             }
           }
           setState(() => _availability = next);
+          _widgetAvailabilityByGroupId[groupId] = next;
           _hasAvailabilitySnapshot = true;
           _scheduleAvailabilityExpiryRefresh();
+          _syncDuoWidget();
           if (_onlineSession?.groupId == groupId) {
             _evaluatePeerPresenceForAutoOffline(next);
           }
@@ -441,5 +517,55 @@ mixin _IdentityHomeGroups on _IdentityHomeBase {
     if (index < 0) return;
 
     _carouselIndex = index;
+  }
+
+  void _syncWidgetAvailabilityListeners() {
+    if (!Platform.isAndroid) return;
+    final groupIds = _groups.map((group) => group.groupId).toSet();
+    for (final groupId in _widgetAvailabilitySubscriptions.keys.toList()) {
+      if (groupIds.contains(groupId)) continue;
+      unawaited(_widgetAvailabilitySubscriptions.remove(groupId)?.cancel());
+      _widgetAvailabilityByGroupId.remove(groupId);
+    }
+    for (final groupId in groupIds) {
+      if (_widgetAvailabilitySubscriptions.containsKey(groupId)) continue;
+      _widgetAvailabilitySubscriptions[groupId] = AppDatabase.instance()
+          .ref('memberAvailability/$groupId')
+          .onValue
+          .listen((event) {
+            if (!mounted) return;
+            final value = event.snapshot.value;
+            final next = <String, MemberAvailability>{};
+            if (value is Map<Object?, Object?>) {
+              for (final entry in value.entries) {
+                final raw = entry.value;
+                if (raw is Map<Object?, Object?>) {
+                  next[entry.key.toString()] = MemberAvailability.fromJson(raw);
+                }
+              }
+            }
+            final previous = _widgetAvailabilityByGroupId[groupId];
+            final previousLive = previous == null
+                ? const <String>{}
+                : previous.entries
+                      .where((entry) => entry.value.isLive)
+                      .map((entry) => entry.key)
+                      .toSet();
+            final nextLive = next.entries
+                .where((entry) => entry.value.isLive)
+                .map((entry) => entry.key)
+                .toSet();
+            _widgetAvailabilityByGroupId[groupId] = next;
+            if (!_setEquals(previousLive, nextLive)) {
+              _syncDuoWidget();
+            }
+          });
+    }
+  }
+
+  bool _setEquals(Set<String> a, Set<String> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    return a.containsAll(b);
   }
 }

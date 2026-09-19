@@ -18,9 +18,9 @@ class _EdgeQuickActions extends StatelessWidget {
       width: _columnWidth,
       child: Semantics(
         button: true,
-        label: 'Nudge the group',
+        label: context.l10n.homeNudgeTheGroup,
         child: Tooltip(
-          message: 'Send a nudge',
+          message: context.l10n.homeSendNudge,
           child: _EdgeActionHit(
             onTap: onNudge,
             enabled: onNudge != null,

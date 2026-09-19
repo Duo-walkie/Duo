@@ -1,10 +1,10 @@
 import 'package:one_one_app/one_one.dart';
 
-/// Single scrollable preset-avatar picker spanning every pack.
+/// Single scrollable preset-avatar picker.
 ///
-/// Pack origin is shown only as a section header for visual grouping — there
-/// is no separate pack selection step. Shared by onboarding
-/// ([ProfilePictureScreen]) and Settings so both present the same layout.
+/// Shared by onboarding ([ProfilePictureScreen]) and Settings so both
+/// present the same layout. Pack section headers only appear when more
+/// than one pack is bundled.
 class AvatarPickerGrid extends StatelessWidget {
   const AvatarPickerGrid({
     super.key,
@@ -42,6 +42,19 @@ class AvatarPickerGrid extends StatelessWidget {
       }
     }
 
+    if (sections.length == 1) {
+      return _AvatarGrid(
+        items: sections.first.items,
+        packLabel: sections.first.pack.label,
+        selectedAsset: selectedAsset,
+        enabled: enabled,
+        accent: accent,
+        onAvatarSelected: onAvatarSelected,
+        physics: physics,
+        shrinkWrap: shrinkWrap,
+      );
+    }
+
     return ListView.builder(
       shrinkWrap: shrinkWrap,
       physics: physics,
@@ -66,31 +79,65 @@ class AvatarPickerGrid extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              GridView.builder(
-                shrinkWrap: true,
+              _AvatarGrid(
+                items: section.items,
+                packLabel: section.pack.label,
+                selectedAsset: selectedAsset,
+                enabled: enabled,
+                accent: accent,
+                onAvatarSelected: onAvatarSelected,
                 physics: const NeverScrollableScrollPhysics(),
-                itemCount: section.items.length,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 4,
-                  mainAxisSpacing: 16,
-                  crossAxisSpacing: 16,
-                ),
-                itemBuilder: (context, index) {
-                  final avatar = section.items[index];
-                  final selected = avatar.assetPath == selectedAsset;
-                  return _AvatarTile(
-                    assetPath: avatar.assetPath,
-                    label: '${section.pack.label} ${index + 1}',
-                    selected: selected,
-                    accent: accent,
-                    onTap: enabled
-                        ? () => onAvatarSelected(avatar.assetPath)
-                        : null,
-                  );
-                },
+                shrinkWrap: true,
               ),
             ],
           ),
+        );
+      },
+    );
+  }
+}
+
+class _AvatarGrid extends StatelessWidget {
+  const _AvatarGrid({
+    required this.items,
+    required this.packLabel,
+    required this.selectedAsset,
+    required this.enabled,
+    required this.accent,
+    required this.onAvatarSelected,
+    required this.physics,
+    required this.shrinkWrap,
+  });
+
+  final List<AvatarAsset> items;
+  final String packLabel;
+  final String? selectedAsset;
+  final bool enabled;
+  final Color accent;
+  final ValueChanged<String> onAvatarSelected;
+  final ScrollPhysics? physics;
+  final bool shrinkWrap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.builder(
+      shrinkWrap: shrinkWrap,
+      physics: physics,
+      itemCount: items.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 4,
+        mainAxisSpacing: 16,
+        crossAxisSpacing: 16,
+      ),
+      itemBuilder: (context, index) {
+        final avatar = items[index];
+        final selected = avatar.assetPath == selectedAsset;
+        return _AvatarTile(
+          assetPath: avatar.assetPath,
+          label: '$packLabel ${index + 1}',
+          selected: selected,
+          accent: accent,
+          onTap: enabled ? () => onAvatarSelected(avatar.assetPath) : null,
         );
       },
     );

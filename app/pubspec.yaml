@@ -29,12 +29,15 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  intl: any
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   firebase_core: ^4.9.0
-  firebase_auth: ^6.0.0
+  firebase_auth: ^6.6.0
   firebase_database: ^12.0.0
   google_fonts: ^6.3.0
   flutter_screenutil: ^5.9.3
@@ -45,6 +48,7 @@ dependencies:
   connectivity_plus: ^7.2.0
   path_provider: ^2.1.5
   share_plus: ^11.0.0
+  url_launcher: ^6.3.2
   google_sign_in: ^7.2.0
   http: ^1.6.0
   livekit_client: ^2.8.1
@@ -66,6 +70,7 @@ dependencies:
   purchases_ui_flutter: ^10.8.0
   lucide_flutter: ^1.33.0
   archive: ^4.0.7
+  cloud_firestore: ^6.9.0
 
 dev_dependencies:
   flutter_test:
@@ -83,6 +88,7 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
+  generate: true
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
@@ -94,9 +100,9 @@ flutter:
     - assets/
     - assets/sounds/
     - assets/lottie/
-    - assets/avatars/
-    - assets/avatars2/
+    - assets/avatars_new/
     - assets/home_bg_images/
+    - assets/duo_stickers/
     - google_fonts/
   #   - images/a_dot_ham.jpeg
 

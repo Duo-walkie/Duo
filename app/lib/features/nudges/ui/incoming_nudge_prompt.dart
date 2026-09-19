@@ -20,6 +20,31 @@ class IncomingNudgePromptItem {
     if (remainingOtherCount == 1) return '1 more nudge in another group';
     return '$remainingOtherCount more nudges in other groups';
   }
+
+  String get typeLabel => switch (nudge.kind) {
+    NudgeKind.ring => 'Ring',
+    NudgeKind.voice => 'Voice',
+    NudgeKind.push => 'Push',
+    null => 'Nudge',
+  };
+
+  IconData get typeIcon => switch (nudge.kind) {
+    NudgeKind.ring => Icons.notifications_active_rounded,
+    NudgeKind.voice => Icons.mic_rounded,
+    NudgeKind.push => Icons.campaign_rounded,
+    null => Icons.waving_hand_rounded,
+  };
+
+  String receivedLabel({DateTime? now}) {
+    final elapsed = (now ?? DateTime.now()).difference(nudge.sentAt);
+    if (elapsed.isNegative || elapsed.inSeconds < 45) return 'Just now';
+    if (elapsed.inMinutes < 60) {
+      final minutes = elapsed.inMinutes.clamp(1, 59);
+      return minutes == 1 ? '1 min ago' : '$minutes min ago';
+    }
+    final hours = elapsed.inHours;
+    return hours == 1 ? '1 hr ago' : '$hours hr ago';
+  }
 }
 
 /// Modal Accept/Decline dialogue shown on top of the relevant group.
@@ -31,6 +56,7 @@ class IncomingNudgeDialogue extends StatelessWidget {
     required this.onAccept,
     required this.onDecline,
     this.busy = false,
+    this.liveVoiceLocked = false,
   });
 
   final IncomingNudgePromptItem item;
@@ -38,12 +64,20 @@ class IncomingNudgeDialogue extends StatelessWidget {
   final VoidCallback onAccept;
   final VoidCallback onDecline;
   final bool busy;
+  final bool liveVoiceLocked;
 
   @override
   Widget build(BuildContext context) {
     final hint = item.remainingHint;
+    final sender = item.nudge.senderName?.trim();
+    final received = item.receivedLabel();
+    final metaParts = <String>[
+      if (sender != null && sender.isNotEmpty) 'From $sender',
+      'Received $received',
+    ];
+
     return Material(
-      color: Colors.black.withValues(alpha: 0.55),
+      color: Colors.black.withValues(alpha: 0.58),
       child: SafeArea(
         child: Center(
           child: Padding(
@@ -57,6 +91,13 @@ class IncomingNudgeDialogue extends StatelessWidget {
                   border: Border.all(
                     color: Colors.white.withValues(alpha: 0.08),
                   ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: accent.withValues(alpha: 0.12),
+                      blurRadius: 28,
+                      offset: const Offset(0, 12),
+                    ),
+                  ],
                 ),
                 child: Padding(
                   padding: EdgeInsets.fromLTRB(22.w, 22.h, 22.w, 18.h),
@@ -64,17 +105,50 @@ class IncomingNudgeDialogue extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text(
-                        'Nudge',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white38,
-                          fontSize: 12.sp,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.6,
+                      Center(
+                        child: Container(
+                          width: 56.w,
+                          height: 56.w,
+                          decoration: BoxDecoration(
+                            color: accent.withValues(alpha: 0.16),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: accent.withValues(alpha: 0.35),
+                            ),
+                          ),
+                          child: Icon(
+                            item.typeIcon,
+                            color: accent,
+                            size: 26.sp,
+                          ),
                         ),
                       ),
-                      SizedBox(height: 8.h),
+                      SizedBox(height: 16.h),
+                      Center(
+                        child: Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 10.w,
+                            vertical: 5.h,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.06),
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.08),
+                            ),
+                          ),
+                          child: Text(
+                            '${item.typeLabel} nudge',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12.sp,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: 14.h),
                       Text(
                         item.groupName,
                         textAlign: TextAlign.center,
@@ -87,12 +161,25 @@ class IncomingNudgeDialogue extends StatelessWidget {
                           height: 1.2,
                         ),
                       ),
-                      SizedBox(height: 6.h),
+                      SizedBox(height: 8.h),
                       Text(
-                        'Join this group live?',
+                        metaParts.join(' · '),
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: Colors.white54,
+                          fontSize: 13.sp,
+                          fontWeight: FontWeight.w500,
+                          height: 1.3,
+                        ),
+                      ),
+                      SizedBox(height: 10.h),
+                      Text(
+                        liveVoiceLocked
+                            ? 'Live voice requires Duo Pro'
+                            : 'Join this group live?',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white70,
                           fontSize: 14.sp,
                           fontWeight: FontWeight.w500,
                         ),

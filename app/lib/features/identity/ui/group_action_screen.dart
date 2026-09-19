@@ -36,6 +36,12 @@ class _GroupActionScreenState extends State<GroupActionScreen>
   @override
   void initState() {
     super.initState();
+    unawaited(
+      AnalyticsService.logScreenView(
+        screenName: _isCreateMode ? 'create_group' : 'join_group',
+        screenClass: 'GroupActionScreen',
+      ),
+    );
     _textController.addListener(_handleTextChanged);
   }
 
@@ -71,14 +77,23 @@ class _GroupActionScreenState extends State<GroupActionScreen>
     });
 
     try {
+      unawaited(
+        AnalyticsService.logButtonClick(
+          buttonName: _isCreateMode ? 'submit_create_group' : 'submit_join_group',
+          screenName: _isCreateMode ? 'create_group' : 'join_group',
+        ),
+      );
       if (_isCreateMode) {
-        await _groupRepository.createGroup(value);
+        final group = await _groupRepository.createGroup(value);
+        final invite = await _groupRepository.createInvite(group.groupId);
 
         if (!mounted) return;
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute<void>(
-            builder: (_) => IdentityHomeScreen(
-              initialSession: widget.session,
+            builder: (_) => WaitingForGroupMembersScreen(
+              group: group,
+              invite: invite,
+              session: widget.session,
               identityRepository: widget.identityRepository,
             ),
           ),
@@ -110,11 +125,12 @@ class _GroupActionScreenState extends State<GroupActionScreen>
 
   @override
   Widget build(BuildContext context) {
-    final title = _isCreateMode ? 'create group' : 'join by pin';
+    final l10n = context.l10n;
+    final title = _isCreateMode ? l10n.createGroupTitle : l10n.joinGroupTitle;
     final subtitle = _isCreateMode
-        ? 'name the group you want to start'
-        : 'ask your friend for their pin';
-    final hintText = _isCreateMode ? 'Group name' : 'Invite PIN';
+        ? l10n.createGroupSubtitle
+        : l10n.joinGroupSubtitle;
+    final hintText = _isCreateMode ? l10n.createGroupHint : l10n.joinGroupHint;
     final accentColor = accentColorForKey(
       widget.session.settings.accentColorKey,
     );
@@ -131,7 +147,7 @@ class _GroupActionScreenState extends State<GroupActionScreen>
               Align(
                 alignment: Alignment.centerLeft,
                 child: IconButton(
-                  tooltip: 'Back',
+                  tooltip: l10n.backTooltip,
                   onPressed: _busy
                       ? null
                       : () => Navigator.of(context).maybePop(),

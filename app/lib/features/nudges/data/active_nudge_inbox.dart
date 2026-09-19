@@ -130,6 +130,7 @@ class ActiveNudgeInbox extends ChangeNotifier {
                 ? existing.senderId
                 : nudge.senderId,
             sentAt: _earlier(existing.sentAt, nudge.sentAt),
+            kind: nudge.kind ?? existing.kind,
           );
     final status = _statusById[nudge.nudgeId];
     _byId[nudge.nudgeId] = status == null

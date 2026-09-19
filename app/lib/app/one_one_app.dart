@@ -54,6 +54,9 @@ class OneOneApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         navigatorKey: appNavigatorKey,
         navigatorObservers: [AnalyticsService.observer, appRouteObserver],
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: LocaleController.locale.value,
         routes: {
           '/auth': (_) => const WithForegroundTask(
             child: _AuthSessionLifecycle(child: _FirebaseGate()),
@@ -64,29 +67,40 @@ class OneOneApp extends StatelessWidget {
         ),
         builder: (context, child) {
           final media = withEnsuredBottomInset(MediaQuery.of(context));
-          return MediaQuery(
-            data: media,
-            child: ValueListenableBuilder<String>(
-              valueListenable: AccentThemeController.accentKey,
-              builder: (context, accentKey, _) {
-                return Theme(
-                  data: _themeFor(accentColorForKey(accentKey)),
-                  child: ScreenUtilInit(
-                    designSize: const Size(393, 873),
-                    minTextAdapt: true,
-                    splitScreenMode: true,
-                    // Stack the in-app live-session PiP overlay on top of
-                    // all routes so it persists during in-app navigation.
-                    child: Stack(
-                      children: [
-                        child!,
-                        LiveSessionFloatingPip(navigatorKey: appNavigatorKey),
-                      ],
-                    ),
+          return ValueListenableBuilder<Locale>(
+            valueListenable: LocaleController.locale,
+            builder: (context, locale, _) {
+              return Localizations.override(
+                context: context,
+                locale: locale,
+                child: MediaQuery(
+                  data: media,
+                  child: ValueListenableBuilder<String>(
+                    valueListenable: AccentThemeController.accentKey,
+                    builder: (context, accentKey, _) {
+                      return Theme(
+                        data: _themeFor(accentColorForKey(accentKey)),
+                        child: ScreenUtilInit(
+                          designSize: const Size(393, 873),
+                          minTextAdapt: true,
+                          splitScreenMode: true,
+                          // Stack the in-app live-session PiP overlay on top of
+                          // all routes so it persists during in-app navigation.
+                          child: Stack(
+                            children: [
+                              child!,
+                              LiveSessionFloatingPip(
+                                navigatorKey: appNavigatorKey,
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
                   ),
-                );
-              },
-            ),
+                ),
+              );
+            },
           );
         },
         home: const WithForegroundTask(

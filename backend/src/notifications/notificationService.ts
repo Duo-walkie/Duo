@@ -621,6 +621,7 @@ async function readAvatarAsset(userId: string): Promise<string | undefined> {
   const value = snapshot.val()?.toString()?.trim();
   if (!value) return undefined;
   if (
+    !value.startsWith("assets/avatars_new/") &&
     !value.startsWith("assets/avatars/") &&
     !value.startsWith("assets/avatars2/")
   ) {

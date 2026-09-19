@@ -4,7 +4,6 @@ import 'package:one_one_app/one_one.dart';
 // Logic: home/identity_home_*.dart   UI: home/widgets/*.dart
 
 // Logic clusters (mixins on [_IdentityHomeBase]).
-part 'home/identity_home_debug.dart';
 part 'home/identity_home_pip.dart';
 part 'home/identity_home_lifecycle.dart';
 part 'home/identity_home_groups.dart';
@@ -65,6 +64,11 @@ abstract class _IdentityHomeBase extends State<IdentityHomeScreen>
   // Isolated from _membersByGroupId so widget backfill cannot race home
   // group-loading or change carousel / presence behavior.
   Map<String, List<GroupMemberSummary>> _widgetMembersByGroupId = {};
+  final Map<String, Map<String, MemberAvailability>>
+  _widgetAvailabilityByGroupId = {};
+  final Map<String, StreamSubscription<DatabaseEvent>>
+  _widgetAvailabilitySubscriptions = {};
+  Timer? _widgetSyncDebounce;
   Map<String, MemberAvailability> _availability = {};
   Set<String> _speakingUserIds = {};
   List<GroupChatMessage> _chatMessages = const [];
@@ -135,17 +139,13 @@ abstract class _IdentityHomeBase extends State<IdentityHomeScreen>
 
   int _carouselIndex = 0;
 
-  // [DEBUG] Go-live latency tracing added Aug 12. Remove before production
-  // release. Tracks the timestamp LiveKit last finished connecting, and
-  // whether the first post-connect subscribe/audio events have already been
-  // logged, so those steps are only logged once per go-live (not on every
-  // later speaker change).
-  int? _goLiveConnectResolvedAtMs;
-  bool _goLiveFirstSubscribeLogged = false;
-  bool _goLiveFirstAudioLogged = false;
+  DateTime? _liveKitConnectedAt;
 
   bool _loadingGroups = true;
   bool _busy = false;
+  /// Group ids where this user has already sent an invite and is still waiting
+  /// for someone to join (local UX cache — see [PendingGroupInvitesStore]).
+  Set<String> _pendingInviteGroupIds = {};
 
   /// Sync lock so concurrent auto-connect paths (FCM accept + native pending
   /// action) cannot both run [goOnline] and flash live→connecting→live.
@@ -166,6 +166,13 @@ abstract class _IdentityHomeBase extends State<IdentityHomeScreen>
   // Caps continuous call mode at PresenceConfig.callModeTimeout; cancelled
   // whenever the local user leaves call mode (manual toggle, go-away, etc.).
   Timer? _callModeTimeoutTimer;
+  Timer? _trialExpiryTimer;
+  bool _voicePaywallOpen = false;
+
+  /// Null until [FreeTrialAccess.snapshot] returns — Join? stays hidden
+  /// until we know live voice is allowed.
+  bool? _hasLiveVoiceAccess;
+  final Set<String> _liveLockedHandledNudgeIds = {};
   String _state = 'away';
   String? _message;
   ConnectionQuality _localConnectionQuality = ConnectionQuality.unknown;
@@ -228,6 +235,8 @@ abstract class _IdentityHomeBase extends State<IdentityHomeScreen>
   void _scheduleAvailabilityExpiryRefresh();
   Future<void> _goOnline({bool userIntent = false});
   Future<void> _switchVoiceGroup();
+  Future<bool> _presentVoicePaywall();
+  Future<void> _syncLiveVoiceAccess();
   Future<void> _goAway({String reason = 'user_away'});
   Future<void> _toggleConnectionMode();
   Future<void> _connectLiveKit(OnlineSession session, {Room? preparedRoom});
@@ -235,11 +244,13 @@ abstract class _IdentityHomeBase extends State<IdentityHomeScreen>
   Future<void> _handleConnectionLoss(String message);
   // ignore: unused_element_parameter
   Future<void> _disconnectLiveKit({bool urgent = false});
+  void _completeLiveKitSession({required String groupId, String? reason});
   Future<void> _setMicrophoneEnabled(bool enabled);
   Future<void> _runBusy(Future<void> Function() action);
   void _setMessage(String message);
   void _setStateAndMessage(String state, String message);
   void _openNudges();
+  Future<void> _markGroupInvitePending(String groupId);
 }
 
 class _IdentityHomeScreenState extends _IdentityHomeBase
@@ -353,6 +364,7 @@ class _IdentityHomeScreenState extends _IdentityHomeBase
     // 3. Connectivity + leftover session from a previous process.
     unawaited(_clearAbandonedOnlineSession());
     unawaited(_startConnectivityMonitoring());
+    unawaited(_loadPendingInviteGroupIds());
     // 4. Groups: apply startup bootstrap, or load from the network.
     final bootstrap = widget.initialBootstrap;
     if (bootstrap != null) {
@@ -360,9 +372,16 @@ class _IdentityHomeScreenState extends _IdentityHomeBase
       WidgetsBinding.instance.addPostFrameCallback((_) {
         logStartupMilestone('Home visible');
         logStartupMilestone('Home data interactive');
-        unawaited(_takePendingNudgeAction());
-        unawaited(_takePendingInviteLink());
         unawaited(_clearOpenedChatPiles());
+        // Invite join should not wait on trial/voice access sync — start it
+        // immediately so deep-linked users land in the group faster.
+        unawaited(_takePendingInviteLink());
+        unawaited(
+          _syncLiveVoiceAccess().then((_) async {
+            if (!mounted) return;
+            await _takePendingNudgeAction();
+          }),
+        );
       });
     } else {
       unawaited(_loadGroups());
@@ -410,8 +429,10 @@ class _IdentityHomeScreenState extends _IdentityHomeBase
       _listenToChatMessages(selected.groupId);
       _listenToEmojiBursts(selected.groupId);
       _listenToMemberProfiles(_members);
+      unawaited(_syncPendingInviteForMembers(selected.groupId, _members));
     }
     unawaited(_reportMediaVolume());
+    _syncWidgetAvailabilityListeners();
   }
 
   /// Android-only: pushes the current group roster + last-active group to
@@ -420,12 +441,12 @@ class _IdentityHomeScreenState extends _IdentityHomeBase
   @override
   void _syncDuoWidget() {
     if (!Platform.isAndroid) return;
-    _publishDuoWidgetSnapshot();
-    // The widget can page through every group via its "next" control, but
-    // _membersByGroupId here is normally only populated for whichever group
-    // is currently focused in-app. Backfill into a widget-only cache so
-    // home state is left untouched.
-    unawaited(_backfillWidgetMembersAndResync());
+    _widgetSyncDebounce?.cancel();
+    _widgetSyncDebounce = Timer(const Duration(milliseconds: 120), () {
+      if (!mounted) return;
+      _publishDuoWidgetSnapshot();
+      unawaited(_backfillWidgetMembersAndResync());
+    });
   }
 
   void _publishDuoWidgetSnapshot() {
@@ -440,6 +461,11 @@ class _IdentityHomeScreenState extends _IdentityHomeBase
               _membersByGroupId[group.groupId] ??
               _widgetMembersByGroupId[group.groupId] ??
               const [];
+          final availability =
+              _widgetAvailabilityByGroupId[group.groupId] ??
+              (group.groupId == _selectedGroup?.groupId
+                  ? _availability
+                  : const <String, MemberAvailability>{});
           return DuoWidgetGroupSnapshot(
             groupId: group.groupId,
             name: group.name,
@@ -450,7 +476,7 @@ class _IdentityHomeScreenState extends _IdentityHomeBase
                     displayName: member.displayName,
                     photoUrl: member.profilePhotoUrl,
                     avatarAsset: member.avatarAsset,
-                    online: _availability[member.userId]?.isLive ?? false,
+                    online: availability[member.userId]?.isLive ?? false,
                   ),
                 )
                 .toList(),
@@ -540,6 +566,11 @@ class _IdentityHomeScreenState extends _IdentityHomeBase
     );
     _availabilitySubscription?.cancel();
     _availabilityExpiryTimer?.cancel();
+    _widgetSyncDebounce?.cancel();
+    for (final sub in _widgetAvailabilitySubscriptions.values) {
+      unawaited(sub.cancel());
+    }
+    _widgetAvailabilitySubscriptions.clear();
     _membersSubscription?.cancel();
     _chatMessagesSubscription?.cancel();
     _emojiBurstSubscription?.cancel();
@@ -571,6 +602,7 @@ class _IdentityHomeScreenState extends _IdentityHomeBase
     _callModeTimeoutTimer?.cancel();
     _usagePersistTimer?.cancel();
     _incomingExpiryTimer?.cancel();
+    _trialExpiryTimer?.cancel();
     // Persist final usage before disposal.
     // 2. Flush usage, stop talk, drop LiveKit.
     if (_todayOnlineSeconds > 0 && _onlineSession != null) {
@@ -600,14 +632,15 @@ class _IdentityHomeScreenState extends _IdentityHomeBase
       try {
         unawaited(_refreshDeviceRegistration());
         unawaited(_reportMediaVolume());
-        // Notification Accept/Connect taps are queued natively and consumed
-        // here. Opening the app by itself must not start a LiveKit session —
-        // `_goOnline` still requires `_explicitJoinIntent`.
-        unawaited(_takePendingNudgeAction());
-        unawaited(_takePendingInviteLink());
-        // The user is now actively looking at the app, so any pile that
-        // accumulated while backgrounded should be cleared.
-        unawaited(_clearOpenedChatPiles());
+        // Refresh Home lock hint; then consume pending Accept taps.
+        unawaited(
+          _syncLiveVoiceAccess().then((_) async {
+            if (!mounted) return;
+            await _takePendingNudgeAction();
+            await _takePendingInviteLink();
+            await _clearOpenedChatPiles();
+          }),
+        );
         if (!_liveSessionActiveOnBackground && !_explicitJoinIntent) {
           LogManager.log(
             LogLevel.info,
@@ -678,7 +711,9 @@ class _IdentityHomeScreenState extends _IdentityHomeBase
     final groupAllOnline = live && allFriendsOnline;
     final groupMixed = !groupAllOffline && !groupAllOnline;
     final anyMemberOnline = live || anyFriendOnline;
-    final showGoLive = !_isOnline && anyFriendOnline;
+    final showGoLive =
+        !_isOnline && anyFriendOnline && _hasLiveVoiceAccess == true;
+    final liveVoiceLocked = !_isOnline && _hasLiveVoiceAccess == false;
     final liveAvailability = <String, MemberAvailability>{
       for (final friend in friends)
         friend.userId:
@@ -766,6 +801,12 @@ class _IdentityHomeScreenState extends _IdentityHomeBase
                             nudgeRepliesByUserId: _nudgeRepliesForGroup(
                               focusedGroup?.groupId,
                             ),
+                            showPendingInvite:
+                                focusedGroup != null &&
+                                _pendingInviteGroupIds.contains(
+                                  focusedGroup.groupId,
+                                ) &&
+                                !_serviceReady,
                             onInvite: inviteAction,
                           ),
                         ],
@@ -806,22 +847,22 @@ class _IdentityHomeScreenState extends _IdentityHomeBase
                   ),
                 ],
                 // 5. Chat bubble feed (grows upward). The rolling window is
-                // only 5 bubbles, so this band is sized to hold them without
-                // becoming a scroll view — extra height clips at the top.
+                // only 5 bubbles; ChatBubbleFeed bottom-aligns and clips
+                // older ones if the keyboard briefly leaves less room.
                 Expanded(
                   child: Padding(
-                    padding: EdgeInsets.fromLTRB(16.w, 2.h, 16.w, 6.h),
-                    child: ClipRect(
-                      child: Align(
-                        alignment: Alignment.bottomCenter,
-                        child: ChatBubbleFeed(
-                          messages: _chatMessages,
-                          currentUserId: _session.userId,
-                          displayNameForUserId: _chatDisplayNameForUser,
-                          accent: accent,
-                          onExpire: _dismissExpiredChatMessage,
-                        ),
-                      ),
+                    padding: EdgeInsets.fromLTRB(
+                      16.w,
+                      2.h,
+                      16.w,
+                      keyboardOpen ? 2.h : 6.h,
+                    ),
+                    child: ChatBubbleFeed(
+                      messages: _chatMessages,
+                      currentUserId: _session.userId,
+                      displayNameForUserId: _chatDisplayNameForUser,
+                      accent: accent,
+                      onExpire: _dismissExpiredChatMessage,
                     ),
                   ),
                 ),
@@ -851,15 +892,19 @@ class _IdentityHomeScreenState extends _IdentityHomeBase
                                           : LiveKitStatus.connecting)
                                     : viewingActiveGroup
                                     ? (_isTransmitting
-                                          ? 'Mic on — tap to mute'
-                                          : 'Tap to Talk')
+                                          ? context.l10n.homeMicOnMute
+                                          : context.l10n.homeTapToTalk)
                                     : _isOnline
-                                    ? 'connected to ${activeGroup?.name ?? 'another group'} • tap to nudge this group'
+                                    ? context.l10n.homeConnectedToOtherGroup(
+                                        activeGroup?.name ?? '',
+                                      )
+                                    : liveVoiceLocked
+                                    ? context.l10n.homeLiveVoiceLocked
                                     : showGoLive
-                                    ? 'Someone is live — tap Join? to join'
+                                    ? context.l10n.homeSomeoneLive
                                     : !_serviceReady
-                                    ? 'invite a friend to enable voice service'
-                                    : 'send a nudge to go online together',
+                                    ? context.l10n.homeInviteFriendVoice
+                                    : context.l10n.homeSendNudgeTogether,
                                 textAlign: TextAlign.center,
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
@@ -878,8 +923,10 @@ class _IdentityHomeScreenState extends _IdentityHomeBase
                             ),
                           ),
                         ),
-                      // 7. Edge nudge while mixed/live.
-                      if ((live && groupMixed) || showGoLive)
+                      // 7. Edge nudge while mixed/live (collapsed with keyboard
+                      // so the 5-bubble feed keeps its band above the composer).
+                      if (((live && groupMixed) || showGoLive) &&
+                          !keyboardOpen)
                         Align(
                           alignment: Alignment.centerRight,
                           child: Padding(
@@ -918,6 +965,7 @@ class _IdentityHomeScreenState extends _IdentityHomeBase
                                 accent: accent,
                                 nudgeGroupId:
                                     (groupAllOffline ||
+                                        liveVoiceLocked ||
                                         (_isOnline && !viewingActiveGroup))
                                     ? focusedGroup?.groupId
                                     : null,
@@ -939,20 +987,37 @@ class _IdentityHomeScreenState extends _IdentityHomeBase
                         ),
                       ),
                       if (focusedGroup != null) ...[
-                        SizedBox(height: 4.h),
-                        // 9. Composer.
+                        SizedBox(height: keyboardOpen ? 0 : 4.h),
+                        // 9. Composer — grayed out until another member joins.
                         ChatBubbleBar(
                           key: const ValueKey('home-chat-bubble-bar'),
                           accent: accent,
                           anyMemberOnline: anyMemberOnline,
+                          enabled: _serviceReady,
                           onSend: _sendChatMessage,
                           onEmojiSelected: _triggerEmojiBurst,
                         ),
+                        if (!_serviceReady && !keyboardOpen)
+                          Padding(
+                            padding: EdgeInsets.fromLTRB(24.w, 6.h, 24.w, 0),
+                            child: Text(
+                              context.l10n.homeChatWaitingForFriend,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Colors.white38,
+                                fontSize: 11.sp,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
                       ],
                       // Live system inset + a short base gap so the main
                       // button row sits near the bottom without crowding
-                      // the nav area.
-                      SizedBox(height: 8.h + bottomSystemInset),
+                      // the nav area. While the keyboard is up, Scaffold
+                      // already pads for viewInsets — keep only a thin gap.
+                      SizedBox(
+                        height: keyboardOpen ? 4.h : (8.h + bottomSystemInset),
+                      ),
                     ],
                   ),
                 ),
@@ -992,11 +1057,14 @@ class _IdentityHomeScreenState extends _IdentityHomeBase
               ),
               accent: accent,
               busy: _incomingPromptBusy,
+              liveVoiceLocked: _hasLiveVoiceAccess == false,
               onAccept: () =>
                   unawaited(_acceptIncomingNudge(_incomingPromptNudge!)),
               onDecline: () =>
                   unawaited(_declineIncomingNudge(_incomingPromptNudge!)),
             ),
+          if (_inviteJoinInFlight)
+            const Positioned.fill(child: InviteJoinOverlay()),
         ],
       ),
     );

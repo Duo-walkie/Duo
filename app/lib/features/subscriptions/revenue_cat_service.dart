@@ -60,6 +60,9 @@ class RevenueCatService {
   /// server. Packages correspond to `monthly`, `three_month`, `yearly`.
   Future<Offerings> getOfferings() async {
     try {
+      // Drop cached customer info so Play/App Store price changes
+      // (e.g. INR 60 → 29) surface on the next offerings fetch.
+      await Purchases.invalidateCustomerInfoCache();
       return await Purchases.getOfferings();
     } on PlatformException catch (e) {
       throw RevenueCatException(_friendlyMessage(e));

@@ -28,6 +28,12 @@ class _WaitingForGroupMembersScreenState
   void initState() {
     super.initState();
     AccentThemeController.setAccentKey(widget.session.settings.accentColorKey);
+    unawaited(
+      PendingGroupInvitesStore.mark(
+        widget.session.userId,
+        widget.group.groupId,
+      ),
+    );
     _listenForNewMembers();
   }
 
@@ -86,8 +92,11 @@ class _WaitingForGroupMembersScreenState
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Invite link copied')));
+      ).showSnackBar(SnackBar(content: Text(context.l10n.homeInviteLinkCopied)));
     }
+    // After sharing, land on home so the sender sees the Invited chip +
+    // grayed chat while waiting for the invitee to accept.
+    if (mounted) unawaited(_goHome());
   }
 
   Future<void> _copyPin() async {
@@ -217,7 +226,7 @@ class _WaitingForGroupMembersScreenState
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              'Share invite link',
+                              context.l10n.homeShareInviteLink,
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 16.sp,
@@ -238,7 +247,25 @@ class _WaitingForGroupMembersScreenState
                     TextButton(
                       onPressed: _copyPin,
                       child: Text(
-                        'Copy fallback PIN ${widget.invite.inviteCode}',
+                        context.l10n.homeCopyPin(widget.invite.inviteCode),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => unawaited(_goHome()),
+                      child: Text(
+                        context.l10n.waitingContinueToHome,
+                        style: TextStyle(
+                          color: const Color.fromRGBO(255, 255, 255, 0.78),
+                          fontSize: 15.sp,
+                          fontWeight: FontWeight.w600,
+                          decoration: TextDecoration.underline,
+                          decorationColor: const Color.fromRGBO(
+                            255,
+                            255,
+                            255,
+                            0.78,
+                          ),
+                        ),
                       ),
                     ),
                   ],

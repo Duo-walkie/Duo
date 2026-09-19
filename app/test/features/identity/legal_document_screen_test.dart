@@ -12,7 +12,7 @@ void main() {
       ),
     );
 
-    expect(find.text('Privacy Policy'), findsOneWidget);
+    expect(find.text('Privacy'), findsOneWidget);
     expect(find.text('2. Information we collect'), findsOneWidget);
 
     await tester.scrollUntilVisible(
@@ -32,7 +32,7 @@ void main() {
       ),
     );
 
-    expect(find.text('Terms & Conditions'), findsOneWidget);
+    expect(find.text('Terms'), findsOneWidget);
     expect(find.text('2. The service'), findsOneWidget);
     expect(find.text('3. Your responsibilities'), findsOneWidget);
   });

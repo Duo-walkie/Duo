@@ -17,12 +17,10 @@ void main() {
   test('enumerates every bundled avatar without hardcoding a count', () async {
     final avatars = await AvatarAssets.loadAll();
 
-    final avatar1 = avatars.where((a) => a.pack == AvatarPack.avatar1);
-    final avatar2 = avatars.where((a) => a.pack == AvatarPack.avatar2);
+    final current = avatars.where((a) => a.pack == AvatarPack.current);
 
-    expect(avatar1.length, countPngsOnDisk('avatars'));
-    expect(avatar2.length, countPngsOnDisk('avatars2'));
-    expect(avatars.length, avatar1.length + avatar2.length);
+    expect(current.length, countPngsOnDisk('avatars_new'));
+    expect(avatars.length, current.length);
 
     // No duplicates, and every path actually points at the pack it's
     // grouped under.
@@ -46,19 +44,63 @@ void main() {
     }
   });
 
-  test('isPresetAvatarPath validates preset paths only', () {
+  test('isPresetAvatarPath validates current preset paths only', () {
     expect(
-      AvatarAssets.isPresetAvatarPath('assets/avatars/avatar_01.png'),
+      AvatarAssets.isPresetAvatarPath('assets/avatars_new/cute-duck.png'),
       isTrue,
     );
     expect(
+      AvatarAssets.isPresetAvatarPath('assets/avatars/avatar_01.png'),
+      isFalse,
+    );
+    expect(
       AvatarAssets.isPresetAvatarPath('assets/avatars2/avatar_42.png'),
-      isTrue,
+      isFalse,
     );
     expect(
       AvatarAssets.isPresetAvatarPath('https://example.com/photo.jpg'),
       isFalse,
     );
     expect(AvatarAssets.isPresetAvatarPath('assets/logo.png'), isFalse);
+  });
+
+  test('isRetiredAvatarPath matches the old Classic and Studio packs', () {
+    expect(
+      AvatarAssets.isRetiredAvatarPath('assets/avatars/avatar_01.png'),
+      isTrue,
+    );
+    expect(
+      AvatarAssets.isRetiredAvatarPath('assets/avatars2/avatar_42.png'),
+      isTrue,
+    );
+    expect(
+      AvatarAssets.isRetiredAvatarPath('assets/avatars_new/cute-duck.png'),
+      isFalse,
+    );
+    expect(AvatarAssets.isRetiredAvatarPath(''), isFalse);
+  });
+
+  test('needsRefresh only when a retired avatar is the only face', () {
+    expect(
+      AvatarAssets.needsRefresh(avatarAsset: 'assets/avatars/avatar_01.png'),
+      isTrue,
+    );
+    expect(
+      AvatarAssets.needsRefresh(avatarAsset: 'assets/avatars2/avatar_08.png'),
+      isTrue,
+    );
+    expect(
+      AvatarAssets.needsRefresh(
+        avatarAsset: 'assets/avatars/avatar_01.png',
+        profilePhotoUrl: 'https://example.com/photo.jpg',
+      ),
+      isFalse,
+    );
+    expect(
+      AvatarAssets.needsRefresh(avatarAsset: 'assets/avatars_new/cute-duck.png'),
+      isFalse,
+    );
+    expect(AvatarAssets.needsRefresh(avatarAsset: null), isFalse);
+    expect(AvatarAssets.needsRefresh(avatarAsset: ''), isFalse);
   });
 }

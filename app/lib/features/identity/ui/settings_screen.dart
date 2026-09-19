@@ -89,14 +89,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
   /// `_dependents.isEmpty` assertions.
   bool _profileEditorOpen = false;
   String? _message;
+  DuoAccessSnapshot? _duoAccess;
+  String? _appVersion;
 
   Future<List<AvatarAsset>>? _avatarsFuture;
 
   @override
   void initState() {
     super.initState();
+    unawaited(
+      AnalyticsService.logScreenView(
+        screenName: 'settings',
+        screenClass: 'SettingsScreen',
+      ),
+    );
     _avatarsFuture = AvatarAssets.loadAll();
     unawaited(HomeVisualVariantController.ensureLoaded());
+    unawaited(_loadAppVersion());
+    unawaited(_loadDuoAccess());
     final currentSession = widget.identityRepository.currentSession;
     if (currentSession != null && currentSession.userId == _session.userId) {
       _session = currentSession;
@@ -151,8 +161,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
   }
 
-  bool get _hasUnsavedSettings =>
-      _accentColorKey != _persistedAccentColorKey;
+  bool get _hasUnsavedSettings => _accentColorKey != _persistedAccentColorKey;
 
   void _acceptSession(IdentitySession session) {
     _session = session;
@@ -164,15 +173,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _profileEditorOpen = true;
     _EditProfileSheetResult? result;
     try {
-      result = await showModalBottomSheet<_EditProfileSheetResult>(
+      result = await DuoSheet.show<_EditProfileSheetResult>(
         context: context,
         isScrollControlled: true,
         useSafeArea: true,
-        backgroundColor: const Color(0xff1b1b1b),
-        barrierColor: Colors.black87,
-        showDragHandle: true,
-        // Keep the sheet alive until the reverse animation finishes so its
-        // elements are not half-deactivated under a parent rebuild.
         builder: (sheetContext) {
           return _EditProfileSheet(
             session: _session,
@@ -230,8 +234,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _titleTapCount = 0;
       unawaited(HomeVisualVariantController.unlockTesting());
       if (mounted) {
-        setState(() => _message = 'Testing section unlocked');
+        setState(() => _message = context.l10n.settingsTestingUnlocked);
       }
+    }
+  }
+
+  Future<void> _setAppLanguage(AppLanguage language) async {
+    await LocaleController.setLanguage(language);
+    try {
+      final session = await widget.identityRepository.updateSettings(
+        preferredLocale: language.languageCode,
+      );
+      if (!mounted) return;
+      setState(() => _acceptSession(session));
+    } catch (error, stack) {
+      unawaited(
+        CrashlyticsService.recordError(
+          error,
+          stack,
+          reason: 'settings_language_save_failed',
+          feature: 'settings',
+          screenName: 'settings',
+        ),
+      );
     }
   }
 
@@ -264,6 +289,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _hapticsIntensity = previous;
         _message = error.toString();
       });
+    }
+  }
+
+  Future<void> _loadAppVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (!mounted) return;
+      setState(() {
+        _appVersion = '${info.version}+${info.buildNumber}';
+      });
+    } catch (_) {
+      // Version footer is best-effort.
     }
   }
 
@@ -302,7 +339,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         unawaited(CrashlyticsService.log('settings_prefs_save_setState'));
         setState(() {
           _acceptSession(session);
-          _message = 'Settings saved';
+          _message = context.l10n.settingsSaved;
           _saving = false;
         });
       });
@@ -332,14 +369,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final email = provider.email?.trim();
       if (email != null && email.isNotEmpty) return email;
     }
-    return 'Google account';
+    return context.l10n.settingsGoogleAccount;
   }
 
   Future<void> _logOut() async {
+    final l10n = context.l10n;
     final confirmed = await _confirmAccountAction(
-      title: 'Log out?',
-      message: 'You will need to sign in with Google to use Duo again.',
-      actionLabel: 'Log out',
+      title: l10n.settingsLogOutTitle,
+      message: l10n.settingsLogOutMessage,
+      actionLabel: l10n.settingsLogOut,
     );
     if (!confirmed || !mounted) return;
 
@@ -349,8 +387,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
     try {
       await widget.identityRepository.signOut();
-      if (!mounted) return;
-      Navigator.of(context).pushNamedAndRemoveUntil('/auth', (_) => false);
+      _goToWelcomeScreen();
     } catch (error) {
       if (!mounted) return;
       setState(() => _message = error.toString());
@@ -360,11 +397,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _deleteAccount() async {
+    final l10n = context.l10n;
     final confirmed = await _confirmAccountAction(
-      title: 'Delete account permanently?',
-      message:
-          'Your Duo profile, device information, and preferences will be deleted. This cannot be undone.',
-      actionLabel: 'Delete account',
+      title: l10n.settingsDeleteAccountTitle,
+      message: l10n.settingsDeleteAccountMessage,
+      actionLabel: l10n.settingsDeleteAccount,
       destructive: true,
     );
     if (!confirmed || !mounted) return;
@@ -375,17 +412,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
     try {
       await widget.identityRepository.deleteAccount();
-      if (!mounted) return;
-      Navigator.of(context).pushNamedAndRemoveUntil('/auth', (_) => false);
+      // Use the root navigator — account purge can empty userGroups and race
+      // Home into popping this Settings route before delete finishes, so
+      // [mounted] may already be false here.
+      _goToWelcomeScreen();
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _message =
-            'Account deletion couldn\'t be completed. Sign in with Google again and retry.';
+        _message = context.l10n.settingsDeleteAccountFailed;
       });
     } finally {
       if (mounted) setState(() => _accountActionInProgress = false);
     }
+  }
+
+  void _goToWelcomeScreen() {
+    final navigator = appNavigatorKey.currentState;
+    if (navigator != null) {
+      navigator.pushNamedAndRemoveUntil('/auth', (_) => false);
+      return;
+    }
+    if (!mounted) return;
+    Navigator.of(context).pushNamedAndRemoveUntil('/auth', (_) => false);
   }
 
   Future<bool> _confirmAccountAction({
@@ -402,7 +450,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(dialogContext, false),
-                child: const Text('Cancel'),
+                child: Text(context.l10n.settingsCancel),
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(dialogContext, true),
@@ -433,78 +481,50 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final onManage = widget.onManageGroup;
     if (groups.isEmpty || onManage == null) return;
 
-    final selected = await showModalBottomSheet<GroupSummary>(
+    final selected = await DuoSheet.show<GroupSummary>(
       context: context,
-      backgroundColor: const Color(0xff1b1b1b),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
       builder: (sheetContext) {
         return BottomSystemSafeArea(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(8, 12, 8, 16),
+            padding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.white24,
-                      borderRadius: BorderRadius.circular(99),
-                    ),
-                  ),
-                ),
+                DuoSheetTitle(context.l10n.settingsManageGroup),
                 const SizedBox(height: 16),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 14),
-                  child: Text(
-                    'Manage Group',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                    ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: DuoSheetCard(
+                    children: [
+                      for (var i = 0; i < groups.length; i++) ...[
+                        ListTile(
+                          onTap: () =>
+                              Navigator.of(sheetContext).pop(groups[i]),
+                          leading: const Icon(
+                            LucideIcons.users,
+                            color: Colors.white70,
+                            size: 20,
+                          ),
+                          title: Text(
+                            groups[i].name,
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                          trailing: const Icon(
+                            LucideIcons.chevronRight,
+                            color: Colors.white38,
+                            size: 18,
+                          ),
+                        ),
+                        if (i != groups.length - 1)
+                          Divider(
+                            height: 1,
+                            indent: 56,
+                            color: Colors.white.withValues(alpha: 0.08),
+                          ),
+                      ],
+                    ],
                   ),
-                ),
-                const SizedBox(height: 4),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 14),
-                  child: Text(
-                    'Groups you created',
-                    style: TextStyle(color: Colors.white54, fontSize: 12.5),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: groups.length,
-                  separatorBuilder: (_, _) => Divider(
-                    height: 1,
-                    indent: 56,
-                    color: Colors.white.withValues(alpha: 0.09),
-                  ),
-                  itemBuilder: (context, index) {
-                    final group = groups[index];
-                    return ListTile(
-                      onTap: () => Navigator.of(sheetContext).pop(group),
-                      leading: const Icon(
-                        Icons.group_outlined,
-                        color: Colors.white70,
-                      ),
-                      title: Text(
-                        group.name,
-                        style: const TextStyle(color: Colors.white),
-                      ),
-                      trailing: const Icon(
-                        Icons.chevron_right_rounded,
-                        color: Colors.white38,
-                      ),
-                    );
-                  },
                 ),
               ],
             ),
@@ -518,24 +538,67 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (groupEnded && mounted) Navigator.of(context).pop();
   }
 
+  Future<void> _loadDuoAccess() async {
+    final snapshot = await FreeTrialAccess.snapshot(userId: _session.userId);
+    if (!mounted) return;
+    setState(() => _duoAccess = snapshot);
+  }
+
+  String _duoProSubtitle(AppLocalizations l10n) {
+    final access = _duoAccess;
+    if (access == null) return l10n.settingsViewPlans;
+    if (access.entitledToPro) return l10n.settingsDuoProActiveSubtitle;
+    if (access.trialActive) {
+      final days = FreeTrialAccess.remainingWholeDays(access.remaining);
+      if (days <= 0) return l10n.settingsTrialLessThanADay;
+      if (days == 1) return l10n.settingsTrialOneDayLeft;
+      return l10n.settingsTrialDaysLeft(days);
+    }
+    return l10n.settingsFreePlanSubtitle;
+  }
+
+  bool _openingPaywall = false;
+
   /// Opens the in-app Duo Pro paywall (branded UI + RevenueCat packages).
   Future<void> _showPaywall() async {
+    if (_openingPaywall) return;
+    setState(() => _openingPaywall = true);
+    unawaited(
+      AnalyticsService.logButtonClick(
+        buttonName: 'duo_pro',
+        screenName: 'settings',
+      ),
+    );
+    unawaited(
+      AnalyticsService.logFeatureSelected(
+        feature: 'paywall',
+        screenName: 'settings',
+      ),
+    );
     try {
-      final purchased = await ElevenProPaywallScreen.open(context);
+      final openFuture = ElevenProPaywallScreen.open(context);
+      // Brief settings-side spinner until the Duo Pro route covers us.
+      await Future<void>.delayed(const Duration(milliseconds: 160));
+      if (mounted) setState(() => _openingPaywall = false);
+      final purchased = await openFuture;
       if (!mounted) return;
+      await _loadDuoAccess();
       if (purchased) {
-        setState(() => _message = 'Welcome to Duo Pro!');
+        setState(() => _message = context.l10n.settingsWelcomeDuoPro);
       }
     } catch (error) {
       if (!mounted) return;
-      setState(() => _message = 'Could not open subscription options.');
+      setState(() {
+        _openingPaywall = false;
+        _message = context.l10n.settingsPaywallFailed;
+      });
       debugPrint('Paywall error: $error');
     }
   }
 
-  /// Manage Subscription sheet: store Customer Center + Contact Team Duo.
-  Future<void> _showManageSubscription() {
-    return SubscriptionManagementSheet.show(context);
+  /// Opens Gmail compose to Team Duo.
+  Future<void> _contactTeamDuo() {
+    return SubscriptionManagementSheet.contactTeamDuo(context);
   }
 
   bool _permissionRequestInFlight = false;
@@ -550,8 +613,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (!mounted) return;
       setState(
         () => _message = status.isGranted
-            ? 'Microphone permission granted.'
-            : 'Microphone permission was denied.',
+            ? context.l10n.settingsMicGranted
+            : context.l10n.settingsMicDenied,
       );
       await _refreshPermissions();
     } finally {
@@ -569,8 +632,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (!mounted) return;
       setState(
         () => _message = status.isGranted
-            ? 'Notification permission granted.'
-            : 'Notification permission was denied.',
+            ? context.l10n.settingsNotificationGranted
+            : context.l10n.settingsNotificationDenied,
       );
       await _refreshPermissions();
     } finally {
@@ -590,36 +653,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         // Best effort — the user can enable it from Android Settings.
       }
       if (!mounted) return;
-      setState(
-        () => _message =
-            'Battery optimization request sent. Check your device settings.',
-      );
+      setState(() => _message = context.l10n.settingsBatteryRequestSent);
       await _refreshPermissions();
-    } finally {
-      _permissionRequestInFlight = false;
-    }
-  }
-
-  /// Re-triggers the missing permissions required for closed-app receive
-  /// (notifications + battery optimization), then refreshes the checklist.
-  Future<void> _requestClosedAppPermissions() async {
-    if (_permissionRequestInFlight) return;
-    _permissionRequestInFlight = true;
-    try {
-      final session = _session.device;
-      if (!session.notificationPermissionGranted) {
-        await Permission.notification.request();
-      }
-      if (!session.batteryOptimizationIgnored) {
-        try {
-          await FlutterForegroundTask.requestIgnoreBatteryOptimization();
-        } catch (_) {
-          // Best effort.
-        }
-      }
-      if (!mounted) return;
-      await _refreshPermissions();
-      setState(() => _message = 'Closed-app receive setup checked.');
     } finally {
       _permissionRequestInFlight = false;
     }
@@ -637,27 +672,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final accent = accentColorForKey(_accentColorKey);
     final showSaveButton = _hasUnsavedSettings || _saving;
-    final closedAppReceiveReady =
-        _session.device.notificationPermissionGranted &&
-        _session.device.batteryOptimizationIgnored;
 
     return Scaffold(
       backgroundColor: const Color(0xff101010),
+      extendBodyBehindAppBar: false,
       appBar: AppBar(
         backgroundColor: const Color(0xff101010),
         foregroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
+        // Empty center hit-target keeps the hidden testing unlock (7 taps).
         title: GestureDetector(
           onTap: _handleSettingsTitleTap,
           behavior: HitTestBehavior.opaque,
-          child: const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Text('Settings'),
-          ),
+          child: const SizedBox(width: 120, height: 40),
         ),
         centerTitle: true,
       ),
@@ -696,7 +728,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             ),
                           )
                         : const Icon(Icons.check_rounded),
-                    label: const Text('Save color'),
+                    label: Text(l10n.settingsSaveColor),
                   ),
                 ),
               )
@@ -709,282 +741,294 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: SafeArea(
           top: false,
           child: ListView(
-            padding: EdgeInsets.fromLTRB(20, 8, 20, showSaveButton ? 112 : 32),
+            padding: EdgeInsets.fromLTRB(20, 8, 20, showSaveButton ? 104 : 28),
             children: [
               _ProfileHeader(
                 session: _session,
-                accent: accent,
                 enabled: !_saving && !_profileEditorOpen,
                 onEditProfile: _openProfileEditor,
               ),
-              const SizedBox(height: 22),
-              if (widget.manageableGroups.isNotEmpty &&
-                  widget.onManageGroup != null) ...[
-                const _SectionTitle('Group'),
-                const SizedBox(height: 12),
-                _SettingsSurface(
+              const SizedBox(height: 18),
+              _SettingsBlock(
+                title: l10n.settingsSectionSubscription,
+                child: _SettingsSurface(
                   padding: EdgeInsets.zero,
                   children: [
+                    _ElevenProSettingsCard(
+                      onTap: _openingPaywall ? null : _showPaywall,
+                      subtitle: _duoProSubtitle(l10n),
+                      loading: _openingPaywall,
+                    ),
+                    const _SurfaceDivider(indent: 56),
                     _NavigationRow(
-                      icon: Icons.group_outlined,
-                      label: 'Manage Group',
-                      onTap: _openGroupManagement,
+                      icon: LucideIcons.mail,
+                      label: l10n.subContactTeam,
+                      onTap: _contactTeamDuo,
                     ),
                   ],
                 ),
-                const SizedBox(height: 28),
-              ],
-              const _SectionTitle('Preferences'),
-              const SizedBox(height: 12),
-              _SettingsSurface(
-                children: [
-                  _PreferenceHeading(
-                    icon: Icons.palette_outlined,
-                    title: 'Accent color',
-                    subtitle: 'Choose the color used across Duo.',
-                  ),
-                  const SizedBox(height: 16),
-                  // Two rows of six — 12 accents fill both runs on phone widths.
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      const columns = 6;
-                      const spacing = 12.0;
-                      final swatchSize =
-                          (constraints.maxWidth - spacing * (columns - 1)) /
-                          columns;
-                      return Wrap(
-                        spacing: spacing,
-                        runSpacing: spacing,
-                        children: [
-                          for (final option in accentOptions)
-                            SizedBox(
-                              width: swatchSize,
-                              height: swatchSize,
-                              child: _ColorSwatch(
-                                option: option,
-                                selected: _accentColorKey == option.key,
-                                enabled: !_saving,
-                                onSelected: () {
-                                  setState(() {
-                                    _accentColorKey = option.key;
-                                    _hasUnsavedAccentPreview =
-                                        option.key != _persistedAccentColorKey;
-                                  });
-                                  AccentThemeController.setAccentKey(
-                                    option.key,
-                                  );
-                                },
-                              ),
-                            ),
-                        ],
-                      );
-                    },
-                  ),
-                  const _SurfaceDivider(),
-                  _PreferenceHeading(
-                    icon: Icons.vibration_outlined,
-                    title: 'Haptics',
-                    subtitle:
-                        'Incoming voice nudges — ${_hapticsIntensity.subtitle}',
-                  ),
-                  const SizedBox(height: 14),
-                  _HapticsTierRow(
-                    selected: _hapticsIntensity,
-                    accent: accent,
-                    enabled: !_saving,
-                    onSelected: _setHapticsIntensity,
-                  ),
-                ],
               ),
-              const SizedBox(height: 28),
-              const _SectionTitle('Background reliability'),
-              const SizedBox(height: 12),
-              _SettingsSurface(
-                children: [
-                  _ChecklistItem(
-                    ok: _session.device.micPermissionGranted,
-                    label: 'Microphone permission',
-                    detail: _session.device.micPermissionGranted
-                        ? 'Ready'
-                        : 'Required before you can talk.',
-                    onTap: _requestMicPermission,
+              if (widget.manageableGroups.isNotEmpty &&
+                  widget.onManageGroup != null)
+                _SettingsBlock(
+                  title: l10n.settingsSectionGroup,
+                  child: _SettingsSurface(
+                    padding: EdgeInsets.zero,
+                    children: [
+                      _NavigationRow(
+                        icon: LucideIcons.users,
+                        label: l10n.settingsManageGroup,
+                        onTap: _openGroupManagement,
+                      ),
+                    ],
                   ),
-                  _ChecklistItem(
-                    ok: _session.device.notificationPermissionGranted,
-                    label: 'Notification permission',
-                    detail: _session.device.notificationPermissionGranted
-                        ? 'Ready for background activity'
-                        : 'Required for reliable background activity.',
-                    onTap: _requestNotificationPermission,
-                  ),
-                  _ChecklistItem(
-                    ok: _session.device.batteryOptimizationIgnored,
-                    label: 'Battery optimization',
-                    detail: _session.device.batteryOptimizationIgnored
-                        ? 'Unrestricted'
-                        : 'Your device may interrupt long sessions.',
-                    onTap: _requestBatteryOptimization,
-                  ),
-                  _ChecklistItem(
-                    ok: closedAppReceiveReady,
-                    label: 'Closed-app receive',
-                    detail: closedAppReceiveReady
-                        ? 'Ready for nudges when the app is not open.'
-                        : 'Allow notifications and unrestricted background activity.',
-                    showDivider: false,
-                    onTap: _requestClosedAppPermissions,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 28),
-              const _SectionTitle('Legal'),
-              const SizedBox(height: 12),
-              _SettingsSurface(
-                padding: EdgeInsets.zero,
-                children: [
-                  _NavigationRow(
-                    icon: Icons.description_outlined,
-                    label: 'Terms & Conditions',
-                    onTap: () => _openLegalDocument(LegalDocument.terms),
-                  ),
-                  const _SurfaceDivider(indent: 52),
-                  _NavigationRow(
-                    icon: Icons.privacy_tip_outlined,
-                    label: 'Privacy Policy',
-                    onTap: () => _openLegalDocument(LegalDocument.privacy),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 28),
-              const _SectionTitle('Subscription', showBeta: true),
-              const SizedBox(height: 12),
-              _SettingsSurface(
-                padding: EdgeInsets.zero,
-                children: [
-                  _ElevenProSettingsCard(onTap: _showPaywall),
-                  const _SurfaceDivider(indent: 52),
-                  _NavigationRow(
-                    icon: Icons.manage_accounts_outlined,
-                    label: 'Manage Subscription',
-                    onTap: _showManageSubscription,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 28),
-              const _SectionTitle('Support'),
-              const SizedBox(height: 12),
-              _SettingsSurface(
-                padding: EdgeInsets.zero,
-                children: [
-                  _NavigationRow(
-                    icon: Icons.feedback_outlined,
-                    label: 'Send Feedback',
-                    onTap: () => showSendFeedbackSheet(
-                      context,
-                      userId: _session.userId,
+                ),
+              _SettingsBlock(
+                title: l10n.settingsSectionPreferences,
+                child: _SettingsSurface(
+                  padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
+                  children: [
+                    _PreferenceHeading(
+                      icon: LucideIcons.palette,
+                      title: l10n.settingsAccentColorTitle,
                     ),
-                  ),
-                  const _SurfaceDivider(indent: 52),
-                  _NavigationRow(
-                    icon: Icons.bug_report_outlined,
-                    label: 'Debug Logs',
-                    onTap: () => showDebugLogsSheet(context),
-                  ),
-                ],
+                    const SizedBox(height: 16),
+                    _AccentBlobPicker(
+                      selectedKey: _accentColorKey,
+                      enabled: !_saving,
+                      onSelected: (option) {
+                        setState(() {
+                          _accentColorKey = option.key;
+                          _hasUnsavedAccentPreview =
+                              option.key != _persistedAccentColorKey;
+                        });
+                        AccentThemeController.setAccentKey(option.key);
+                      },
+                    ),
+                    const _SurfaceDivider(height: 32),
+                    _PreferenceHeading(
+                      icon: LucideIcons.vibrate,
+                      title: l10n.settingsHapticsTitle,
+                    ),
+                    const SizedBox(height: 14),
+                    _HapticsTierRow(
+                      selected: _hapticsIntensity,
+                      accent: accent,
+                      enabled: !_saving,
+                      onSelected: _setHapticsIntensity,
+                    ),
+                    const _SurfaceDivider(height: 32),
+                    _PreferenceHeading(
+                      icon: LucideIcons.image,
+                      title: l10n.settingsHomeBackgroundTitle,
+                    ),
+                    const SizedBox(height: 14),
+                    ValueListenableBuilder<HomeVisualVariant>(
+                      valueListenable: HomeVisualVariantController.current,
+                      builder: (context, variant, _) {
+                        return _HomeBackgroundOptionRow(
+                          illustrated: variant.isIllustrated,
+                          accent: accent,
+                          session: _session,
+                          enabled: !_saving,
+                          onSelected: (illustrated) => unawaited(
+                            HomeVisualVariantController.setIllustrated(
+                              illustrated,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              SettingsLanguageSection(
+                accent: accent,
+                onLanguageSelected: _setAppLanguage,
+              ),
+              ValueListenableBuilder<bool>(
+                valueListenable: HomeVisualVariantController.unlocked,
+                builder: (context, testingUnlocked, _) {
+                  if (!testingUnlocked || !kDebugMode) {
+                    return const SizedBox.shrink();
+                  }
+                  return DebugMarketPanel(accent: accent);
+                },
+              ),
+              _SettingsBlock(
+                title: l10n.settingsSectionBackground,
+                child: _SettingsSurface(
+                  padding: const EdgeInsets.fromLTRB(10, 8, 12, 8),
+                  children: [
+                    _ReliabilityRow(
+                      stickerAsset: 'assets/duo_stickers/mic.png',
+                      ok: _session.device.micPermissionGranted,
+                      label: l10n.settingsMicPermission,
+                      detail: _session.device.micPermissionGranted
+                          ? l10n.settingsMicReady
+                          : l10n.settingsMicRequired,
+                      onTap: _requestMicPermission,
+                    ),
+                    const _SurfaceDivider(indent: 52),
+                    _ReliabilityRow(
+                      stickerAsset: 'assets/duo_stickers/bell.png',
+                      ok: _session.device.notificationPermissionGranted,
+                      label: l10n.settingsNotificationPermission,
+                      detail: _session.device.notificationPermissionGranted
+                          ? l10n.settingsNotificationReady
+                          : l10n.settingsNotificationRequired,
+                      onTap: _requestNotificationPermission,
+                    ),
+                    const _SurfaceDivider(indent: 52),
+                    _ReliabilityRow(
+                      stickerAsset: 'assets/duo_stickers/headset.png',
+                      ok: _session.device.batteryOptimizationIgnored,
+                      label: l10n.settingsBatteryOptimization,
+                      detail: _session.device.batteryOptimizationIgnored
+                          ? l10n.settingsBatteryUnrestricted
+                          : l10n.settingsBatteryMayInterrupt,
+                      onTap: _requestBatteryOptimization,
+                    ),
+                  ],
+                ),
+              ),
+              _SettingsBlock(
+                title: l10n.settingsSectionSupport,
+                child: _SettingsSurface(
+                  padding: EdgeInsets.zero,
+                  children: [
+                    _NavigationRow(
+                      icon: LucideIcons.messageCircle,
+                      label: l10n.settingsSendFeedback,
+                      onTap: () => showSendFeedbackSheet(
+                        context,
+                        userId: _session.userId,
+                      ),
+                    ),
+                    ValueListenableBuilder<bool>(
+                      valueListenable: HomeVisualVariantController.unlocked,
+                      builder: (context, unlocked, _) {
+                        if (!unlocked) return const SizedBox.shrink();
+                        return Column(
+                          children: [
+                            const _SurfaceDivider(indent: 52),
+                            _NavigationRow(
+                              icon: LucideIcons.bug,
+                              label: l10n.settingsDebugLogs,
+                              onTap: () => showDebugLogsSheet(context),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ),
               ValueListenableBuilder<bool>(
                 valueListenable: HomeVisualVariantController.unlocked,
                 builder: (context, testingUnlocked, _) {
                   if (!testingUnlocked) return const SizedBox.shrink();
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 28),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const _SectionTitle('Testing'),
-                        const SizedBox(height: 12),
-                        ValueListenableBuilder<HomeVisualVariant>(
-                          valueListenable: HomeVisualVariantController.current,
-                          builder: (context, variant, _) {
-                            return _SettingsSurface(
-                              children: [
-                                const _PreferenceHeading(
-                                  icon: Icons.science_outlined,
-                                  title: 'Home screen',
-                                  subtitle:
-                                      'Temporary looks for evaluating doodle backdrops. Layout stays the same.',
-                                ),
-                                const SizedBox(height: 14),
-                                for (final option
-                                    in HomeVisualVariant.values) ...[
-                                  _TestingVariantRow(
-                                    variant: option,
-                                    selected: variant == option,
-                                    accent: accent,
-                                    onTap: () => unawaited(
-                                      HomeVisualVariantController.setVariant(
-                                        option,
-                                      ),
-                                    ),
+                  return _SettingsBlock(
+                    title: l10n.settingsTestingSection,
+                    child: ValueListenableBuilder<HomeVisualVariant>(
+                      valueListenable: HomeVisualVariantController.current,
+                      builder: (context, variant, _) {
+                        return _SettingsSurface(
+                          children: [
+                            for (final option in HomeVisualVariant.values) ...[
+                              _TestingVariantRow(
+                                variant: option,
+                                selected: variant == option,
+                                accent: accent,
+                                onTap: () => unawaited(
+                                  HomeVisualVariantController.setVariant(
+                                    option,
                                   ),
-                                  if (option != HomeVisualVariant.values.last)
-                                    const _SurfaceDivider(),
-                                ],
-                              ],
-                            );
-                          },
-                        ),
-                      ],
+                                ),
+                              ),
+                              if (option != HomeVisualVariant.values.last)
+                                const _SurfaceDivider(),
+                            ],
+                          ],
+                        );
+                      },
                     ),
                   );
                 },
               ),
-              const SizedBox(height: 28),
-              const _SectionTitle('Account'),
-              const SizedBox(height: 12),
-              _SettingsSurface(
-                children: [
-                  _PreferenceHeading(
-                    icon: Icons.account_circle_outlined,
-                    title: _signedInEmail,
-                    subtitle: 'Signed in with Google',
-                  ),
-                  const SizedBox(height: 16),
-                  OutlinedButton.icon(
-                    onPressed: _accountActionInProgress ? null : _logOut,
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(50),
-                      foregroundColor: Colors.white,
-                      side: const BorderSide(color: Colors.white24),
+              _SettingsBlock(
+                title: l10n.settingsSectionAccount,
+                child: _SettingsSurface(
+                  padding: EdgeInsets.zero,
+                  children: [
+                    _NavigationRow(
+                      icon: LucideIcons.user,
+                      label: _signedInEmail,
+                      detail: l10n.settingsSignedInWithGoogle,
+                      showChevron: false,
                     ),
-                    icon: _accountActionInProgress
-                        ? const SizedBox.square(
-                            dimension: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.logout_rounded),
-                    label: const Text('Log out'),
-                  ),
-                  const SizedBox(height: 8),
-                  TextButton.icon(
-                    onPressed: _accountActionInProgress ? null : _deleteAccount,
-                    style: TextButton.styleFrom(
-                      minimumSize: const Size.fromHeight(48),
-                      foregroundColor: const Color(0xffff8a80),
+                    const _SurfaceDivider(indent: 52),
+                    _NavigationRow(
+                      icon: LucideIcons.logOut,
+                      label: l10n.settingsLogOut,
+                      onTap: _accountActionInProgress ? null : _logOut,
+                      trailing: _accountActionInProgress
+                          ? const SizedBox.square(
+                              dimension: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : null,
                     ),
-                    icon: const Icon(Icons.delete_outline_rounded),
-                    label: const Text('Delete account'),
-                  ),
-                ],
+                    const _SurfaceDivider(indent: 52),
+                    _NavigationRow(
+                      icon: LucideIcons.trash2,
+                      label: l10n.settingsDeleteAccount,
+                      onTap: _accountActionInProgress ? null : _deleteAccount,
+                      destructive: true,
+                    ),
+                  ],
+                ),
+              ),
+              _SettingsBlock(
+                title: l10n.settingsSectionLegal,
+                child: _SettingsSurface(
+                  padding: EdgeInsets.zero,
+                  children: [
+                    _NavigationRow(
+                      icon: LucideIcons.scrollText,
+                      label: l10n.settingsTerms,
+                      onTap: () => _openLegalDocument(LegalDocument.terms),
+                    ),
+                    const _SurfaceDivider(indent: 52),
+                    _NavigationRow(
+                      icon: LucideIcons.shield,
+                      label: l10n.settingsPrivacy,
+                      onTap: () => _openLegalDocument(LegalDocument.privacy),
+                    ),
+                  ],
+                ),
               ),
               if (_message != null) ...[
-                const SizedBox(height: 14),
                 Text(
                   _message!,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.white70),
+                  style: const TextStyle(color: Colors.white70, fontSize: 13),
                 ),
+                const SizedBox(height: 12),
               ],
+              if (_appVersion != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    l10n.settingsAppVersion(_appVersion!),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.38),
+                      fontSize: 11,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
@@ -1000,11 +1044,11 @@ InputDecoration _darkInputDecoration(String label) {
     filled: true,
     fillColor: Colors.white.withValues(alpha: 0.06),
     enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(14),
       borderSide: const BorderSide(color: Colors.white24),
     ),
     focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(14),
       borderSide: const BorderSide(color: Colors.white70),
     ),
   );
@@ -1013,13 +1057,11 @@ InputDecoration _darkInputDecoration(String label) {
 class _ProfileHeader extends StatelessWidget {
   const _ProfileHeader({
     required this.session,
-    required this.accent,
     required this.enabled,
     required this.onEditProfile,
   });
 
   final IdentitySession session;
-  final Color accent;
   final bool enabled;
   final VoidCallback onEditProfile;
 
@@ -1027,55 +1069,207 @@ class _ProfileHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Stack(
-          alignment: Alignment.bottomRight,
-          children: [
-            GestureDetector(
-              onTap: enabled ? onEditProfile : null,
-              child: Container(
-                padding: const EdgeInsets.all(3),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: accent, width: 2),
-                ),
-                child: ProfileAvatar(
-                  profilePhotoUrl: session.user.profilePhotoUrl,
-                  profilePhotoBase64: session.user.profilePhotoBase64,
-                  avatarAsset: session.user.avatarAsset,
-                  radius: 48,
-                  backgroundColor: const Color(0xff2b2b2b),
-                  fallback: const Icon(
-                    Icons.person_outline,
-                    color: Colors.white54,
-                    size: 42,
-                  ),
+        SizedBox(
+          width: 128,
+          height: 128,
+          child: Stack(
+            alignment: Alignment.center,
+            clipBehavior: Clip.none,
+            children: [
+              GestureDetector(
+                onTap: enabled ? onEditProfile : null,
+                child: _ImageTintedAvatar(session: session, radius: 44),
+              ),
+              Positioned(
+                right: 12,
+                bottom: 12,
+                child: _EditBadge(
+                  enabled: enabled,
+                  tooltip: context.l10n.settingsEditProfile,
+                  onTap: onEditProfile,
                 ),
               ),
-            ),
-            Material(
-              color: accent,
-              shape: const CircleBorder(),
-              child: IconButton(
-                tooltip: 'Edit profile',
-                onPressed: enabled ? onEditProfile : null,
-                icon: const Icon(Icons.edit_outlined),
-                color: Colors.black,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 10),
         Text(
           session.user.displayName,
-          maxLines: 2,
+          maxLines: 1,
           textAlign: TextAlign.center,
           overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
             color: Colors.white,
             fontWeight: FontWeight.w700,
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Outline and halo sampled from the avatar/photo itself so the ring always
+/// tracks the image, not the app accent.
+class _ImageTintedAvatar extends StatelessWidget {
+  const _ImageTintedAvatar({required this.session, required this.radius});
+
+  final IdentitySession session;
+  final double radius;
+
+  static const _gap = Color(0xff101010);
+
+  /// Push saturation/brightness so the sliver of image used as the ring
+  /// reads as a color wash of the face, not a second copy of it.
+  static const _ringFilter = ColorFilter.matrix(<double>[
+    1.55,
+    -0.18,
+    -0.12,
+    0,
+    16,
+    -0.14,
+    1.55,
+    -0.12,
+    0,
+    16,
+    -0.10,
+    -0.16,
+    1.55,
+    0,
+    16,
+    0,
+    0,
+    0,
+    1,
+    0,
+  ]);
+
+  Widget _face(double r) {
+    return ProfileAvatar(
+      profilePhotoUrl: session.user.profilePhotoUrl,
+      profilePhotoBase64: session.user.profilePhotoBase64,
+      avatarAsset: session.user.avatarAsset,
+      radius: r,
+      backgroundColor: const Color(0xff2b2b2b),
+      fallback: Icon(
+        Icons.person_outline,
+        color: Colors.white54,
+        size: r * 0.9,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const ring = 4.5;
+    final outer = radius + ring;
+    return SizedBox(
+      width: outer * 2,
+      height: outer * 2,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          ImageFiltered(
+            imageFilter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Opacity(
+              opacity: 0.72,
+              child: Transform.scale(scale: 1.06, child: _face(outer)),
+            ),
+          ),
+          ColorFiltered(colorFilter: _ringFilter, child: _face(outer)),
+          Container(
+            width: (radius + 2) * 2,
+            height: (radius + 2) * 2,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: _gap,
+            ),
+          ),
+          _face(radius),
+        ],
+      ),
+    );
+  }
+}
+
+class _EditBadge extends StatelessWidget {
+  const _EditBadge({
+    required this.enabled,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  final bool enabled;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.transparent,
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: enabled ? onTap : null,
+          child: SizedBox(
+            width: 32,
+            height: 32,
+            child: ClipOval(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Colors.white.withValues(alpha: 0.52),
+                        Colors.white.withValues(alpha: 0.14),
+                      ],
+                    ),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.62),
+                      width: 1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.35),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Stack(
+                    children: [
+                      Positioned(
+                        top: 3,
+                        left: 5,
+                        child: Container(
+                          width: 10,
+                          height: 5,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(99),
+                            color: Colors.white.withValues(alpha: 0.55),
+                          ),
+                        ),
+                      ),
+                      const Center(
+                        child: Icon(
+                          LucideIcons.pencil,
+                          size: 13,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -1236,7 +1430,10 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
       // deactivation. Local state is enough for this frame; the parent applies
       // the returned session after the route is fully gone.
       await _popSheet(
-        _EditProfileSheetResult(session: session, message: 'Profile updated'),
+        _EditProfileSheetResult(
+          session: session,
+          message: context.l10n.settingsProfileUpdated,
+        ),
       );
     } catch (error, stack) {
       unawaited(
@@ -1258,6 +1455,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final accent = accentColorForKey(widget.accentColorKey);
     final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
     final draftAsset = _pendingAvatarAsset ?? _session.user.avatarAsset;
@@ -1293,24 +1491,28 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Edit profile',
+                            l10n.settingsEditProfile,
                             style: Theme.of(context).textTheme.headlineSmall
                                 ?.copyWith(
                                   color: Colors.white,
                                   fontWeight: FontWeight.w700,
                                 ),
                           ),
-                          const SizedBox(height: 6),
-                          const Text(
-                            'This is how friends see you in your groups.',
-                            style: TextStyle(color: Colors.white60),
-                          ),
+                          if (AvatarAssets.isRetiredAvatarPath(
+                            draftAsset ?? '',
+                          )) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              l10n.chooseAvatarRefreshSubtitle,
+                              style: const TextStyle(color: Colors.white60),
+                            ),
+                          ],
                         ],
                       ),
                     ),
                   ),
                   IconButton(
-                    tooltip: 'Close',
+                    tooltip: l10n.settingsClose,
                     onPressed: busy
                         ? null
                         : () => unawaited(
@@ -1331,16 +1533,19 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
                   TextField(
                     controller: _nameController,
                     autofocus: false,
+                    maxLength: AppUserProfile.maxDisplayNameLength,
                     textCapitalization: TextCapitalization.words,
                     textInputAction: TextInputAction.done,
                     onChanged: (_) => setState(() {}),
                     onSubmitted: busy ? null : (_) => _save(),
                     style: const TextStyle(color: Colors.white),
-                    decoration: _darkInputDecoration('Display name'),
+                    decoration: _darkInputDecoration(
+                      l10n.settingsDisplayName,
+                    ).copyWith(counterText: ''),
                   ),
                   const SizedBox(height: 28),
-                  const Text(
-                    'AVATAR',
+                  Text(
+                    l10n.settingsAvatarSection,
                     style: TextStyle(
                       color: Colors.white54,
                       fontSize: 12,
@@ -1376,7 +1581,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
             ),
             DecoratedBox(
               decoration: BoxDecoration(
-                color: const Color(0xff1b1b1b),
+                color: const Color(0xff161616),
                 border: Border(
                   top: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
                 ),
@@ -1417,10 +1622,10 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
                           ),
                     label: Text(
                       _saving
-                          ? 'Saving…'
+                          ? l10n.settingsSaving
                           : hasChanges
-                          ? 'Save profile'
-                          : 'Done',
+                          ? l10n.settingsSaveProfile
+                          : l10n.settingsDone,
                     ),
                   ),
                 ),
@@ -1488,16 +1693,16 @@ class _AvatarSection extends StatelessWidget {
                   : Colors.transparent,
             ),
           ),
-          segments: const [
+          segments: [
             ButtonSegment(
               value: _AvatarSectionMode.avatar,
-              icon: Icon(Icons.face_retouching_natural_outlined),
-              label: Text('Avatar'),
+              icon: const Icon(Icons.face_retouching_natural_outlined),
+              label: Text(context.l10n.settingsAvatar),
             ),
             ButtonSegment(
               value: _AvatarSectionMode.photo,
-              icon: Icon(Icons.photo_camera_outlined),
-              label: Text('Photo'),
+              icon: const Icon(Icons.photo_camera_outlined),
+              label: Text(context.l10n.settingsPhoto),
             ),
           ],
           selected: {mode},
@@ -1573,8 +1778,8 @@ class _AvatarTabContent extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Nested under Settings' ListView so every avatar across both
-                // packs is reachable via the outer scroll.
+                // Nested under Settings' ListView so every avatar is
+                // reachable via the outer scroll.
                 AvatarPickerGrid(
                   avatars: snapshot.data!,
                   selectedAsset: selectedAsset,
@@ -1602,7 +1807,11 @@ class _AvatarTabContent extends StatelessWidget {
                             ),
                           )
                         : const Icon(Icons.check_rounded),
-                    label: Text(saving ? 'Saving…' : 'Save avatar'),
+                    label: Text(
+                      saving
+                          ? context.l10n.settingsSaving
+                          : context.l10n.settingsSaveProfile,
+                    ),
                   ),
                 ],
               ],
@@ -1665,7 +1874,9 @@ class _PhotoTabContent extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                hasPhoto ? 'Your uploaded photo' : 'No photo uploaded yet',
+                hasPhoto
+                    ? context.l10n.settingsYourPhoto
+                    : context.l10n.settingsNoPhoto,
                 style: const TextStyle(color: Colors.white),
               ),
               const SizedBox(height: 10),
@@ -1684,7 +1895,11 @@ class _PhotoTabContent extends StatelessWidget {
                         ),
                       )
                     : const Icon(Icons.upload_outlined, size: 18),
-                label: Text(hasPhoto ? 'Change photo' : 'Upload photo'),
+                label: Text(
+                  hasPhoto
+                      ? context.l10n.settingsChangePhoto
+                      : context.l10n.settingsUploadPhoto,
+                ),
               ),
             ],
           ),
@@ -1694,96 +1909,104 @@ class _PhotoTabContent extends StatelessWidget {
   }
 }
 
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.label, {this.showBeta = false});
+class _SettingsBlock extends StatelessWidget {
+  const _SettingsBlock({required this.title, required this.child});
 
-  final String label;
-  final bool showBeta;
+  final String title;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Text(
-          label.toUpperCase(),
-          style: const TextStyle(
-            color: Colors.white54,
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0,
-          ),
-        ),
-        if (showBeta) ...[const SizedBox(width: 8), const _SettingsBetaBadge()],
-      ],
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [_SectionTitle(title), const SizedBox(height: 8), child],
+      ),
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      label.toUpperCase(),
+      style: const TextStyle(
+        color: Colors.white54,
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0.8,
+      ),
     );
   }
 }
 
 class _ElevenProSettingsCard extends StatelessWidget {
-  const _ElevenProSettingsCard({required this.onTap});
+  const _ElevenProSettingsCard({
+    required this.onTap,
+    required this.subtitle,
+    this.loading = false,
+  });
 
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+  final String subtitle;
+  final bool loading;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-      child: const Padding(
-        padding: EdgeInsets.fromLTRB(18, 14, 14, 14),
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
         child: Row(
           children: [
-            Icon(Icons.workspace_premium_outlined, color: Colors.white70),
-            SizedBox(width: 14),
+            Image.asset(
+              'assets/duo_stickers/minimalCrown.png',
+              width: 36,
+              height: 36,
+            ),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Duo Pro',
-                    style: TextStyle(
+                    context.l10n.settingsDuoPro,
+                    style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                  SizedBox(height: 2),
+                  const SizedBox(height: 1),
                   Text(
-                    'View plans',
-                    style: TextStyle(color: Colors.white54, fontSize: 13),
+                    subtitle,
+                    style: const TextStyle(color: Colors.white54, fontSize: 12),
                   ),
                 ],
               ),
             ),
-            Icon(Icons.chevron_right_rounded, color: Colors.white38),
+            if (loading)
+              const SizedBox.square(
+                dimension: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white54,
+                ),
+              )
+            else
+              const Icon(
+                LucideIcons.chevronRight,
+                color: Colors.white38,
+                size: 18,
+              ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SettingsBetaBadge extends StatelessWidget {
-  const _SettingsBetaBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-      decoration: BoxDecoration(
-        color: const Color(0xffffb020).withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(
-          color: const Color(0xffffb020).withValues(alpha: 0.55),
-        ),
-      ),
-      child: const Text(
-        'BETA',
-        style: TextStyle(
-          color: Color(0xffffb020),
-          fontSize: 10,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 0.6,
         ),
       ),
     );
@@ -1824,6 +2047,239 @@ class _HapticsTierRow extends StatelessWidget {
   }
 }
 
+class _HomeBackgroundOptionRow extends StatelessWidget {
+  const _HomeBackgroundOptionRow({
+    required this.illustrated,
+    required this.accent,
+    required this.session,
+    required this.enabled,
+    required this.onSelected,
+  });
+
+  final bool illustrated;
+  final Color accent;
+  final IdentitySession session;
+  final bool enabled;
+  final ValueChanged<bool> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Row(
+      children: [
+        Expanded(
+          child: _HomeBackgroundOptionChip(
+            label: l10n.settingsHomeBackgroundDefault,
+            illustrated: false,
+            selected: !illustrated,
+            accent: accent,
+            session: session,
+            enabled: enabled,
+            onTap: () => onSelected(false),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _HomeBackgroundOptionChip(
+            label: l10n.settingsHomeBackgroundIllustrated,
+            illustrated: true,
+            selected: illustrated,
+            accent: accent,
+            session: session,
+            enabled: enabled,
+            onTap: () => onSelected(true),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _HomeBackgroundOptionChip extends StatelessWidget {
+  const _HomeBackgroundOptionChip({
+    required this.label,
+    required this.illustrated,
+    required this.selected,
+    required this.accent,
+    required this.session,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool illustrated;
+  final bool selected;
+  final Color accent;
+  final IdentitySession session;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final labelColor = selected ? accent : Colors.white54;
+    return Opacity(
+      opacity: enabled ? 1 : 0.45,
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        borderRadius: BorderRadius.circular(12),
+        splashColor: accent.withValues(alpha: 0.12),
+        highlightColor: accent.withValues(alpha: 0.06),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Column(
+            children: [
+              _HomeLookPreview(
+                illustrated: illustrated,
+                selected: selected,
+                accent: accent,
+                session: session,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: labelColor,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 6),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOut,
+                height: 2,
+                width: selected ? 22 : 0,
+                decoration: BoxDecoration(
+                  color: accent,
+                  borderRadius: BorderRadius.circular(1),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeLookPreview extends StatelessWidget {
+  const _HomeLookPreview({
+    required this.illustrated,
+    required this.selected,
+    required this.accent,
+    required this.session,
+  });
+
+  final bool illustrated;
+  final bool selected;
+  final Color accent;
+  final IdentitySession session;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      height: 92,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: selected ? accent : Colors.white.withValues(alpha: 0.10),
+          width: selected ? 1.6 : 1,
+        ),
+        boxShadow: selected
+            ? [BoxShadow(color: accent.withValues(alpha: 0.28), blurRadius: 12)]
+            : null,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: illustrated
+          ? const _IllustratedHomePreview()
+          : _DefaultHomePreview(session: session, accent: accent),
+    );
+  }
+}
+
+/// Mini version of the production collage backdrop (blurred portrait + wash).
+class _DefaultHomePreview extends StatelessWidget {
+  const _DefaultHomePreview({required this.session, required this.accent});
+
+  final IdentitySession session;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        const ColoredBox(color: Colors.black),
+        Opacity(
+          opacity: 0.42,
+          child: ImageFiltered(
+            imageFilter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+            child: ProfileImage(
+              profilePhotoUrl: session.user.profilePhotoUrl,
+              profilePhotoBase64: session.user.profilePhotoBase64,
+              avatarAsset: session.user.avatarAsset,
+              backgroundColor: const Color(0xff1a1a1a),
+              fallback: const ColoredBox(color: Color(0xff1a1a1a)),
+            ),
+          ),
+        ),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.black.withValues(alpha: 0.28),
+                Colors.black.withValues(alpha: 0.55),
+                Color.lerp(Colors.black, accent, 0.14)!,
+              ],
+              stops: const [0, 0.55, 1],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Mini version of the illustrated doodle wallpaper used on home.
+class _IllustratedHomePreview extends StatelessWidget {
+  const _IllustratedHomePreview();
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        const ColoredBox(color: Colors.black),
+        Image.asset(
+          HomeVisualVariantController.illustratedLook.assetPath!,
+          fit: BoxFit.cover,
+          alignment: Alignment.center,
+          filterQuality: FilterQuality.medium,
+        ),
+        const ColoredBox(color: Color.fromRGBO(0, 0, 0, 0.12)),
+        const DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color.fromRGBO(0, 0, 0, 0.42),
+                Color.fromRGBO(0, 0, 0, 0.08),
+                Color.fromRGBO(0, 0, 0, 0.50),
+              ],
+              stops: [0.0, 0.5, 1.0],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _HapticsTierChip extends StatelessWidget {
   const _HapticsTierChip({
     required this.option,
@@ -1850,28 +2306,28 @@ class _HapticsTierChip extends StatelessWidget {
         splashColor: accent.withValues(alpha: 0.12),
         highlightColor: accent.withValues(alpha: 0.06),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
+          padding: const EdgeInsets.symmetric(vertical: 2),
           child: Column(
             children: [
               Text(
                 option.emoji,
-                style: const TextStyle(fontSize: 28, height: 1.1),
+                style: const TextStyle(fontSize: 22, height: 1.1),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
               Text(
-                option.label,
+                option.localizedLabel(context.l10n),
                 style: TextStyle(
                   color: labelColor,
                   fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
-                  fontSize: 13,
+                  fontSize: 12,
                 ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
                 curve: Curves.easeOut,
                 height: 2,
-                width: selected ? 28 : 0,
+                width: selected ? 22 : 0,
                 decoration: BoxDecoration(
                   color: accent,
                   borderRadius: BorderRadius.circular(1),
@@ -1926,10 +2382,7 @@ class _TestingVariantRow extends StatelessWidget {
                   const SizedBox(height: 3),
                   Text(
                     variant.subtitle,
-                    style: const TextStyle(
-                      color: Colors.white54,
-                      fontSize: 13,
-                    ),
+                    style: const TextStyle(color: Colors.white54, fontSize: 13),
                   ),
                 ],
               ),
@@ -1944,7 +2397,7 @@ class _TestingVariantRow extends StatelessWidget {
 class _SettingsSurface extends StatelessWidget {
   const _SettingsSurface({
     required this.children,
-    this.padding = const EdgeInsets.all(18),
+    this.padding = const EdgeInsets.fromLTRB(14, 12, 14, 12),
   });
 
   final List<Widget> children;
@@ -1954,9 +2407,16 @@ class _SettingsSurface extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xff1b1b1b),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.09)),
+        color: const Color(0xff171717),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.22),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Padding(
         padding: padding,
@@ -1967,30 +2427,25 @@ class _SettingsSurface extends StatelessWidget {
 }
 
 class _PreferenceHeading extends StatelessWidget {
-  const _PreferenceHeading({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-  });
+  const _PreferenceHeading({required this.icon, required this.title});
 
   final IconData icon;
   final String title;
-  final String subtitle;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, color: Colors.white70),
-        const SizedBox(width: 14),
+        Icon(icon, color: Colors.white70, size: 18),
+        const SizedBox(width: 10),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: const TextStyle(color: Colors.white)),
-              const SizedBox(height: 2),
-              Text(subtitle, style: const TextStyle(color: Colors.white54)),
-            ],
+          child: Text(
+            title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
       ],
@@ -1998,58 +2453,131 @@ class _PreferenceHeading extends StatelessWidget {
   }
 }
 
-class _ColorSwatch extends StatelessWidget {
-  const _ColorSwatch({
+class _AccentBlobPicker extends StatelessWidget {
+  const _AccentBlobPicker({
+    required this.selectedKey,
+    required this.enabled,
+    required this.onSelected,
+  });
+
+  final String selectedKey;
+  final bool enabled;
+  final ValueChanged<AccentOption> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const columns = 6;
+        const spacing = 10.0;
+        final swatchSize =
+            (constraints.maxWidth - spacing * (columns - 1)) / columns;
+        return Wrap(
+          spacing: spacing,
+          runSpacing: 10,
+          children: [
+            for (var i = 0; i < accentOptions.length; i++)
+              SizedBox(
+                width: swatchSize,
+                height: swatchSize,
+                child: _AccentBlob(
+                  option: accentOptions[i],
+                  shapeIndex: i,
+                  selected: accentOptions[i].key == selectedKey,
+                  enabled: enabled,
+                  onSelected: () => onSelected(accentOptions[i]),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _AccentBlob extends StatelessWidget {
+  const _AccentBlob({
     required this.option,
+    required this.shapeIndex,
     required this.selected,
     required this.enabled,
     required this.onSelected,
   });
 
   final AccentOption option;
+  final int shapeIndex;
   final bool selected;
   final bool enabled;
   final VoidCallback onSelected;
 
+  BorderRadius get _radius {
+    final a = 11.0 + (shapeIndex * 5) % 16;
+    final b = 22.0 - (shapeIndex * 3) % 12;
+    final c = 13.0 + (shapeIndex * 7) % 14;
+    final d = 24.0 - (shapeIndex * 4) % 14;
+    return BorderRadius.only(
+      topLeft: Radius.circular(a),
+      topRight: Radius.circular(b),
+      bottomLeft: Radius.circular(c),
+      bottomRight: Radius.circular(d),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final tilt =
+        (shapeIndex.isEven ? -1 : 1) * (0.05 + (shapeIndex % 3) * 0.02);
     return Tooltip(
-      message: option.label,
+      message: option.localizedLabel(context.l10n),
       child: Semantics(
         button: true,
         selected: selected,
-        label: '${option.label} accent',
+        label: option.localizedLabel(context.l10n),
         child: InkWell(
           onTap: enabled ? onSelected : null,
-          customBorder: const CircleBorder(),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final side = constraints.biggest.shortestSide;
-              final circle = (side * 0.75).clamp(28.0, 40.0);
-              final checkSize = (circle * 0.53).clamp(14.0, 20.0);
-              return Center(
+          customBorder: RoundedRectangleBorder(borderRadius: _radius),
+          child: Center(
+            child: AnimatedScale(
+              scale: selected ? 1.12 : 1,
+              duration: const Duration(milliseconds: 280),
+              curve: selected ? Curves.elasticOut : Curves.easeOut,
+              child: AnimatedRotation(
+                turns: selected ? 0 : tilt / (2 * 3.1416),
+                duration: const Duration(milliseconds: 240),
+                curve: Curves.easeOut,
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 180),
-                  width: circle,
-                  height: circle,
+                  width: 34,
+                  height: 34,
                   decoration: BoxDecoration(
                     color: option.color,
-                    shape: BoxShape.circle,
+                    borderRadius: _radius,
                     border: Border.all(
-                      color: selected ? Colors.white : Colors.transparent,
-                      width: 3,
+                      color: selected
+                          ? Colors.white
+                          : Colors.white.withValues(alpha: 0.12),
+                      width: selected ? 2.5 : 1,
                     ),
+                    boxShadow: selected
+                        ? [
+                            BoxShadow(
+                              color: option.color.withValues(alpha: 0.55),
+                              blurRadius: 12,
+                              spreadRadius: 1,
+                            ),
+                          ]
+                        : null,
                   ),
                   child: selected
-                      ? Icon(
-                          Icons.check_rounded,
+                      ? const Icon(
+                          LucideIcons.check,
                           color: Colors.black,
-                          size: checkSize,
+                          size: 16,
                         )
                       : null,
                 ),
-              );
-            },
+              ),
+            ),
           ),
         ),
       ),
@@ -2061,99 +2589,139 @@ class _NavigationRow extends StatelessWidget {
   const _NavigationRow({
     required this.icon,
     required this.label,
-    required this.onTap,
+    this.onTap,
+    this.detail,
+    this.showChevron = true,
+    this.trailing,
+    this.destructive = false,
   });
 
   final IconData icon;
   final String label;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+  final String? detail;
+  final bool showChevron;
+  final Widget? trailing;
+  final bool destructive;
 
   @override
   Widget build(BuildContext context) {
+    final color = destructive ? const Color(0xffff8a80) : Colors.white;
+    final iconColor = destructive ? const Color(0xffff8a80) : Colors.white70;
     return ListTile(
       onTap: onTap,
-      leading: Icon(icon, color: Colors.white70),
-      title: Text(label, style: const TextStyle(color: Colors.white)),
-      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.white38),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 2),
+      leading: Icon(icon, color: iconColor, size: 20),
+      title: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: color,
+          fontSize: 15,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      subtitle: detail == null
+          ? null
+          : Text(
+              detail!,
+              style: const TextStyle(color: Colors.white38, fontSize: 12),
+            ),
+      trailing:
+          trailing ??
+          (showChevron
+              ? Icon(
+                  LucideIcons.chevronRight,
+                  color: destructive
+                      ? const Color(0xffff8a80).withValues(alpha: 0.7)
+                      : Colors.white38,
+                  size: 18,
+                )
+              : null),
+      visualDensity: VisualDensity.compact,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
     );
   }
 }
 
 class _SurfaceDivider extends StatelessWidget {
-  const _SurfaceDivider({this.indent = 0});
+  const _SurfaceDivider({this.indent = 0, this.height = 1});
   final double indent;
+  final double height;
 
   @override
   Widget build(BuildContext context) {
     return Divider(
-      height: 30,
+      height: height,
       indent: indent,
       color: Colors.white.withValues(alpha: 0.09),
     );
   }
 }
 
-class _ChecklistItem extends StatelessWidget {
-  const _ChecklistItem({
+class _ReliabilityRow extends StatelessWidget {
+  const _ReliabilityRow({
+    required this.stickerAsset,
     required this.ok,
     required this.label,
     required this.detail,
-    this.showDivider = true,
     this.onTap,
   });
 
+  final String stickerAsset;
   final bool ok;
   final String label;
   final String detail;
-  final bool showDivider;
-
-  /// Re-triggers the permission prompt when [ok] is false. When null the row
-  /// is informational and not tappable.
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final statusColor = ok ? const Color(0xff7CFF6B) : const Color(0xffffb020);
     final tappable = !ok && onTap != null;
-    return Column(
-      children: [
-        InkWell(
-          onTap: tappable ? onTap : null,
-          borderRadius: BorderRadius.circular(6),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 2),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(
-                  ok ? Icons.check_box_rounded : Icons.check_box_outline_blank,
-                  color: statusColor,
-                  size: 22,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(label, style: const TextStyle(color: Colors.white)),
-                      const SizedBox(height: 3),
-                      Text(
-                        detail,
-                        style: const TextStyle(
-                          color: Colors.white54,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+    return InkWell(
+      onTap: tappable ? onTap : null,
+      borderRadius: BorderRadius.circular(10),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+        child: Row(
+          children: [
+            Opacity(
+              opacity: ok ? 1 : 0.58,
+              child: Image.asset(stickerAsset, width: 48, height: 48),
             ),
-          ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (!ok) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      detail,
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            Icon(
+              ok ? LucideIcons.check : LucideIcons.chevronRight,
+              size: 18,
+              color: ok ? const Color(0xff7CFF6B) : Colors.white38,
+            ),
+          ],
         ),
-        if (showDivider) const _SurfaceDivider(),
-      ],
+      ),
     );
   }
 }

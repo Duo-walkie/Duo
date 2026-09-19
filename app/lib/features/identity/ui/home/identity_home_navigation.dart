@@ -11,10 +11,34 @@ mixin _IdentityHomeNavigation on _IdentityHomeBase {
   // (visible on the GroupActionScreen) lets the user return directly to the
   // home/live screen without losing context.
   void _openCreateGroup() {
+    unawaited(
+      AnalyticsService.logButtonClick(
+        buttonName: 'create_group',
+        screenName: 'home',
+      ),
+    );
+    unawaited(
+      AnalyticsService.logFeatureSelected(
+        feature: 'create_group',
+        screenName: 'home',
+      ),
+    );
     _openGroupAction(GroupActionMode.createGroup);
   }
 
   void _openJoinGroup() {
+    unawaited(
+      AnalyticsService.logButtonClick(
+        buttonName: 'join_group',
+        screenName: 'home',
+      ),
+    );
+    unawaited(
+      AnalyticsService.logFeatureSelected(
+        feature: 'join_group',
+        screenName: 'home',
+      ),
+    );
     _openGroupAction(GroupActionMode.joinByPin);
   }
 
@@ -51,8 +75,16 @@ mixin _IdentityHomeNavigation on _IdentityHomeBase {
   }
 
   Future<void> _createInviteForGroup(GroupSummary group) async {
+    unawaited(
+      AnalyticsService.logButtonClick(
+        buttonName: 'invite',
+        screenName: 'home',
+      ),
+    );
     await _runBusy(() async {
       final invite = await _groupRepository.createInvite(group.groupId);
+      if (!mounted) return;
+      await _markGroupInvitePending(group.groupId);
       if (!mounted) return;
       setState(() => _message = 'Invite created');
       await _showShareInviteSheet(invite);
@@ -74,7 +106,7 @@ mixin _IdentityHomeNavigation on _IdentityHomeBase {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'Invite friends',
+                  context.l10n.homeInviteFriends,
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 18.sp,
@@ -83,7 +115,7 @@ mixin _IdentityHomeNavigation on _IdentityHomeBase {
                 ),
                 SizedBox(height: 8.h),
                 Text(
-                  'Share this link. Your friend will open Duo and join this group automatically.',
+                  context.l10n.homeInviteFriendsSubtitle,
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.white70, fontSize: 14.sp),
                 ),
@@ -104,7 +136,7 @@ mixin _IdentityHomeNavigation on _IdentityHomeBase {
                         );
                         if (!context.mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Invite link copied')),
+                          SnackBar(content: Text(context.l10n.homeInviteLinkCopied)),
                         );
                       }
                     },
@@ -132,7 +164,7 @@ mixin _IdentityHomeNavigation on _IdentityHomeBase {
                               ),
                               SizedBox(width: 10.w),
                               Text(
-                                'Share invite link',
+                                context.l10n.homeShareInviteLink,
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 16.sp,
@@ -165,11 +197,11 @@ mixin _IdentityHomeNavigation on _IdentityHomeBase {
                     );
                     if (!context.mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Fallback PIN copied')),
+                      SnackBar(content: Text(context.l10n.homeFallbackPinCopied)),
                     );
                   },
                   icon: Icon(Icons.copy_rounded, size: 17.sp),
-                  label: Text('Copy PIN ${invite.inviteCode}'),
+                  label: Text(context.l10n.homeCopyPin(invite.inviteCode)),
                 ),
               ],
             ),
@@ -252,6 +284,12 @@ mixin _IdentityHomeNavigation on _IdentityHomeBase {
   }
 
   void _openSettings() {
+    unawaited(
+      AnalyticsService.logButtonClick(
+        buttonName: 'settings',
+        screenName: 'home',
+      ),
+    );
     final ownedGroups = _ownedGroups;
     unawaited(
       SettingsScreen.open(
@@ -269,6 +307,18 @@ mixin _IdentityHomeNavigation on _IdentityHomeBase {
     if (_incomingPromptNudge != null) return;
     final group = _selectedGroup;
     if (group == null) return;
+    unawaited(
+      AnalyticsService.logButtonClick(
+        buttonName: 'nudge',
+        screenName: 'home',
+      ),
+    );
+    unawaited(
+      AnalyticsService.logFeatureSelected(
+        feature: 'nudge',
+        screenName: 'home',
+      ),
+    );
     if (_session.settings.hapticsEnabled) {
       unawaited(HapticFeedback.selectionClick());
     }
@@ -306,12 +356,12 @@ mixin _IdentityHomeNavigation on _IdentityHomeBase {
             shrinkWrap: true,
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
             children: [
-              Text('Setup', style: Theme.of(context).textTheme.titleLarge),
+              Text(context.l10n.homeSetup, style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 12),
               if (warnings.isEmpty)
-                const _SetupLine(
+                _SetupLine(
                   ok: true,
-                  text: 'Ready for foreground and closed-app voice',
+                  text: context.l10n.homeSetupReady,
                 )
               else
                 for (final warning in warnings)
@@ -333,13 +383,13 @@ mixin _IdentityHomeNavigation on _IdentityHomeBase {
     final accent = accentColorForKey(_session.settings.accentColorKey);
     if (_groups.isEmpty) {
       warnings.add(
-        _SetupWarning(text: 'Create or join a group.', accent: accent),
+        _SetupWarning(text: context.l10n.homeSetupNeedGroup, accent: accent),
       );
     }
     if (!_session.device.micPermissionGranted && _onlineSession == null) {
       warnings.add(
         _SetupWarning(
-          text: 'Microphone permission has not been confirmed.',
+          text: context.l10n.homeSetupNeedMic,
           accent: accent,
           onTap: () => _requestMicPermissionFromSetup(),
         ),
@@ -348,7 +398,7 @@ mixin _IdentityHomeNavigation on _IdentityHomeBase {
     if (!_session.device.notificationPermissionGranted) {
       warnings.add(
         _SetupWarning(
-          text: 'Notification permission is required for closed-app nudges.',
+          text: context.l10n.homeSetupNeedNotifications,
           accent: accent,
           onTap: () => _requestNotificationPermissionFromSetup(),
         ),
@@ -357,7 +407,7 @@ mixin _IdentityHomeNavigation on _IdentityHomeBase {
     if (_session.device.fcmToken == null) {
       warnings.add(
         _SetupWarning(
-          text: 'Push registration is not ready. Reopen the app while online.',
+          text: context.l10n.homeSetupNeedPush,
           accent: accent,
           onTap: null, // Needs app restart — informational only.
         ),
@@ -366,7 +416,7 @@ mixin _IdentityHomeNavigation on _IdentityHomeBase {
     if (!_session.device.batteryOptimizationIgnored) {
       warnings.add(
         _SetupWarning(
-          text: 'Battery optimization may interrupt background mode.',
+          text: context.l10n.homeSetupNeedBattery,
           accent: accent,
           onTap: () => _requestBatteryOptimizationFromSetup(),
         ),
@@ -379,9 +429,9 @@ mixin _IdentityHomeNavigation on _IdentityHomeBase {
     final status = await Permission.microphone.request();
     if (!mounted) return;
     if (status.isGranted) {
-      setState(() => _message = 'Microphone permission granted.');
+      setState(() => _message = context.l10n.settingsMicGranted);
     } else {
-      setState(() => _message = 'Microphone permission was denied.');
+      setState(() => _message = context.l10n.settingsMicDenied);
     }
   }
 
@@ -389,9 +439,9 @@ mixin _IdentityHomeNavigation on _IdentityHomeBase {
     final status = await Permission.notification.request();
     if (!mounted) return;
     if (status.isGranted) {
-      setState(() => _message = 'Notification permission granted.');
+      setState(() => _message = context.l10n.settingsNotificationGranted);
     } else {
-      setState(() => _message = 'Notification permission was denied.');
+      setState(() => _message = context.l10n.settingsNotificationDenied);
     }
   }
 
@@ -404,7 +454,7 @@ mixin _IdentityHomeNavigation on _IdentityHomeBase {
     if (!mounted) return;
     setState(
       () => _message =
-          'Battery optimization request sent. Check your device settings.',
+          context.l10n.settingsBatteryRequestSent,
     );
   }
 }

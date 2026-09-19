@@ -18,6 +18,10 @@
         ".write": "auth != null && auth.uid == $userId"
       }
     },
+    "userEngagement": {
+      ".read": false,
+      ".write": false
+    },
     "groups": {
       "$groupId": {
         ".read": "auth != null && root.child('groupMembers').child($groupId).child(auth.uid).child('memberState').val() == 'active'",

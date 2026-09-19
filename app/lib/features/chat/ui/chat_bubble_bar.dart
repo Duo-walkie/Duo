@@ -1,5 +1,7 @@
 import 'package:one_one_app/one_one.dart';
 
+import '../../identity/ui/legal_document_content.dart';
+
 /// Bottom messages bar whose content depends on group online state:
 /// - All offline: predefined text chips + pinned keyboard.
 /// - Anyone online: emoji row (+ more) + pinned keyboard.
@@ -13,12 +15,17 @@ class ChatBubbleBar extends StatefulWidget {
     required this.anyMemberOnline,
     required this.onSend,
     required this.onEmojiSelected,
+    this.enabled = true,
   });
 
   final Color accent;
 
   /// When true (mixed or all online), text chips are replaced by emojis.
   final bool anyMemberOnline;
+
+  /// When false, the bar is visible but grayed out and non-interactive
+  /// (e.g. waiting for an invitee to join the group).
+  final bool enabled;
 
   /// Sends a preset or custom message. Rethrows on failure so the bar can
   /// surface a brief inline error instead of silently swallowing it.
@@ -27,13 +34,6 @@ class ChatBubbleBar extends StatefulWidget {
   /// Fires when a fixed-row emoji or one from the "more emojis" picker is
   /// chosen. Wired by the host to the existing emoji-burst path.
   final ValueChanged<String> onEmojiSelected;
-
-  static const List<String> presets = [
-    "I'll join in 15 min",
-    'Where is everyone?',
-    'On my way',
-    'Give me 5 min',
-  ];
 
   static const List<String> quickEmojis = [
     '😂',
@@ -230,6 +230,7 @@ class _ChatBubbleBarState extends State<ChatBubbleBar> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
       ),
       builder: (sheetContext) {
+        final l10n = sheetContext.l10n;
         final maxSheetHeight =
             MediaQuery.sizeOf(sheetContext).height * 0.7 -
             MediaQuery.viewInsetsOf(sheetContext).bottom;
@@ -253,7 +254,7 @@ class _ChatBubbleBarState extends State<ChatBubbleBar> {
                   ),
                   SizedBox(height: 16.h),
                   Text(
-                    'More emojis',
+                    l10n.chatMoreEmojis,
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 16.sp,
@@ -308,7 +309,7 @@ class _ChatBubbleBarState extends State<ChatBubbleBar> {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedSwitcher(
+    final content = AnimatedSwitcher(
       duration: const Duration(milliseconds: 220),
       child: _composing
           ? _buildComposer()
@@ -318,12 +319,19 @@ class _ChatBubbleBarState extends State<ChatBubbleBar> {
               ),
             ),
     );
+    if (widget.enabled) return content;
+    return Opacity(
+      opacity: 0.42,
+      child: IgnorePointer(child: content),
+    );
   }
 
   /// Scrollable content on the leading side; keyboard (and optional more)
   /// pinned at the trailing end outside the scroll view.
   Widget _buildActionRow({required Key key}) {
+    final l10n = context.l10n;
     final online = widget.anyMemberOnline;
+    final presets = chatPresetsFor(l10n);
     // Online emoji chips are a touch taller than offline text presets —
     // keep this compact so 5 chat bubbles still fit above it when live.
     return SizedBox(
@@ -354,7 +362,7 @@ class _ChatBubbleBarState extends State<ChatBubbleBar> {
                       showTrailingFade: _showTrailingChipFade,
                       onScroll: _updateChipScrollFade,
                       children: [
-                        for (final preset in ChatBubbleBar.presets) ...[
+                        for (final preset in presets) ...[
                           _PresetChip(
                             label: preset,
                             enabled: !_sending,
@@ -370,7 +378,7 @@ class _ChatBubbleBarState extends State<ChatBubbleBar> {
               _MoreEmojisButton(accent: widget.accent, onTap: _openMoreEmojis),
               SizedBox(width: 8.w),
             ],
-            _KeyboardButton(accent: widget.accent, onTap: _openComposer),
+            _KeyboardButton(onTap: _openComposer),
           ],
         ),
       ),
@@ -378,82 +386,89 @@ class _ChatBubbleBarState extends State<ChatBubbleBar> {
   }
 
   Widget _buildComposer() {
+    final l10n = context.l10n;
     final wordCount = _controller.text.trim().isEmpty
         ? 0
         : _controller.text.trim().split(RegExp(r'\s+')).length;
     final canSend =
         !_sending && ChatMessageRepository.sanitize(_controller.text) != null;
 
+    // Keep the composer the same height as the emoji/preset row so the
+    // rolling 5-bubble feed still fits above the keyboard without clipping.
     return Padding(
       key: const ValueKey('composer'),
       padding: EdgeInsets.symmetric(horizontal: 16.w),
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: _closeComposer,
-            icon: const Icon(Icons.close_rounded, color: Colors.white70),
-            visualDensity: VisualDensity.compact,
-          ),
-          Expanded(
-            child: Container(
-              // Taller, roomier pill than before (the previous container
-              // felt cramped for composing a message) — extra vertical
-              // padding plus a min height, while staying single-line so it
-              // doesn't grow unpredictably and crowd the pinned close/send
-              // buttons on either side.
-              constraints: BoxConstraints(minHeight: 52.h),
-              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-              decoration: BoxDecoration(
-                color: const Color(0xff2a2a2a),
-                borderRadius: BorderRadius.circular(26.r),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _controller,
-                      focusNode: _focusNode,
-                      maxLines: 1,
-                      textInputAction: TextInputAction.send,
-                      inputFormatters: [
-                        _WordLimitFormatter(ChatMessageRepository.maxWords),
-                      ],
-                      style: TextStyle(color: Colors.white, fontSize: 16.sp),
-                      decoration: const InputDecoration(
-                        hintText: 'Message the group…',
-                        hintStyle: TextStyle(color: Colors.white38),
-                        border: InputBorder.none,
-                        isDense: true,
+      child: SizedBox(
+        height: 44.h,
+        child: Row(
+          children: [
+            IconButton(
+              onPressed: _closeComposer,
+              icon: const Icon(Icons.close_rounded, color: Colors.white70),
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints: BoxConstraints.tightFor(width: 40.w, height: 40.h),
+            ),
+            Expanded(
+              child: Container(
+                height: 44.h,
+                padding: EdgeInsets.symmetric(horizontal: 14.w),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: const Color(0xff2a2a2a),
+                  borderRadius: BorderRadius.circular(22.r),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _controller,
+                        focusNode: _focusNode,
+                        maxLines: 1,
+                        textInputAction: TextInputAction.send,
+                        inputFormatters: [
+                          _WordLimitFormatter(ChatMessageRepository.maxWords),
+                        ],
+                        style: TextStyle(color: Colors.white, fontSize: 15.sp),
+                        decoration: InputDecoration(
+                          hintText: l10n.chatMessageHint,
+                          hintStyle: const TextStyle(color: Colors.white38),
+                          border: InputBorder.none,
+                          isDense: true,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                        onChanged: (_) => setState(() {}),
+                        onSubmitted: (_) => unawaited(_sendCustom()),
                       ),
-                      onChanged: (_) => setState(() {}),
-                      onSubmitted: (_) => unawaited(_sendCustom()),
                     ),
-                  ),
-                  SizedBox(width: 8.w),
-                  Text(
-                    '$wordCount/${ChatMessageRepository.maxWords}',
-                    style: TextStyle(
-                      color: wordCount > ChatMessageRepository.maxWords
-                          ? const Color(0xffff5a5f)
-                          : Colors.white38,
-                      fontSize: 10.sp,
-                      fontWeight: FontWeight.w600,
+                    SizedBox(width: 8.w),
+                    Text(
+                      '$wordCount/${ChatMessageRepository.maxWords}',
+                      style: TextStyle(
+                        color: wordCount > ChatMessageRepository.maxWords
+                            ? const Color(0xffff5a5f)
+                            : Colors.white38,
+                        fontSize: 10.sp,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-          SizedBox(width: 8.w),
-          IconButton(
-            onPressed: canSend ? () => unawaited(_sendCustom()) : null,
-            icon: Icon(
-              Icons.send_rounded,
-              color: canSend ? widget.accent : Colors.white24,
+            SizedBox(width: 4.w),
+            IconButton(
+              onPressed: canSend ? () => unawaited(_sendCustom()) : null,
+              icon: Icon(
+                Icons.send_rounded,
+                color: canSend ? widget.accent : Colors.white24,
+              ),
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints: BoxConstraints.tightFor(width: 40.w, height: 40.h),
             ),
-            visualDensity: VisualDensity.compact,
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -580,7 +595,7 @@ class _MoreEmojisButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: 'More emojis',
+      label: context.l10n.chatMoreEmojis,
       child: Material(
         color: accent.withValues(alpha: 0.16),
         shape: const CircleBorder(),
@@ -602,25 +617,28 @@ class _MoreEmojisButton extends StatelessWidget {
 }
 
 class _KeyboardButton extends StatelessWidget {
-  const _KeyboardButton({required this.accent, required this.onTap});
+  const _KeyboardButton({required this.onTap});
 
-  final Color accent;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: 'Write a custom message',
+      label: context.l10n.chatWriteCustomMessage,
       child: Material(
-        color: accent.withValues(alpha: 0.16),
+        color: const Color(0xff1f1f1f),
         shape: const CircleBorder(),
         child: InkWell(
           customBorder: const CircleBorder(),
           onTap: onTap,
           child: Padding(
             padding: EdgeInsets.all(9.r),
-            child: Icon(Icons.keyboard_rounded, color: accent, size: 18.sp),
+            child: Icon(
+              Icons.keyboard_rounded,
+              color: Colors.white,
+              size: 18.sp,
+            ),
           ),
         ),
       ),

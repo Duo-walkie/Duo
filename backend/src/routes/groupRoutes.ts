@@ -13,6 +13,7 @@ import {
   purgeUserAccount,
   removeGroupMember
 } from "../groups/groupService.js";
+import { androidInviteLandingHtml, customSchemeInviteUrl } from "../groups/inviteRedirect.js";
 import { config } from "../config.js";
 
 const createGroupSchema = z.object({
@@ -38,14 +39,35 @@ export function createGroupRoutes() {
   const router = Router();
 
   // HTTPS invite links are Android App Links when domain verification is
-  // configured. The redirect remains a fallback for devices that have not
-  // verified the domain yet but do have Duo installed.
+  // configured. For devices with the app installed, the OS intercepts this URL
+  // before the browser opens it. If the browser does open this URL:
+  //   • Android: landing page tries the app first (custom scheme + intent URL).
+  //     Installed users land in the group. Everyone else is sent to Play Store
+  //     with the invite code as the Play Install Referrer so the app auto-joins
+  //     after install.
+  //   • iOS / desktop: custom-scheme deep link.
   router.get("/invite/:inviteCode", (request, response) => {
     const inviteCode = joinInviteSchema.shape.inviteCode.parse(
       request.params.inviteCode
     );
     response.setHeader("Cache-Control", "no-store");
-    response.redirect(302, `oneone://invite/${encodeURIComponent(inviteCode)}`);
+
+    const ua = (request.headers["user-agent"] ?? "").toLowerCase();
+    const isAndroid = ua.includes("android");
+
+    if (isAndroid) {
+      response
+        .status(200)
+        .type("html")
+        .setHeader(
+          "Content-Security-Policy",
+          "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"
+        )
+        .send(androidInviteLandingHtml(inviteCode));
+      return;
+    }
+
+    response.redirect(302, customSchemeInviteUrl(inviteCode));
   });
 
   router.get("/.well-known/assetlinks.json", (_request, response) => {

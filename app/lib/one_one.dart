@@ -22,6 +22,7 @@ export 'package:flutter/material.dart';
 export 'package:flutter/scheduler.dart';
 export 'package:flutter/services.dart';
 export 'package:flutter/widgets.dart';
+export 'package:flutter_localizations/flutter_localizations.dart';
 
 // Third party
 export 'package:archive/archive.dart'
@@ -56,15 +57,18 @@ export 'package:purchases_ui_flutter/purchases_ui_flutter.dart';
 export 'package:record/record.dart';
 export 'package:share_plus/share_plus.dart';
 export 'package:shared_preferences/shared_preferences.dart';
+export 'package:url_launcher/url_launcher.dart';
 export 'package:uuid/uuid.dart';
 
 // App shell
 export 'app/accent_theme.dart';
 export 'app/app_config.dart';
 export 'app/brand_splash_screen.dart';
+export 'app/duo_logo_loading.dart';
 export 'app/display_name_screen.dart';
 export 'app/firebase_setup_blocked_screen.dart';
 export 'app/google_auth_screen.dart';
+export 'app/google_auth_screen_legacy.dart';
 export 'app/native_splash_bridge.dart';
 export 'app/one_one_app.dart';
 export 'app/profile_picture_screen.dart';
@@ -73,6 +77,7 @@ export 'app/startup_gate_screen.dart';
 export 'app/startup_performance.dart';
 
 // Core — firebase
+export 'core/firebase/analytics_events.dart';
 export 'core/firebase/app_database.dart';
 export 'core/firebase/app_telemetry.dart';
 export 'core/firebase/crashlytics_service.dart';
@@ -89,12 +94,24 @@ export 'core/logging/livekit_lifecycle_logger.dart';
 export 'core/logging/log_level.dart';
 export 'core/logging/log_line.dart';
 export 'core/logging/log_manager.dart';
+export 'core/logging/operational_log.dart';
 export 'core/logging/post_crash_report_dialog.dart';
 export 'core/logging/send_feedback_sheet.dart';
 export 'core/logging/user_facing_copy.dart';
 
 // Core
 export 'core/maps.dart';
+
+// Core — market / locale
+export 'core/market/locale_controller.dart';
+export 'core/market/market.dart';
+export 'core/market/market_config.dart';
+export 'core/market/market_controller.dart';
+export 'core/market/market_resolver.dart';
+export 'core/market/market_ui.dart';
+
+// Localization
+export 'l10n/l10n.dart';
 
 // Core — network
 export 'core/network/api_client.dart';
@@ -106,6 +123,7 @@ export 'core/storage/profile_photo_storage.dart';
 
 // Core — ui
 export 'core/ui/bottom_system_inset.dart';
+export 'core/ui/duo_sheet.dart';
 export 'core/ui/faded_horizontal_row.dart';
 
 // Features — chat
@@ -117,12 +135,14 @@ export 'features/chat/ui/chat_bubble_feed.dart';
 // Features — groups
 export 'features/groups/data/group_repository.dart';
 export 'features/groups/data/invite_link_bridge.dart';
+export 'features/groups/data/pending_group_invites_store.dart';
 export 'features/groups/group_service_readiness.dart';
 export 'features/groups/models/group_invite_result.dart';
 export 'features/groups/models/group_member_summary.dart';
 export 'features/groups/models/group_summary.dart';
 export 'features/groups/ui/group_home_screen.dart';
 export 'features/groups/ui/group_management_screen.dart';
+export 'features/groups/ui/invite_joined_snackbar.dart';
 export 'features/groups/ui/waiting_for_group_members_screen.dart';
 
 // Features — identity
@@ -146,6 +166,7 @@ export 'features/identity/ui/no_groups_screen.dart';
 export 'features/identity/ui/profile_avatar.dart';
 export 'features/identity/ui/profile_photo_editor.dart';
 export 'features/identity/ui/settings_screen.dart';
+export 'features/identity/ui/welcome_redesign_preview_screen.dart';
 
 // Features — nudges
 export 'features/nudges/data/active_nudge_inbox.dart';
@@ -195,9 +216,15 @@ export 'features/online/voice_pip_bridge.dart';
 export 'features/service_status/service_status_gate.dart';
 
 // Features — subscriptions
+export 'features/subscriptions/duo_gate_paywall_screen.dart';
 export 'features/subscriptions/eleven_pro_paywall_screen.dart';
+export 'features/subscriptions/free_trial_access.dart';
+export 'features/subscriptions/free_trial_config.dart';
 export 'features/subscriptions/revenue_cat_service.dart';
+export 'features/subscriptions/subscriber_access_record.dart';
+export 'features/subscriptions/subscriber_access_store.dart';
 export 'features/subscriptions/subscription_management_sheet.dart';
+export 'features/subscriptions/trial_expired_gate_screen.dart';
 
 // Features — talk
 export 'features/talk/data/talk_repository.dart';

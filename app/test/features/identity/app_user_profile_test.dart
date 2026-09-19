@@ -66,16 +66,16 @@ void main() {
 
   test('preset avatar is persisted without a photo upload', () {
     final avatar = profile().copyWith(
-      avatarAsset: 'assets/avatars/avatar_01.png',
+      avatarAsset: 'assets/avatars_new/cute-duck.png',
     );
 
-    expect(avatar.toJson()['avatarAsset'], 'assets/avatars/avatar_01.png');
+    expect(avatar.toJson()['avatarAsset'], 'assets/avatars_new/cute-duck.png');
     expect(avatar.hasProfilePhoto, isTrue);
   });
 
   test('copyWith clearAvatarAsset drops the preset', () {
     final avatar = profile().copyWith(
-      avatarAsset: 'assets/avatars/avatar_01.png',
+      avatarAsset: 'assets/avatars_new/cute-duck.png',
     );
     final cleared = avatar.copyWith(
       clearAvatarAsset: true,
@@ -84,5 +84,28 @@ void main() {
 
     expect(cleared.avatarAsset, isNull);
     expect(cleared.profilePhotoUrl, 'https://example.com/photo.jpg');
+  });
+
+  test('validateDisplayName rejects empty and overlong names', () {
+    expect(() => validateDisplayName('   '), throwsArgumentError);
+    expect(
+      () => validateDisplayName('a' * (AppUserProfile.maxDisplayNameLength + 1)),
+      throwsArgumentError,
+    );
+    expect(
+      validateDisplayName('  Asha  '),
+      'Asha',
+    );
+    expect(
+      validateDisplayName('a' * AppUserProfile.maxDisplayNameLength).length,
+      AppUserProfile.maxDisplayNameLength,
+    );
+  });
+
+  test('market is optional and round-trips', () {
+    final stored = profile(displayName: 'Asha').copyWith(market: 'DE');
+    expect(stored.market, 'DE');
+    expect(stored.toJson()['market'], 'DE');
+    expect(AppUserProfile.fromJson('user', stored.toJson()).market, 'DE');
   });
 }

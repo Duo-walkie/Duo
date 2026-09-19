@@ -1,3 +1,5 @@
+import 'package:one_one_app/l10n/l10n.dart';
+
 /// Three-tier haptic intensity for incoming voice-nudge playback.
 /// Light is the historical default: two bursts at start and two at end.
 /// Medium (Pulse) plays a double-double burst pattern. Wild vibrates
@@ -36,5 +38,17 @@ enum HapticsIntensity {
     light => 'Two taps at the start and two at the end.',
     medium => 'A double-double burst — two quick pairs.',
     wild => 'Continuous vibration for the whole nudge.',
+  };
+
+  String localizedLabel(AppLocalizations l10n) => switch (this) {
+    light => l10n.hapticsLight,
+    medium => l10n.hapticsPulse,
+    wild => l10n.hapticsWild,
+  };
+
+  String localizedSubtitle(AppLocalizations l10n) => switch (this) {
+    light => l10n.hapticsLightDetail,
+    medium => l10n.hapticsPulseDetail,
+    wild => l10n.hapticsWildDetail,
   };
 }
