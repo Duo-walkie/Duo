@@ -45,13 +45,13 @@ class _StepVisual {
 /// Icon colors are picked to match the dominant tone of each onboarding
 /// background image so the CTA card feels native to the artwork behind it.
 ///
-/// Screen 1 (green) and screen 3 (mustard) wrap their artwork in a box
-/// painted with the illustration's own backdrop so the contained image
-/// blends into the letterbox. Screen 2 (purple) stays contained at full
-/// size with a matching purple letterbox.
+/// Screen 1 (green) and screen 3 wrap their artwork in a box painted with
+/// the illustration's own backdrop so the contained image blends into the
+/// letterbox. Screen 2 (purple) stays contained at full size with a matching
+/// purple letterbox.
 ///
 /// Screen 3 swaps to [MarketSnapshot.permissionSetupScreen3Asset] for
-/// Play markets outside India (`abroad_onboarding3.png`).
+/// Play markets outside India (`abroad_onboarding3.png`, forest green).
 Map<_SetupStep, _StepVisual> _stepVisualsFor(MarketSnapshot snapshot) {
   final screen3Abroad = snapshot.usesAbroadOnboardingArt;
   return {
@@ -67,16 +67,17 @@ Map<_SetupStep, _StepVisual> _stepVisualsFor(MarketSnapshot snapshot) {
       boxBottomColor: Color(0xff5F2879),
     ),
     _SetupStep.background: _StepVisual(
-      iconColor: const Color(0xffE9A51C),
+      // Abroad forest-green art; India mustard yellow.
+      iconColor: Color(screen3Abroad ? 0xff1C5336 : 0xffE9A51C),
       icon: Icons.battery_saver_rounded,
       backgroundAsset: snapshot.permissionSetupScreen3Asset,
-      // Abroad art is taller (941×1671); India art is 816×1287.
-      imageWidth: screen3Abroad ? 941 : 816,
-      imageHeight: screen3Abroad ? 1671 : 1287,
-      // Screen 3 — unified illustration yellow. Scale below 1 so the
-      // artwork sits with a matching yellow border around it.
-      boxTopColor: Color(screen3Abroad ? 0xffE8A30E : 0xffE9A51C),
-      boxBottomColor: Color(screen3Abroad ? 0xffE8A30E : 0xffE9A51C),
+      // Abroad art is 572×1024; India art is 816×1287.
+      imageWidth: screen3Abroad ? 572 : 816,
+      imageHeight: screen3Abroad ? 1024 : 1287,
+      // Screen 3 — letterbox matches each illustration's backdrop.
+      // Abroad: forest green (#1C5336). India: mustard (#E9A51C).
+      boxTopColor: Color(screen3Abroad ? 0xff1C5336 : 0xffE9A51C),
+      boxBottomColor: Color(screen3Abroad ? 0xff1C5336 : 0xffE9A51C),
       containScale: 0.78,
     ),
   };
